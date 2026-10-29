@@ -3750,9 +3750,15 @@
     }
 
     function startPurchase(docType) {
-      purchaseLines = [{ lineType: "I", itemCode: "", name: "", qty: 1, price: 0, discPct: 0, whsCode: "", acctCode: "" }];
+      purchaseLines = [{ lineType: "I", itemCode: "", name: "", qty: 1, numPerMsr: 1, price: 0, discPct: 0, whsCode: "", acctCode: "" }];
       purchaseCopyFromId = null;
-      document.getElementById("purch-form").style.display = "block";
+      const form = document.getElementById("purch-form");
+      if (!form) return;
+      form.style.display = "block";
+      const meta = PURCH_META[docType] || { title: docType };
+      const winId = openAppWindow(meta.title + " — New", "", { w: 980, h: 560 });
+      const body = document.querySelector("#" + winId + " .win-body");
+      if (body) { body.innerHTML = ""; body.appendChild(form); form.style.display = "block"; }
       renderPurchaseLines();
     }
     function addPurchaseLine() {
@@ -3796,6 +3802,7 @@
           return `<input value="${esc(l.name||"")}" onchange="purchaseLines[${idx}].name=this.value" ${common}>`;
         }
         if (key === "qty") return `<input type="number" step="any" value="${l.qty||""}" onchange="purchaseLines[${idx}].qty=this.value;renderPurchaseLines();" ${common}>`;
+        if (key === "numPerMsr") return `<input type="number" step="any" value="${l.numPerMsr||1}" onchange="purchaseLines[${idx}].numPerMsr=this.value;renderPurchaseLines();" ${common}>`;
         if (key === "whsCode") {
           if (!isItem) return `<span style="color:#999">—</span>`;
           return `<select onchange="purchaseLines[${idx}].whsCode=this.value" ${common}><option value="">—</option>${scoped(warehouses,cid).map(w=>`<option value="${w.code}" ${w.code===l.whsCode?"selected":""}>${esc(w.code)}</option>`).join("")}</select>`;
@@ -3823,6 +3830,23 @@
       }).join("");
       const ptbl = document.querySelector("#purch-form table.grid");
       if (ptbl && typeof enableColumnResize === "function") enableColumnResize(ptbl);
+      // Update footer totals
+      let bef = 0, disc = 0, tax = 0;
+      purchaseLines.forEach(l => {
+        const qty = parseFloat(l.qty)||0;
+        const price = parseFloat(l.price)||0;
+        const dp = parseFloat(l.discPct)||0;
+        const gross = qty * price;
+        const dAmt = gross * dp / 100;
+        bef += gross;
+        disc += dAmt;
+      });
+      const freight = parseFloat(document.getElementById("p-freight")&&document.getElementById("p-freight").value)||0;
+      const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n.toLocaleString(undefined,{minimumFractionDigits:2}); };
+      set("p-total-bef", bef);
+      set("p-total-disc", disc);
+      set("p-total-tax", tax);
+      set("p-total", bef - disc + freight + tax);
     }
 
     function onPurchItemChange(idx) {
@@ -3944,7 +3968,7 @@
         const sDocNo = await nextStockDocNo(companyId, "IN");
         const sData = {
           companyId, docNo: sDocNo, docType: "IN", docDate, warehouseCode,
-          remarks: "GRPO " + docNo, lines: lines.map((l,i)=>({ lineNum:i+1, itemCode:l.itemCode, name:l.name, qty:l.qty })),
+          remarks: "GRPO " + docNo, lines: lines.map((l,i)=>({ lineNum:i+1, itemCode:l.itemCode, name:l.name, qty: (parseFloat(l.qty)||0) * (parseFloat(l.numPerMsr)||1) })),
           status: "posted", createdBy: currentUser.email, createdAt: new Date().toISOString(), sourceDoc: docNo
         };
         const sRef = await db.collection("stock_docs").add(sData);
@@ -4222,6 +4246,23 @@
       renderPurchaseLines();
       const ptbl = document.querySelector("#purch-form table.grid");
       if (ptbl && typeof enableColumnResize === "function") enableColumnResize(ptbl);
+      // Update footer totals
+      let bef = 0, disc = 0, tax = 0;
+      purchaseLines.forEach(l => {
+        const qty = parseFloat(l.qty)||0;
+        const price = parseFloat(l.price)||0;
+        const dp = parseFloat(l.discPct)||0;
+        const gross = qty * price;
+        const dAmt = gross * dp / 100;
+        bef += gross;
+        disc += dAmt;
+      });
+      const freight = parseFloat(document.getElementById("p-freight")&&document.getElementById("p-freight").value)||0;
+      const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n.toLocaleString(undefined,{minimumFractionDigits:2}); };
+      set("p-total-bef", bef);
+      set("p-total-disc", disc);
+      set("p-total-tax", tax);
+      set("p-total", bef - disc + freight + tax);
     }
     // form settings above
     function downloadPurchTemplate(docType) {
