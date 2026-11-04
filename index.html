@@ -492,6 +492,7 @@
             <button type="button">Banking</button>
             <div class="subdrop">
               <button onclick="nav('pay')">Incoming Payment</button>
+              <button onclick="nav('outgoing')">Outgoing Payment</button>
               <button onclick="nav('bankrep')">Banking Reports</button>
             </div>
           </div>
@@ -1014,6 +1015,7 @@
         html += `<div class="mod-title" onclick="toggleSidebarGroup('banking')">Banking <span class="chev" id="chev-banking">${bankOpen?"▼":"▶"}</span></div>
         <div class="mod-children ${bankOpen?"open":""}" id="grp-banking">
           <button data-page="pay" onclick="nav('pay')">Incoming Payment</button>
+          <button data-page="outgoing" onclick="nav('outgoing')">Outgoing Payment</button>
           <button data-page="bankrep" onclick="nav('bankrep')">Banking Reports</button>
         </div>`;
       }
@@ -1107,6 +1109,7 @@
       else if (page === "inv") renderSalesDoc(main, "INV");
       else if (page === "cm") renderSalesDoc(main, "CM");
       else if (page === "pay") renderPayments(main);
+      else if (page === "outgoing") renderOutgoing(main);
       else if (page === "bankrep") renderBankingReports(main);
       else if (page === "salesrep") renderSalesReports(main);
       else if (page === "coa") renderCOA(main);
