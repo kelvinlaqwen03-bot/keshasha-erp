@@ -469,6 +469,8 @@
               <button onclick="nav('pq')">Purchase Quotation</button>
               <button onclick="nav('po')">Purchase Order</button>
               <button onclick="nav('grpo')">Goods Receipt PO</button>
+              <button onclick="nav('pdpr')">A/P Down Payment Request</button>
+              <button onclick="nav('pdpi')">A/P Down Payment Invoice</button>
               <button onclick="nav('apinv')">A/P Invoice</button>
               <button onclick="nav('apcm')">A/P Credit Memo</button>
               <button onclick="nav('purchrep')">Purchasing Reports</button>
@@ -1097,6 +1099,8 @@
       else if (page === "pq") renderPurchaseDoc(main, "PQ");
       else if (page === "po") renderPurchaseDoc(main, "PO");
       else if (page === "grpo") renderPurchaseDoc(main, "GRPO");
+      else if (page === "pdpr") renderPurchaseDoc(main, "PDPR");
+      else if (page === "pdpi") renderPurchaseDoc(main, "PDPI");
       else if (page === "apinv") renderPurchaseDoc(main, "APINV");
       else if (page === "apcm") renderPurchaseDoc(main, "APCM");
       else if (page === "purchrep") renderPurchasingReports(main);
@@ -3632,6 +3636,8 @@
       PQ:   { title: "Purchase Quotation", prefix: "PQ", stock: null },
       PO:   { title: "Purchase Order", prefix: "PO", stock: null },
       GRPO: { title: "Goods Receipt PO", prefix: "GR", stock: "IN" },
+      PDPR: { title: "A/P Down Payment Request", prefix: "PDR", stock: null },
+      PDPI: { title: "A/P Down Payment Invoice", prefix: "PDI", stock: null },
       APINV:{ title: "A/P Invoice", prefix: "PI", stock: null },
       APCM: { title: "A/P Credit Memo", prefix: "PC", stock: null },
     };
@@ -3815,12 +3821,13 @@
         }
         if (key === "acctCode") {
           if (isItem) return `<span style="color:#999">—</span>`;
-          const sorted = [...accts].sort((a,b)=>(a.acctName||"").localeCompare(b.acctName||""));
-          return `<select onchange="purchaseLines[${idx}].acctCode=this.value;renderPurchaseLines();" ${common}><option value="">—</option>${sorted.map(a=>`<option value="${a.acctCode}" ${a.acctCode===l.acctCode?"selected":""}>${esc(a.acctName||a.acctCode)}</option>`).join("")}</select>`;
+          const sorted = [...accts].sort((a,b)=>(a.acctCode||"").localeCompare(b.acctCode||""));
+          return `<select onchange="purchaseLines[${idx}].acctCode=this.value;renderPurchaseLines();" ${common}><option value="">— Code —</option>${sorted.map(a=>`<option value="${a.acctCode}" ${a.acctCode===l.acctCode?"selected":""}>${esc(a.acctCode)}</option>`).join("")}</select>`;
         }
         if (key === "acctName") {
-          const a = accts.find(x => x.acctCode === l.acctCode);
-          return `<span style="padding:2px">${esc(a ? a.acctName : "")}</span>`;
+          if (isItem) return `<span style="color:#999">—</span>`;
+          const sorted = [...accts].sort((a,b)=>(a.acctName||"").localeCompare(b.acctName||""));
+          return `<select onchange="purchaseLines[${idx}].acctCode=this.value;renderPurchaseLines();" ${common}><option value="">— Name —</option>${sorted.map(a=>`<option value="${a.acctCode}" ${a.acctCode===l.acctCode?"selected":""}>${esc(a.acctName||"")}</option>`).join("")}</select>`;
         }
         if (key === "price" || key === "priceBefDi") return `<input type="number" step="any" value="${l.price||""}" onchange="purchaseLines[${idx}].price=this.value;renderPurchaseLines();" ${common}>`;
         if (key === "discPct") return `<input type="number" step="any" value="${l.discPct||""}" onchange="purchaseLines[${idx}].discPct=this.value;renderPurchaseLines();" ${common}>`;
@@ -6313,7 +6320,7 @@
                 <option value="A">A — Account</option>
               </select>
               <label>Code</label>
-              <select id="pay-bp" onchange="onPayBpChange()"><option value="">—</option></select>
+              <select id="pay-bp" onchange="onPayBpChange();filterPayDocs()"><option value="">—</option></select>
               <label>Name</label>
               <select id="pay-name-sel" onchange="onPayNameChange()"><option value="">—</option></select>
               <input id="pay-name" type="hidden">
@@ -7602,9 +7609,31 @@
     }
 
 
+
+    function filterPayDocs() {
+      const bp = document.getElementById("pay-bp") && document.getElementById("pay-bp").value;
+      const rows = document.querySelectorAll("#pay-inv-rows tr");
+      rows.forEach(tr => {
+        const docNo = tr.querySelector("[data-docno]");
+        if (!docNo) return;
+        const doc = salesDocs.find(d => d.docNo === docNo.dataset.docno);
+        tr.style.display = (!bp || !doc || doc.bpCode === bp) ? "" : "none";
+      });
+    }
+    function filterOutDocs() {
+      const bp = document.getElementById("out-bp") && document.getElementById("out-bp").value;
+      const rows = document.querySelectorAll("#out-form tbody tr");
+      rows.forEach(tr => {
+        const docNo = tr.querySelector("[data-docno]");
+        if (!docNo) return;
+        const doc = purchaseDocs.find(d => d.docNo === docNo.dataset.docno);
+        tr.style.display = (!bp || !doc || doc.bpCode === bp) ? "" : "none";
+      });
+    }
+
     function renderOutgoing(el) {
       const cid = companyFilterId();
-      const openAPs = scoped(purchaseDocs, cid).filter(d => (d.docType === "PINV" || d.docType === "PDPI" || d.docType === "PDPR") && d.status === "open");
+      const openAPs = scoped(purchaseDocs, cid).filter(d => (d.docType === "APINV" || d.docType === "PDPI" || d.docType === "PDPR") && (d.status === "open" || !d.status));
       const partnersV = partners.filter(p => p.companyId === cid && (p.bpType === "V" || p.bpType === "S"));
       const cashAccts = scoped(accounts, cid).filter(a => a.postable !== false && /cash|bank|current/i.test(a.acctName||a.acctCode||""));
       el.innerHTML = `
@@ -7622,7 +7651,7 @@
                 <option value="A">A — Account</option>
               </select>
               <label>Code</label>
-              <select id="out-bp"><option value="">—</option>${partnersV.map(p=>`<option value="${esc(p.cardCode)}">${esc(p.cardCode)} — ${esc(p.cardName)}</option>`).join("")}</select>
+              <select id="out-bp" onchange="document.getElementById('out-name').value=this.options[this.selectedIndex].dataset.name||'';filterOutDocs()"><option value="">—</option>${partnersV.map(p=>`<option value="${esc(p.bpCode||p.cardCode)}" data-name="${esc(p.name||p.cardName||"")}">${esc(p.bpCode||p.cardCode)}</option>`).join("")}</select>
               <label>Name</label>
               <input id="out-name" readonly>
               <label>Branch</label>
