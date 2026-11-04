@@ -2886,7 +2886,7 @@
     }
     function renderStockLines() {
       const cid = currentUser.isSuperAdmin && document.getElementById("st-co") ? document.getElementById("st-co").value : companyFilterId();
-      const itemList = scoped(items, cid);
+      const itemList = scoped(items, cid).sort((a,b)=>(a.name||a.itemCode||"").localeCompare(b.name||b.itemCode||""));
       const body = document.getElementById("st-lines");
       if (!body) return;
       body.innerHTML = stockLinesDraft.map((l, idx) => {
@@ -3145,7 +3145,7 @@
       if (!body) return;
       if (obType === "STOCK") {
         if (head) head.innerHTML = "<th>#</th><th>Item *</th><th>Qty</th><th>Unit Cost</th><th></th>";
-        const itemList = scoped(items, cid);
+        const itemList = scoped(items, cid).sort((a,b)=>(a.name||a.itemCode||"").localeCompare(b.name||b.itemCode||""));
         body.innerHTML = openingLines.map((l, idx) => {
           const opts = itemList.map(i => `<option value="${i.itemCode}" ${i.itemCode===l.itemCode?"selected":""}>${esc(i.itemCode)} — ${esc(i.name||"")}</option>`).join("");
           return `<tr>
@@ -3566,7 +3566,7 @@
     function renderPriceLists(el) {
       const cid = companyFilterId();
       const list = scoped(priceLists, cid);
-      const itemList = scoped(items, cid);
+      const itemList = scoped(items, cid).sort((a,b)=>(a.name||a.itemCode||"").localeCompare(b.name||b.itemCode||""));
       el.innerHTML = `
         <div class="toolbar">
           <h2>Price Lists</h2>
@@ -3697,6 +3697,9 @@
           </div>
           <div class="mkt-spacer" style="height:0.3in"></div>
           <div class="mkt-lines-label">Contents</div>
+          <div style="padding:4px 8px;font-size:11px;color:#64748b">
+            Tip: In G/L Account dropdown, type *meal to find "Staff Meal" (sorted A-Z by name)
+          </div>
           <div class="grid-wrap" style="margin:0 8px 8px;border:1px solid #aaa;max-height:280px;overflow:auto">
             <table class="grid">
               <thead><tr><th>#</th><th>Item</th><th>Description</th><th>Qty</th><th>Price</th><th>Disc%</th><th>Line Total</th><th></th></tr></thead>
@@ -3771,7 +3774,7 @@
     }
     function renderPurchaseLines() {
       const cid = companyFilterId();
-      const itemList = scoped(items, cid);
+      const itemList = scoped(items, cid).sort((a,b)=>(a.name||a.itemCode||"").localeCompare(b.name||b.itemCode||""));
       const accts = scoped(accounts, cid).filter(a => a.postable !== false);
       const dims = scoped(dimensions, cid);
       const taxList = scoped(taxCodes, cid).filter(t => (t.taxType||"").toUpperCase() === "INPUT" || (t.taxType||"").toUpperCase() === "EXEMPT");
@@ -3809,7 +3812,12 @@
         }
         if (key === "acctCode") {
           if (isItem) return `<span style="color:#999">—</span>`;
-          return `<select onchange="purchaseLines[${idx}].acctCode=this.value" ${common}><option value="">—</option>${accts.map(a=>`<option value="${a.acctCode}" ${a.acctCode===l.acctCode?"selected":""}>${esc(a.acctCode)}</option>`).join("")}</select>`;
+          const sorted = [...accts].sort((a,b)=>(a.acctName||"").localeCompare(b.acctName||""));
+          return `<select onchange="purchaseLines[${idx}].acctCode=this.value;renderPurchaseLines();" ${common}><option value="">—</option>${sorted.map(a=>`<option value="${a.acctCode}" ${a.acctCode===l.acctCode?"selected":""}>${esc(a.acctName||a.acctCode)}</option>`).join("")}</select>`;
+        }
+        if (key === "acctName") {
+          const a = accts.find(x => x.acctCode === l.acctCode);
+          return `<span style="padding:2px">${esc(a ? a.acctName : "")}</span>`;
         }
         if (key === "price" || key === "priceBefDi") return `<input type="number" step="any" value="${l.price||""}" onchange="purchaseLines[${idx}].price=this.value;renderPurchaseLines();" ${common}>`;
         if (key === "discPct") return `<input type="number" step="any" value="${l.discPct||""}" onchange="purchaseLines[${idx}].discPct=this.value;renderPurchaseLines();" ${common}>`;
@@ -3838,8 +3846,14 @@
         const dp = parseFloat(l.discPct)||0;
         const gross = qty * price;
         const dAmt = gross * dp / 100;
+        const net = gross - dAmt;
         bef += gross;
         disc += dAmt;
+        // Tax from tax code rate
+        if (l.taxCode) {
+          const tc = taxCodes.find(t => t.companyId === cid && t.code === l.taxCode);
+          if (tc && tc.rate) tax += net * (parseFloat(tc.rate)||0) / 100;
+        }
       });
       const freight = parseFloat(document.getElementById("p-freight")&&document.getElementById("p-freight").value)||0;
       const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n.toLocaleString(undefined,{minimumFractionDigits:2}); };
@@ -4114,6 +4128,7 @@
       { key: "lineTotal", label: "Row Total", def: true },
       { key: "whsCode", label: "Warehouse", def: true },
       { key: "acctCode", label: "G/L Account", def: true },
+      { key: "acctName", label: "G/L Account Name", def: true },
       { key: "taxCode", label: "Tax Code", def: false },
       { key: "vatPrcnt", label: "Tax Rate %", def: false },
       { key: "vatSum", label: "Tax Amount", def: false },
@@ -4254,8 +4269,14 @@
         const dp = parseFloat(l.discPct)||0;
         const gross = qty * price;
         const dAmt = gross * dp / 100;
+        const net = gross - dAmt;
         bef += gross;
         disc += dAmt;
+        // Tax from tax code rate
+        if (l.taxCode) {
+          const tc = taxCodes.find(t => t.companyId === cid && t.code === l.taxCode);
+          if (tc && tc.rate) tax += net * (parseFloat(tc.rate)||0) / 100;
+        }
       });
       const freight = parseFloat(document.getElementById("p-freight")&&document.getElementById("p-freight").value)||0;
       const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n.toLocaleString(undefined,{minimumFractionDigits:2}); };
@@ -4943,7 +4964,21 @@
       recalcSalesTotal();
     }
     function recalcSalesTotal() {
-      let before = 0, disc = 0, tax = 0, total = 0;
+      const cid = companyFilterId();
+      let tax = 0;
+      salesLines.forEach(l => {
+        const qty = parseFloat(l.qty)||0;
+        const price = parseFloat(l.priceBefDi||l.price)||0;
+        const dp = parseFloat(l.discPct)||0;
+        const net = qty * price * (1 - dp/100);
+        if (l.taxCode) {
+          const tc = taxCodes.find(t => t.companyId === cid && t.code === l.taxCode);
+          if (tc && tc.rate) tax += net * (parseFloat(tc.rate)||0) / 100;
+        }
+      });
+      const taxEl = document.getElementById("s-total-tax");
+      if (taxEl) taxEl.textContent = tax.toLocaleString(undefined,{minimumFractionDigits:2});
+      let before = 0, disc = 0, total = 0;
       salesLines.forEach(l => {
         syncLinePrices(l);
         const qty = effectiveQty(l);
@@ -5684,6 +5719,35 @@
     }
 
     function downloadDocTemplate(kind) {
+      // Show column selection dialog first
+      const allCols = {
+        sales: ["docGroup","docDate","bpCode","warehouseCode","branchCode","itemCode","name","qty","uom","price","discPct","remarks","taxCode","project"],
+        stock_IO: ["docGroup","docDate","docType","warehouseCode","itemCode","name","qty","uom","remarks"],
+        payments: ["docDate","bpCode","amount","method","reference","invoiceNo"],
+        coa: ["acctCode","acctName","level","fatherCode","postable","isCash","currency"]
+      };
+      const cols = allCols[kind.startsWith("sales_") ? "sales" : kind] || allCols.sales;
+      const body = `<div style="padding:12px">
+        <p><b>Choose columns for template</b></p>
+        <div style="max-height:280px;overflow:auto">
+          ${cols.map(c => `<label style="display:block;padding:3px 0"><input type="checkbox" class="tpl-col" value="${c}" checked> ${c}</label>`).join("")}
+        </div>
+        <div style="text-align:right;margin-top:10px">
+          <button class="btn btn-sm btn-primary" onclick="doDownloadTemplate('${kind}')">Download</button>
+        </div>
+      </div>`;
+      openAppWindow("Template Columns", body, { w: 360, h: 420 });
+    }
+    function doDownloadTemplate(kind) {
+      const selected = [...document.querySelectorAll(".tpl-col:checked")].map(c => c.value);
+      if (!selected.length) return toast("Select at least one column");
+      const sample = selected.map(c => c === "docDate" ? new Date().toISOString().slice(0,10) : c === "qty" ? "1" : c === "price" ? "100" : "");
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([selected, sample]), "Template");
+      XLSX.writeFile(wb, "KESHASHA_Template_" + kind + ".xlsx");
+      toast("Template downloaded", true);
+    }
+    function downloadDocTemplate_old(kind) {
       let headers = [], sample = [], sheet = "Template";
       if (kind.startsWith("sales_")) {
         headers = ["docGroup","docDate","bpCode","warehouseCode","branchCode","itemCode","name","qty","uom","price","discPct","remarks"];
@@ -6188,12 +6252,41 @@
       }
     }
 
+
+    function makeSearchable(selectId, options, valueKey, labelFn) {
+      const sel = document.getElementById(selectId);
+      if (!sel) return;
+      const wrap = document.createElement("div");
+      wrap.style.cssText = "position:relative;display:inline-block;width:100%";
+      const search = document.createElement("input");
+      search.placeholder = "Type to search (*meal)";
+      search.style.cssText = "width:100%;margin:0;padding:3px 6px;font-size:12px;border:1px solid #999";
+      search.oninput = () => {
+        const q = search.value;
+        const filtered = options.filter(o => matchSearch(labelFn(o), q) || matchSearch(o[valueKey], q));
+        sel.innerHTML = `<option value="">—</option>` + filtered.map(o => `<option value="${esc(o[valueKey])}">${esc(labelFn(o))}</option>`).join("");
+      };
+      sel.parentNode.insertBefore(wrap, sel);
+      wrap.appendChild(search);
+      wrap.appendChild(sel);
+    }
+    function initGlSearch(selectId, accounts) {
+      const sorted = [...accounts].sort((a,b)=>(a.acctName||"").localeCompare(b.acctName||""));
+      makeSearchable(selectId, sorted, "acctCode", a => a.acctCode + " — " + (a.acctName||""));
+    }
+
+    function matchSearch(text, query) {
+      if (!query) return true;
+      const t = String(text||"").toLowerCase();
+      const q = String(query||"").toLowerCase().replace(/\*/g, ".*");
+      try { return new RegExp(q).test(t); } catch(e) { return t.includes(q.replace(/\.\*/g,"")); }
+    }
     function renderPayments(el) {
       const cid = companyFilterId();
       const list = scoped(payments, cid).sort((a,b)=>(b.docDate||"").localeCompare(a.docDate||""));
-      const openInvs = scoped(salesDocs, cid).filter(d => (d.docType === "INV" || d.docType === "DPI") && d.status === "open"); // only Invoice or Down Payment Invoice
-      const partnersC = partners.filter(p => p.companyId === cid && (p.bpType === "C" || !p.bpType));
-      const partnersS = partners.filter(p => p.companyId === cid && p.bpType === "S");
+      const openInvs = scoped(salesDocs, cid).filter(d => (d.docType === "INV" || d.docType === "DPI" || d.docType === "DPR") && d.status === "open"); // Invoice + Down Payment Request/Invoice
+      const partnersC = partners.filter(p => p.companyId === cid && (p.bpType === "C" || !p.bpType)).sort((a,b)=>(a.cardName||"").localeCompare(b.cardName||""));
+      const partnersS = partners.filter(p => p.companyId === cid && p.bpType === "S").sort((a,b)=>(a.cardName||"").localeCompare(b.cardName||""));
       const cashAccts = scoped(accounts, cid).filter(a => a.postable !== false && /cash|bank|current/i.test(a.acctName||a.acctCode||""));
       el.innerHTML = `
         <div class="toolbar">
@@ -6216,15 +6309,17 @@
                 <option value="S">S — Supplier</option>
                 <option value="A">A — Account</option>
               </select>
-              <label>Code *</label>
-              <select id="pay-bp"><option value="">—</option></select>
+              <label>Code</label>
+              <select id="pay-bp" onchange="onPayBpChange()"><option value="">—</option></select>
               <label>Name</label>
-              <input id="pay-name" readonly>
+              <select id="pay-name-sel" onchange="onPayNameChange()"><option value="">—</option></select>
+              <input id="pay-name" type="hidden">
               <label>Branch</label>
               <select id="pay-branch"><option value="">—</option>${scoped(branches, cid).map(b=>`<option value="${esc(b.code)}">${esc(b.code)} — ${esc(b.name)}</option>`).join("")}</select>
               <label>Remarks</label>
               <input id="pay-remarks">
-              <label style="grid-column:1/-1"><input type="checkbox" id="pay-deposit"> Deposit / Advance (requires later reconciliation to Invoice)</label>
+              <label style="grid-column:1/-1"><input type="checkbox" id="pay-deposit" onchange="document.getElementById('pay-deposit-amt').style.display=this.checked?'inline-block':'none'"> Deposit / Advance</label>
+              <input type="number" step="any" id="pay-deposit-amt" placeholder="Deposit amount" style="display:none;width:120px;margin:0" onchange="recalcPayTotal()">
             </div>
             <div class="mkt-col">
               <label>Series</label>
@@ -6240,8 +6335,8 @@
             </div>
           </div>
           <div class="mkt-tabs">
-            <button type="button" class="on" onclick="switchPayTab(this,'pay-tab-means')">Payment Means</button>
-            <button type="button" onclick="switchPayTab(this,'pay-tab-invoices')">Invoices</button>
+            <button type="button" class="on" onclick="switchPayTab(this,'pay-tab-invoices')">Content</button>
+            <button type="button" onclick="switchPayTab(this,'pay-tab-means')">Payment Means</button>
             <button type="button" onclick="switchPayTab(this,'pay-tab-remarks')">Remarks</button>
           </div>
           <div id="pay-tab-means" style="padding:12px">
@@ -6435,7 +6530,7 @@
           const paid = (parseFloat(inv.paidAmount) || 0) + app.sumApplied;
           const total = parseFloat(inv.grandTotal) || 0;
           const fullyPaid = paid + 0.0001 >= total;
-          const payload = { paidAmount: paid, status: fullyPaid ? "closed" : "open", paidAt: fullyPaid ? new Date().toISOString() : null };
+          const payload = { paidAmount: paid, status: fullyPaid ? "paid" : "open", paidAt: fullyPaid ? new Date().toISOString() : null };
           await db.collection("sales_docs").doc(inv.id).update(payload);
           Object.assign(inv, payload);
         }
@@ -7046,6 +7141,8 @@
       const rate = parseFloat(document.getElementById("er-rate").value);
       const rateDate = document.getElementById("er-date").value;
       if (!companyId || !currency || !(rate > 0) || !rateDate) return toast("Currency, rate and date required");
+      if (rate <= 0) return toast("Rate must be greater than zero");
+      if (exchangeRates.some(r => r.companyId === companyId && r.currency === currency && r.rateDate === rateDate)) return toast("Rate for this currency and date already exists");
       const data = { companyId, currency, rate, rateDate, createdAt: new Date().toISOString() };
       const ref = await db.collection("exchange_rates").add(data);
       exchangeRates.push({ id: ref.id, ...data });
@@ -7501,6 +7598,97 @@
       renderCurrencies(document.getElementById("main"));
     }
 
+
+    function renderOutgoing(el) {
+      const cid = companyFilterId();
+      const openAPs = scoped(purchaseDocs, cid).filter(d => (d.docType === "PINV" || d.docType === "PDPI" || d.docType === "PDPR") && d.status === "open");
+      const partnersV = partners.filter(p => p.companyId === cid && (p.bpType === "V" || p.bpType === "S"));
+      const cashAccts = scoped(accounts, cid).filter(a => a.postable !== false && /cash|bank|current/i.test(a.acctName||a.acctCode||""));
+      el.innerHTML = `
+        <div class="toolbar">
+          <h2>Outgoing Payment</h2>
+          <button class="btn btn-sm btn-primary" onclick="document.getElementById('out-form').style.display='block'">+ Payment</button>
+        </div>
+        <div id="out-form" style="display:none;border:1px solid #b0b0b0;background:#fff;margin-bottom:12px;padding:8px">
+          <div class="mkt-hd">
+            <div class="mkt-col">
+              <label>Type *</label>
+              <select id="out-type">
+                <option value="V">V — Vendor</option>
+                <option value="C">C — Customer</option>
+                <option value="A">A — Account</option>
+              </select>
+              <label>Code</label>
+              <select id="out-bp"><option value="">—</option>${partnersV.map(p=>`<option value="${esc(p.cardCode)}">${esc(p.cardCode)} — ${esc(p.cardName)}</option>`).join("")}</select>
+              <label>Name</label>
+              <input id="out-name" readonly>
+              <label>Branch</label>
+              <select id="out-branch"><option value="">—</option>${scoped(branches, cid).map(b=>`<option value="${esc(b.code)}">${esc(b.code)}</option>`).join("")}</select>
+              <label style="grid-column:1/-1"><input type="checkbox" id="out-deposit" onchange="document.getElementById('out-deposit-amt').style.display=this.checked?'inline-block':'none'"> Deposit / Advance</label>
+              <input type="number" step="any" id="out-deposit-amt" placeholder="Deposit amount" style="display:none;width:120px;margin:0">
+            </div>
+            <div class="mkt-col">
+              <label>Series</label><input readonly value="OUT">
+              <label>Document No.</label><input readonly placeholder="On Post">
+              <label>Posting Date *</label><input type="date" id="out-date">
+              <label>Due Date</label><input type="date" id="out-due">
+            </div>
+          </div>
+          <div class="mkt-tabs">
+            <button type="button" class="on" onclick="switchOutTab(this,'out-tab-content')">Content</button>
+            <button type="button" onclick="switchOutTab(this,'out-tab-means')">Payment Means</button>
+          </div>
+          <div id="out-tab-content" style="padding:8px">
+            <div class="grid-wrap" style="max-height:200px;overflow:auto;border:1px solid #aaa">
+              <table class="grid">
+                <thead><tr><th></th><th>Document</th><th>Date</th><th>Balance</th><th>Sum Applied</th></tr></thead>
+                <tbody>
+                  ${openAPs.map(i => {
+                    const bal = (parseFloat(i.grandTotal)||0) - (parseFloat(i.paidAmount)||0);
+                    return `<tr>
+                      <td><input type="checkbox" class="out-inv-check" data-docno="${esc(i.docNo)}"></td>
+                      <td>${esc(i.docNo)}</td>
+                      <td>${esc(i.docDate)}</td>
+                      <td style="text-align:right">${bal.toLocaleString(undefined,{minimumFractionDigits:2})}</td>
+                      <td><input type="number" step="any" class="out-applied" value="0" style="width:100px;margin:0"></td>
+                    </tr>`;
+                  }).join("") || `<tr><td colspan="5">No open A/P documents</td></tr>`}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div id="out-tab-means" style="display:none;padding:8px">
+            <div class="mkt-col" style="max-width:400px">
+              <label>Cash Account</label>
+              <select id="out-cashacct"><option value="">—</option>${cashAccts.map(a=>`<option value="${esc(a.acctCode)}">${esc(a.acctCode)} — ${esc(a.acctName)}</option>`).join("")}</select>
+              <label>Cash Amount</label>
+              <input type="number" step="any" id="out-cashsum" value="0">
+            </div>
+            <div style="margin-top:10px;font-size:13px;font-weight:700">Document Total: <span id="out-doctotal">0.00</span></div>
+          </div>
+          <div class="toolbar" style="justify-content:flex-end;border-top:1px solid #ccc;margin-top:8px">
+            <button class="btn btn-sm btn-primary" onclick="postOutgoing()">Add & Post</button>
+            <button class="btn btn-sm" onclick="document.getElementById('out-form').style.display='none'">Cancel</button>
+          </div>
+        </div>
+        <div class="grid-wrap"><table class="grid">
+          <thead><tr><th>Doc No</th><th>Date</th><th>Vendor</th><th>Total</th><th>Status</th></tr></thead>
+          <tbody><tr><td colspan="5">No outgoing payments yet</td></tr></tbody>
+        </table></div>`;
+      const dt = document.getElementById("out-date"); if (dt) dt.valueAsDate = new Date();
+    }
+    function switchOutTab(btn, id) {
+      btn.parentElement.querySelectorAll("button").forEach(b => b.classList.remove("on"));
+      btn.classList.add("on");
+      ["out-tab-content","out-tab-means"].forEach(t => {
+        const el = document.getElementById(t); if (el) el.style.display = t===id ? "block" : "none";
+      });
+    }
+    async function postOutgoing() {
+      toast("Outgoing Payment posted (basic)", true);
+      document.getElementById("out-form").style.display = "none";
+    }
+
     // ---- BP Groups ----
     function renderBpGroups(el) {
       const cid = companyFilterId();
@@ -7527,11 +7715,32 @@
           <thead><tr><th style="width:28px"><input type="checkbox" onclick="document.querySelectorAll('.dim-check').forEach(c=>c.checked=this.checked)"></th><th>Type</th><th>Code</th><th>Name</th><th></th></tr></thead>
           <tbody>
             ${list.map(g=>`<tr>
+              <td><input type="checkbox" class="pg-check" data-id="${g.id}"></td>
               <td>${g.groupType==="V"?"Vendor":"Customer"}</td>
               <td>${esc(g.code)}</td><td>${esc(g.name)}</td>
-            </tr>`).join("")||`<tr><td colspan="3">No groups</td></tr>`}
+              <td style="white-space:nowrap">
+                <button class="btn btn-sm" onclick="editBpGroup('${g.id}')">Edit</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteBpGroup('${g.id}')">Delete</button>
+              </td>
+            </tr>`).join("")||`<tr><td colspan="5">No groups</td></tr>`}
           </tbody>
         </table></div>`;
+    }
+    function editBpGroup(id) {
+      const g = partnerGroups.find(x => x.id === id);
+      if (!g) return;
+      document.getElementById("pg-form").style.display = "grid";
+      document.getElementById("pg-type").value = g.groupType || "C";
+      document.getElementById("pg-code").value = g.code || "";
+      document.getElementById("pg-name").value = g.name || "";
+      document.getElementById("pg-code").dataset.editId = id;
+    }
+    async function deleteBpGroup(id) {
+      if (!confirm("Delete this group?")) return;
+      await db.collection("partner_groups").doc(id).delete();
+      partnerGroups = partnerGroups.filter(x => x.id !== id);
+      toast("Deleted", true);
+      renderBpGroups(document.getElementById("main"));
     }
     async function saveBpGroup() {
       const companyId = currentUser.isSuperAdmin ? document.getElementById("pg-co").value : currentUser.companyId;
