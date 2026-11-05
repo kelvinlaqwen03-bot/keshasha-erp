@@ -630,6 +630,10 @@
     let items = [];
     let boms = [];
     let prodOrders = [];
+    let opportunities = [];
+    let activities = [];
+    let assets = [];
+    let leaveRequests = [];
     let warehouses = [];
     let stockDocs = [];
     let partners = [];
@@ -678,7 +682,7 @@
     // ============================================================
     async function loadAll() {
       if (!db) throw new Error("Firebase config haijawekwa. Angalia index.html — firebaseConfig.");
-      const [co, br, emp, se, us, dim, dimt, ds, it, bm, po, wh, st, bp, pl, sd, pd, py, ac, jn, am, pg, cu, tc, er, isd] = await Promise.all([
+      const [co, br, emp, se, us, dim, dimt, ds, it, bm, po, op, act, ast, lv, wh, st, bp, pl, sd, pd, py, ac, jn, am, pg, cu, tc, er, isd] = await Promise.all([
         db.collection("companies").get(),
         db.collection("branches").get(),
         db.collection("employees").get(),
@@ -690,6 +694,10 @@
         db.collection("items").get(),
         db.collection("boms").get(),
         db.collection("prod_orders").get(),
+        db.collection("opportunities").get(),
+        db.collection("activities").get(),
+        db.collection("assets").get(),
+        db.collection("leave_requests").get(),
         db.collection("warehouses").get(),
         db.collection("stock_docs").get(),
         db.collection("partners").get(),
@@ -717,6 +725,10 @@
       items = it.docs.map(d => ({ id: d.id, ...d.data() }));
       boms = (bm && bm.docs) ? bm.docs.map(d => ({ id: d.id, ...d.data() })) : [];
       prodOrders = (po && po.docs) ? po.docs.map(d => ({ id: d.id, ...d.data() })) : [];
+      opportunities = (op && op.docs) ? op.docs.map(d => ({ id: d.id, ...d.data() })) : [];
+      activities = (act && act.docs) ? act.docs.map(d => ({ id: d.id, ...d.data() })) : [];
+      assets = (ast && ast.docs) ? ast.docs.map(d => ({ id: d.id, ...d.data() })) : [];
+      leaveRequests = (lv && lv.docs) ? lv.docs.map(d => ({ id: d.id, ...d.data() })) : [];
       warehouses = wh.docs.map(d => ({ id: d.id, ...d.data() }));
       stockDocs = st.docs.map(d => ({ id: d.id, ...d.data() }));
       partners = bp.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -7813,20 +7825,73 @@
       toast("Deleted", true);
       renderBOM(document.getElementById("main"));
     }
+    function checkItemBatchSerial(itemCode) {
+      const item = items.find(i => i.itemCode === itemCode);
+      if (!item) return;
+      const note = document.getElementById("po-batch-note");
+      if (!note) return;
+      if (item.batchControl) note.textContent = "⚠ This item uses Batch Control";
+      else if (item.serialControl) note.textContent = "⚠ This item uses Serial Numbers";
+      else note.textContent = "";
+    }
     function renderProdOrder(el) {
       const cid = companyFilterId();
       const list = scoped(prodOrders, cid);
       const itemOpts = scoped(items, cid).sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(i => `<option value="${esc(i.itemCode)}">${esc(i.itemCode)} — ${esc(i.name||"")}</option>`).join("");
       const whOpts = scoped(warehouses, cid).map(w => `<option value="${esc(w.code)}">${esc(w.code)}</option>`).join("");
       el.innerHTML = `<div class="toolbar"><h2>Production Order</h2>
-        <button class="btn btn-sm btn-primary" onclick="document.getElementById('po-form').style.display='grid'">+ Order</button></div>
-        <div id="po-form" class="form-bar" style="display:none">
-          <div class="fg"><label>Item to Produce *</label><select id="po-item"><option value="">—</option>${itemOpts}</select></div>
-          <div class="fg"><label>Qty *</label><input type="number" step="any" id="po-qty" value="1"></div>
-          <div class="fg"><label>Warehouse</label><select id="po-wh"><option value="">—</option>${whOpts}</select></div>
-          <div class="fg"><label>Due Date</label><input type="date" id="po-due"></div>
-          <div class="fg" style="align-self:end">
-            <button class="btn btn-sm btn-primary" onclick="saveProdOrder()">Create</button>
+        <button class="btn btn-sm btn-primary" onclick="document.getElementById('po-form').style.display='block'">+ Order</button></div>
+        <div id="po-form" style="display:none;border:1px solid #b0b0b0;background:#fff;margin-bottom:12px">
+          <div class="mkt-hd">
+            <div class="mkt-col">
+              <label>Type *</label>
+              <select id="po-type" onchange="onProdTypeChange()">
+                <option value="standard">Standard</option>
+                <option value="special">Special</option>
+              </select>
+              <label>Status</label>
+              <input readonly value="Planned">
+              <label>Product No. *</label>
+              <select id="po-item" onchange="checkItemBatchSerial(this.value);loadBOMComponents()"><option value="">—</option>${itemOpts}</select>
+              <label>Product Description</label>
+              <input id="po-desc" readonly>
+              <label>Planned Quantity *</label>
+              <input type="number" step="any" id="po-qty" value="1" onchange="loadBOMComponents()">
+              <label>Warehouse</label>
+              <select id="po-wh"><option value="">—</option>${whOpts}</select>
+            </div>
+            <div class="mkt-col">
+              <label>No.</label>
+              <input readonly placeholder="On Create">
+              <label>Order Date</label>
+              <input type="date" id="po-date">
+              <label>Start Date</label>
+              <input type="date" id="po-start">
+              <label>Due Date</label>
+              <input type="date" id="po-due">
+              <label>User</label>
+              <input readonly value="${esc(currentUser.email||"")}">
+              <label>Origin</label>
+              <select id="po-origin"><option>Manual</option><option>Sales Order</option></select>
+            </div>
+          </div>
+          <div id="po-batch-note" style="padding:4px 8px;color:#b45309;font-size:12px"></div>
+          <div class="mkt-tabs">
+            <button type="button" class="on">Components</button>
+          </div>
+          <div id="po-components" style="padding:8px">
+            <div id="po-comp-list"></div>
+            <button class="btn btn-sm" onclick="addSpecialComponent()" id="po-add-comp" style="display:none;margin-top:6px">+ Add Component</button>
+          </div>
+          <div class="mkt-ft">
+            <div class="mkt-col">
+              <label>Remarks</label>
+              <textarea id="po-remarks" rows="2" style="margin:0;padding:4px;font-size:12px"></textarea>
+            </div>
+            <div></div>
+          </div>
+          <div class="toolbar" style="justify-content:flex-end;border-top:1px solid #ccc">
+            <button class="btn btn-sm btn-primary" onclick="saveProdOrder()">Add</button>
             <button class="btn btn-sm" onclick="document.getElementById('po-form').style.display='none'">Cancel</button>
           </div>
         </div>
@@ -7847,6 +7912,51 @@
         </table></div>`;
       const d = document.getElementById("po-due"); if (d) d.valueAsDate = new Date();
     }
+
+    let prodComponents = [];
+    function onProdTypeChange() {
+      const type = document.getElementById("po-type").value;
+      document.getElementById("po-add-comp").style.display = type === "special" ? "inline-block" : "none";
+      loadBOMComponents();
+    }
+    function loadBOMComponents() {
+      const cid = companyFilterId();
+      const itemCode = document.getElementById("po-item").value;
+      const qty = parseFloat(document.getElementById("po-qty").value) || 1;
+      const type = document.getElementById("po-type").value;
+      const compDiv = document.getElementById("po-components");
+      const listDiv = document.getElementById("po-comp-list");
+      const btns = document.getElementById("po-form-btns");
+      if (!itemCode) { compDiv.style.display = "none"; btns.style.display = "none"; return; }
+      compDiv.style.display = "block";
+      btns.style.display = "block";
+      if (type === "standard") {
+        const bomLines = scoped(boms, cid).filter(b => b.parentCode === itemCode);
+        prodComponents = bomLines.map(b => ({ compCode: b.compCode, qty: (parseFloat(b.qty)||1) * qty }));
+        listDiv.innerHTML = prodComponents.length
+          ? `<table class="grid"><thead><tr><th>Component</th><th>Qty Required</th></tr></thead><tbody>
+             ${prodComponents.map(c => `<tr><td>${esc(c.compCode)}</td><td style="text-align:right">${c.qty}</td></tr>`).join("")}
+             </tbody></table>`
+          : `<p style="color:#64748b">No BOM defined for this item. Create BOM first or use Special type.</p>`;
+      } else {
+        listDiv.innerHTML = `<table class="grid"><thead><tr><th>Component</th><th>Qty</th><th></th></tr></thead>
+          <tbody id="po-special-rows"></tbody></table>`;
+        prodComponents = [];
+      }
+    }
+    function addSpecialComponent() {
+      const cid = companyFilterId();
+      const itemOpts = scoped(items, cid).map(i => `<option value="${esc(i.itemCode)}">${esc(i.name||i.itemCode)}</option>`).join("");
+      const tbody = document.getElementById("po-special-rows");
+      if (!tbody) return;
+      const idx = tbody.children.length;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td><select class="po-comp-code" style="width:100%;margin:0;padding:2px"><option value="">—</option>${itemOpts}</select></td>
+        <td><input type="number" class="po-comp-qty" value="1" style="width:80px;margin:0;padding:2px"></td>
+        <td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()">✕</button></td>`;
+      tbody.appendChild(tr);
+    }
+
     async function saveProdOrder() {
       const cid = companyFilterId();
       const itemCode = document.getElementById("po-item").value;
@@ -7855,7 +7965,18 @@
       const dueDate = document.getElementById("po-due").value;
       if (!cid || !itemCode) return toast("Item required");
       const orderNo = "PO-" + Date.now().toString().slice(-6);
-      const data = { companyId: cid, orderNo, itemCode, qty, whsCode, dueDate, status: "planned", createdAt: new Date().toISOString() };
+      // Collect components
+      let components = [];
+      if (document.getElementById("po-type").value === "special") {
+        document.querySelectorAll("#po-special-rows tr").forEach(tr => {
+          const code = tr.querySelector(".po-comp-code") && tr.querySelector(".po-comp-code").value;
+          const q = parseFloat(tr.querySelector(".po-comp-qty") && tr.querySelector(".po-comp-qty").value) || 1;
+          if (code) components.push({ compCode: code, qty: q });
+        });
+      } else {
+        components = prodComponents;
+      }
+      const data = { companyId: cid, orderNo, itemCode, qty, whsCode, dueDate, prodType: document.getElementById("po-type").value, components, status: "planned", createdAt: new Date().toISOString() };
       const ref = await db.collection("prod_orders").add(data);
       prodOrders.push({ id: ref.id, ...data });
       toast("Production Order " + orderNo + " created", true);
@@ -7880,17 +8001,75 @@
     // ---- Fixed Assets ----
     function renderAssets(el) {
       const cid = companyFilterId();
+      const list = scoped(assets, cid);
       el.innerHTML = `<div class="toolbar"><h2>Asset Master</h2>
-        <button class="btn btn-sm btn-primary" onclick="document.getElementById('asset-form').style.display='grid'">+ Asset</button></div>
-        <div id="asset-form" class="form-bar" style="display:none">
-          <div class="fg"><label>Asset Code *</label><input id="asset-code"></div>
-          <div class="fg"><label>Name *</label><input id="asset-name"></div>
-          <div class="fg"><label>Cost</label><input type="number" id="asset-cost"></div>
-          <div class="fg"><label>Useful Life (years)</label><input type="number" id="asset-life" value="5"></div>
-          <div class="fg" style="align-self:end"><button class="btn btn-sm btn-primary" onclick="toast('Asset saved',true)">Save</button></div>
+        <button class="btn btn-sm btn-primary" onclick="document.getElementById('asset-form').style.display='grid'">+ Asset</button>
+        <button class="btn btn-sm" onclick="downloadDocTemplate('assets')">📄 Template</button>
+        <button class="btn btn-sm" onclick="exportList('assets')">📤 Export</button>
+      </div>
+      <div id="asset-form" class="form-bar" style="display:none">
+        <div class="fg"><label>Asset Code *</label><input id="asset-code"></div>
+        <div class="fg"><label>Name *</label><input id="asset-name"></div>
+        <div class="fg"><label>Cost *</label><input type="number" id="asset-cost"></div>
+        <div class="fg"><label>Useful Life (years)</label><input type="number" id="asset-life" value="5"></div>
+        <div class="fg"><label>Acquisition Date</label><input type="date" id="asset-date"></div>
+        <div class="fg" style="align-self:end">
+          <button class="btn btn-sm btn-primary" onclick="saveAsset()">Save</button>
+          <button class="btn btn-sm" onclick="document.getElementById('asset-form').style.display='none'">Cancel</button>
         </div>
-        <div class="grid-wrap"><table class="grid"><thead><tr><th>Code</th><th>Name</th><th>Cost</th><th>NBV</th></tr></thead>
-          <tbody><tr><td colspan="4">No assets</td></tr></tbody></table></div>`;
+      </div>
+      <div class="grid-wrap"><table class="grid">
+        <thead><tr><th>Code</th><th>Name</th><th>Cost</th><th>Life</th><th>NBV</th><th></th></tr></thead>
+        <tbody>
+          ${list.map(a => `<tr>
+            <td><b>${esc(a.assetCode)}</b></td><td>${esc(a.name)}</td>
+            <td style="text-align:right">${Number(a.cost||0).toLocaleString()}</td>
+            <td>${a.usefulLife||5} yrs</td>
+            <td style="text-align:right">${Number(a.nbv||a.cost||0).toLocaleString()}</td>
+            <td style="white-space:nowrap">
+              <button class="btn btn-sm" onclick="editAsset('${a.id}')">Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteAsset('${a.id}')">Delete</button>
+            </td>
+          </tr>`).join("") || `<tr><td colspan="6">No assets</td></tr>`}
+        </tbody></table></div>`;
+    }
+    function editAsset(id) {
+      const a = assets.find(x => x.id === id);
+      if (!a) return;
+      document.getElementById("asset-form").style.display = "grid";
+      document.getElementById("asset-code").value = a.assetCode || "";
+      document.getElementById("asset-name").value = a.name || "";
+      document.getElementById("asset-cost").value = a.cost || "";
+      document.getElementById("asset-life").value = a.usefulLife || 5;
+      document.getElementById("asset-date").value = a.acqDate || "";
+      document.getElementById("asset-code").dataset.editId = id;
+    }
+    async function saveAsset() {
+      const cid = companyFilterId();
+      const assetCode = document.getElementById("asset-code").value.trim().toUpperCase();
+      const name = document.getElementById("asset-name").value.trim();
+      const cost = parseFloat(document.getElementById("asset-cost").value) || 0;
+      if (!cid || !assetCode || !name) return toast("Code and Name required");
+      const data = { companyId: cid, assetCode, name, cost, usefulLife: parseInt(document.getElementById("asset-life").value)||5, acqDate: document.getElementById("asset-date").value, nbv: cost, createdAt: new Date().toISOString() };
+      const editId = document.getElementById("asset-code").dataset.editId;
+      if (editId) {
+        await db.collection("assets").doc(editId).update(data);
+        const idx = assets.findIndex(x => x.id === editId);
+        if (idx >= 0) assets[idx] = { ...assets[idx], ...data };
+        delete document.getElementById("asset-code").dataset.editId;
+      } else {
+        const ref = await db.collection("assets").add(data);
+        assets.push({ id: ref.id, ...data });
+      }
+      toast("Asset saved", true);
+      renderAssets(document.getElementById("main"));
+    }
+    async function deleteAsset(id) {
+      if (!confirm("Delete asset?")) return;
+      await db.collection("assets").doc(id).delete();
+      assets = assets.filter(x => x.id !== id);
+      toast("Deleted", true);
+      renderAssets(document.getElementById("main"));
     }
     function renderDepreciation(el) {
       el.innerHTML = `<div class="toolbar"><h2>Depreciation Run</h2>
@@ -7907,18 +8086,156 @@
           <tbody>${scoped(employees,cid).map(e=>`<tr><td>${esc(e.fullName||e.employeeCode)}</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`).join("")||`<tr><td colspan="5">No employees</td></tr>`}</tbody></table></div>`;
     }
     function renderLeave(el) {
+      const cid = companyFilterId();
+      const list = scoped(leaveRequests, cid);
+      const empOpts = scoped(employees, cid).map(e => `<option value="${esc(e.employeeCode)}">${esc(e.fullName||e.employeeCode)}</option>`).join("");
       el.innerHTML = `<div class="toolbar"><h2>Leave Management</h2>
-        <button class="btn btn-sm btn-primary">+ Leave Request</button></div>
-        <div class="grid-wrap"><table class="grid"><thead><tr><th>Employee</th><th>Type</th><th>From</th><th>To</th><th>Status</th></tr></thead>
-          <tbody><tr><td colspan="5">No leave requests</td></tr></tbody></table></div>`;
+        <button class="btn btn-sm btn-primary" onclick="document.getElementById('lv-form').style.display='grid'">+ Leave Request</button>
+        <button class="btn btn-sm" onclick="downloadDocTemplate('leave')">📄 Template</button>
+        <button class="btn btn-sm" onclick="exportList('leave')">📤 Export</button>
+      </div>
+      <div id="lv-form" class="form-bar" style="display:none">
+        <div class="fg"><label>Employee *</label><select id="lv-emp"><option value="">—</option>${empOpts}</select></div>
+        <div class="fg"><label>Type</label><select id="lv-type"><option>Annual</option><option>Sick</option><option>Maternity</option><option>Unpaid</option></select></div>
+        <div class="fg"><label>From</label><input type="date" id="lv-from"></div>
+        <div class="fg"><label>To</label><input type="date" id="lv-to"></div>
+        <div class="fg" style="align-self:end"><button class="btn btn-sm btn-primary" onclick="saveLeave()">Save</button></div>
+      </div>
+      <div class="grid-wrap"><table class="grid">
+        <thead><tr><th>Employee</th><th>Type</th><th>From</th><th>To</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          ${list.map(l => `<tr>
+            <td>${esc(l.employeeCode)}</td><td>${esc(l.leaveType)}</td>
+            <td>${esc(l.fromDate)}</td><td>${esc(l.toDate)}</td><td>${esc(l.status||"pending")}</td>
+            <td style="white-space:nowrap">
+              <button class="btn btn-sm" onclick="editLeave('${l.id}')">Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteLeave('${l.id}')">Delete</button>
+            </td>
+          </tr>`).join("") || `<tr><td colspan="6">No leave requests</td></tr>`}
+        </tbody></table></div>`;
+    }
+    function editLeave(id) {
+      const l = leaveRequests.find(x => x.id === id);
+      if (!l) return;
+      document.getElementById("lv-form").style.display = "grid";
+      document.getElementById("lv-emp").value = l.employeeCode || "";
+      document.getElementById("lv-type").value = l.leaveType || "Annual";
+      document.getElementById("lv-from").value = l.fromDate || "";
+      document.getElementById("lv-to").value = l.toDate || "";
+      document.getElementById("lv-emp").dataset.editId = id;
+    }
+    async function saveLeave() {
+      const cid = companyFilterId();
+      const employeeCode = document.getElementById("lv-emp").value;
+      if (!cid || !employeeCode) return toast("Employee required");
+      const data = { companyId: cid, employeeCode, leaveType: document.getElementById("lv-type").value, fromDate: document.getElementById("lv-from").value, toDate: document.getElementById("lv-to").value, status: "pending", createdAt: new Date().toISOString() };
+      const editId = document.getElementById("lv-emp").dataset.editId;
+      if (editId) {
+        await db.collection("leave_requests").doc(editId).update(data);
+        const idx = leaveRequests.findIndex(x => x.id === editId);
+        if (idx >= 0) leaveRequests[idx] = { ...leaveRequests[idx], ...data };
+        delete document.getElementById("lv-emp").dataset.editId;
+      } else {
+        const ref = await db.collection("leave_requests").add(data);
+        leaveRequests.push({ id: ref.id, ...data });
+      }
+      toast("Leave saved", true);
+      renderLeave(document.getElementById("main"));
+    }
+    async function deleteLeave(id) {
+      if (!confirm("Delete?")) return;
+      await db.collection("leave_requests").doc(id).delete();
+      leaveRequests = leaveRequests.filter(x => x.id !== id);
+      toast("Deleted", true);
+      renderLeave(document.getElementById("main"));
     }
 
     // ---- CRM ----
+    function exportList(kind) {
+      const cid = companyFilterId();
+      let data = [], name = kind;
+      if (kind === "opportunities") {
+        data = [["name","bpCode","value","stage","probability"]];
+        scoped(opportunities, cid).forEach(o => data.push([o.name, o.bpCode, o.value, o.stage, o.probability]));
+      } else if (kind === "assets") {
+        data = [["assetCode","name","cost","usefulLife","acqDate"]];
+        scoped(assets, cid).forEach(a => data.push([a.assetCode, a.name, a.cost, a.usefulLife, a.acqDate]));
+      } else if (kind === "leave") {
+        data = [["employeeCode","leaveType","fromDate","toDate","status"]];
+        scoped(leaveRequests, cid).forEach(l => data.push([l.employeeCode, l.leaveType, l.fromDate, l.toDate, l.status]));
+      }
+      if (data.length < 2) return toast("No data to export");
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(data), name);
+      XLSX.writeFile(wb, "KESHASHA_" + name + ".xlsx");
+      toast("Exported", true);
+    }
     function renderOpportunities(el) {
+      const cid = companyFilterId();
+      const list = scoped(opportunities, cid);
+      const bpOpts = scoped(partners, cid).filter(p => p.bpType === "C" || !p.bpType).map(p => `<option value="${esc(p.bpCode)}">${esc(p.name||p.bpCode)}</option>`).join("");
       el.innerHTML = `<div class="toolbar"><h2>Opportunities</h2>
-        <button class="btn btn-sm btn-primary">+ Opportunity</button></div>
-        <div class="grid-wrap"><table class="grid"><thead><tr><th>Name</th><th>Customer</th><th>Value</th><th>Stage</th><th>Probability</th></tr></thead>
-          <tbody><tr><td colspan="5">No opportunities</td></tr></tbody></table></div>`;
+        <button class="btn btn-sm btn-primary" onclick="document.getElementById('opp-form').style.display='grid'">+ Opportunity</button>
+        <button class="btn btn-sm" onclick="downloadDocTemplate('opportunities')">📄 Template</button>
+        <button class="btn btn-sm" onclick="exportList('opportunities')">📤 Export</button>
+      </div>
+      <div id="opp-form" class="form-bar" style="display:none">
+        <div class="fg"><label>Name *</label><input id="opp-name"></div>
+        <div class="fg"><label>Customer</label><select id="opp-bp"><option value="">—</option>${bpOpts}</select></div>
+        <div class="fg"><label>Value</label><input type="number" id="opp-value"></div>
+        <div class="fg"><label>Stage</label><select id="opp-stage"><option>Lead</option><option>Qualified</option><option>Proposal</option><option>Negotiation</option><option>Won</option><option>Lost</option></select></div>
+        <div class="fg"><label>Probability %</label><input type="number" id="opp-prob" value="50"></div>
+        <div class="fg" style="align-self:end"><button class="btn btn-sm btn-primary" onclick="saveOpportunity()">Save</button></div>
+      </div>
+      <div class="grid-wrap"><table class="grid">
+        <thead><tr><th>Name</th><th>Customer</th><th>Value</th><th>Stage</th><th>Prob%</th><th></th></tr></thead>
+        <tbody>
+          ${list.map(o => `<tr>
+            <td><b>${esc(o.name)}</b></td><td>${esc(o.bpCode||"")}</td>
+            <td style="text-align:right">${Number(o.value||0).toLocaleString()}</td>
+            <td>${esc(o.stage||"")}</td><td>${o.probability||0}%</td>
+            <td style="white-space:nowrap">
+              <button class="btn btn-sm" onclick="editOpportunity('${o.id}')">Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteOpportunity('${o.id}')">Delete</button>
+            </td>
+          </tr>`).join("") || `<tr><td colspan="6">No opportunities</td></tr>`}
+        </tbody></table></div>`;
+    }
+    function editOpportunity(id) {
+      const o = opportunities.find(x => x.id === id);
+      if (!o) return;
+      document.getElementById("opp-form").style.display = "grid";
+      document.getElementById("opp-name").value = o.name || "";
+      document.getElementById("opp-bp").value = o.bpCode || "";
+      document.getElementById("opp-value").value = o.value || "";
+      document.getElementById("opp-stage").value = o.stage || "Lead";
+      document.getElementById("opp-prob").value = o.probability || 50;
+      document.getElementById("opp-name").dataset.editId = id;
+    }
+    async function saveOpportunity() {
+      const cid = companyFilterId();
+      const name = document.getElementById("opp-name").value.trim();
+      if (!cid || !name) return toast("Name required");
+      const data = { companyId: cid, name, bpCode: document.getElementById("opp-bp").value, value: parseFloat(document.getElementById("opp-value").value)||0, stage: document.getElementById("opp-stage").value, probability: parseFloat(document.getElementById("opp-prob").value)||0, createdAt: new Date().toISOString() };
+      const editId = document.getElementById("opp-name").dataset.editId;
+      if (editId) {
+        await db.collection("opportunities").doc(editId).update(data);
+        const idx = opportunities.findIndex(x => x.id === editId);
+        if (idx >= 0) opportunities[idx] = { ...opportunities[idx], ...data };
+        delete document.getElementById("opp-name").dataset.editId;
+      } else {
+        const ref = await db.collection("opportunities").add(data);
+        opportunities.push({ id: ref.id, ...data });
+      }
+      toast("Saved", true);
+      renderOpportunities(document.getElementById("main"));
+    }
+    async function deleteOpportunity(id) {
+      if (!confirm("Delete?")) return;
+      await db.collection("opportunities").doc(id).delete();
+      opportunities = opportunities.filter(x => x.id !== id);
+      toast("Deleted", true);
+      renderOpportunities(document.getElementById("main"));
     }
     function renderActivities(el) {
       el.innerHTML = `<div class="toolbar"><h2>Activities</h2>
@@ -7928,35 +8245,92 @@
     }
 
     // ---- Reports ----
+    function getAccountBalances(cid) {
+      const map = {};
+      scoped(journals, cid).filter(j => j.status !== "cancelled").forEach(j => {
+        (j.lines||[]).forEach(l => {
+          if (!map[l.acctCode]) map[l.acctCode] = { debit: 0, credit: 0 };
+          map[l.acctCode].debit += parseFloat(l.debit)||0;
+          map[l.acctCode].credit += parseFloat(l.credit)||0;
+        });
+      });
+      return map;
+    }
     function renderPL(el) {
       const cid = companyFilterId();
       const accts = scoped(accounts, cid);
+      const bals = getAccountBalances(cid);
       const revenue = accts.filter(a => (a.acctCode||"").startsWith("3") || (a.acctCode||"").startsWith("4"));
       const expense = accts.filter(a => (a.acctCode||"").startsWith("5") || (a.acctCode||"").startsWith("6"));
-      el.innerHTML = `<div class="toolbar"><h2>Profit & Loss</h2></div>
+      let totRev = 0, totExp = 0;
+      const revRows = revenue.map(a => {
+        const b = bals[a.acctCode] || { debit: 0, credit: 0 };
+        const amt = b.credit - b.debit; // Revenue is credit balance
+        totRev += amt;
+        return `<tr><td>${esc(a.acctCode)}</td><td>${esc(a.acctName)}</td><td style="text-align:right">${amt.toLocaleString(undefined,{minimumFractionDigits:2})}</td></tr>`;
+      }).join("") || `<tr><td colspan="3">No revenue accounts</td></tr>`;
+      const expRows = expense.map(a => {
+        const b = bals[a.acctCode] || { debit: 0, credit: 0 };
+        const amt = b.debit - b.credit; // Expense is debit balance
+        totExp += amt;
+        return `<tr><td>${esc(a.acctCode)}</td><td>${esc(a.acctName)}</td><td style="text-align:right">${amt.toLocaleString(undefined,{minimumFractionDigits:2})}</td></tr>`;
+      }).join("") || `<tr><td colspan="3">No expense accounts</td></tr>`;
+      const profit = totRev - totExp;
+      el.innerHTML = `<div class="toolbar"><h2>Profit & Loss</h2>
+        <button class="btn btn-sm" onclick="window.print()">🖨 Print</button></div>
         <div class="grid-wrap"><table class="grid">
           <thead><tr><th>Account</th><th>Name</th><th style="text-align:right">Amount</th></tr></thead>
           <tbody>
             <tr><td colspan="3" style="background:#f1f5f9;font-weight:700">Revenue</td></tr>
-            ${revenue.map(a=>`<tr><td>${esc(a.acctCode)}</td><td>${esc(a.acctName)}</td><td style="text-align:right">0.00</td></tr>`).join("")||`<tr><td colspan="3">No revenue accounts</td></tr>`}
+            ${revRows}
+            <tr style="font-weight:700"><td colspan="2">Total Revenue</td><td style="text-align:right">${totRev.toLocaleString(undefined,{minimumFractionDigits:2})}</td></tr>
             <tr><td colspan="3" style="background:#f1f5f9;font-weight:700">Expenses</td></tr>
-            ${expense.map(a=>`<tr><td>${esc(a.acctCode)}</td><td>${esc(a.acctName)}</td><td style="text-align:right">0.00</td></tr>`).join("")||`<tr><td colspan="3">No expense accounts</td></tr>`}
-          </tbody></table></div>
-        <p style="padding:8px;font-size:12px;color:#64748b">Amounts will populate from posted Journal Entries.</p>`;
+            ${expRows}
+            <tr style="font-weight:700"><td colspan="2">Total Expenses</td><td style="text-align:right">${totExp.toLocaleString(undefined,{minimumFractionDigits:2})}</td></tr>
+            <tr style="background:#dbeafe;font-weight:700;font-size:14px"><td colspan="2">${profit >= 0 ? "Net Profit" : "Net Loss"}</td><td style="text-align:right">${profit.toLocaleString(undefined,{minimumFractionDigits:2})}</td></tr>
+          </tbody></table></div>`;
     }
     function renderBS(el) {
       const cid = companyFilterId();
       const accts = scoped(accounts, cid);
+      const bals = getAccountBalances(cid);
       const assets = accts.filter(a => (a.acctCode||"").startsWith("1"));
       const liab = accts.filter(a => (a.acctCode||"").startsWith("2"));
-      el.innerHTML = `<div class="toolbar"><h2>Balance Sheet</h2></div>
+      const equity = accts.filter(a => (a.acctCode||"").startsWith("9") || (a.acctCode||"").startsWith("25"));
+      let totAst = 0, totLiab = 0, totEq = 0;
+      const astRows = assets.map(a => {
+        const b = bals[a.acctCode] || { debit: 0, credit: 0 };
+        const amt = b.debit - b.credit; // Assets are debit balance
+        totAst += amt;
+        return `<tr><td>${esc(a.acctCode)}</td><td>${esc(a.acctName)}</td><td style="text-align:right">${amt.toLocaleString(undefined,{minimumFractionDigits:2})}</td></tr>`;
+      }).join("") || `<tr><td colspan="3">No asset accounts</td></tr>`;
+      const liabRows = liab.map(a => {
+        const b = bals[a.acctCode] || { debit: 0, credit: 0 };
+        const amt = b.credit - b.debit; // Liabilities are credit balance
+        totLiab += amt;
+        return `<tr><td>${esc(a.acctCode)}</td><td>${esc(a.acctName)}</td><td style="text-align:right">${amt.toLocaleString(undefined,{minimumFractionDigits:2})}</td></tr>`;
+      }).join("") || `<tr><td colspan="3">No liability accounts</td></tr>`;
+      const eqRows = equity.map(a => {
+        const b = bals[a.acctCode] || { debit: 0, credit: 0 };
+        const amt = b.credit - b.debit;
+        totEq += amt;
+        return `<tr><td>${esc(a.acctCode)}</td><td>${esc(a.acctName)}</td><td style="text-align:right">${amt.toLocaleString(undefined,{minimumFractionDigits:2})}</td></tr>`;
+      }).join("") || `<tr><td colspan="3">No equity accounts</td></tr>`;
+      el.innerHTML = `<div class="toolbar"><h2>Balance Sheet</h2>
+        <button class="btn btn-sm" onclick="window.print()">🖨 Print</button></div>
         <div class="grid-wrap"><table class="grid">
           <thead><tr><th>Account</th><th>Name</th><th style="text-align:right">Amount</th></tr></thead>
           <tbody>
             <tr><td colspan="3" style="background:#f1f5f9;font-weight:700">Assets</td></tr>
-            ${assets.map(a=>`<tr><td>${esc(a.acctCode)}</td><td>${esc(a.acctName)}</td><td style="text-align:right">0.00</td></tr>`).join("")||`<tr><td colspan="3">No asset accounts</td></tr>`}
+            ${astRows}
+            <tr style="font-weight:700"><td colspan="2">Total Assets</td><td style="text-align:right">${totAst.toLocaleString(undefined,{minimumFractionDigits:2})}</td></tr>
             <tr><td colspan="3" style="background:#f1f5f9;font-weight:700">Liabilities</td></tr>
-            ${liab.map(a=>`<tr><td>${esc(a.acctCode)}</td><td>${esc(a.acctName)}</td><td style="text-align:right">0.00</td></tr>`).join("")||`<tr><td colspan="3">No liability accounts</td></tr>`}
+            ${liabRows}
+            <tr style="font-weight:700"><td colspan="2">Total Liabilities</td><td style="text-align:right">${totLiab.toLocaleString(undefined,{minimumFractionDigits:2})}</td></tr>
+            <tr><td colspan="3" style="background:#f1f5f9;font-weight:700">Equity</td></tr>
+            ${eqRows}
+            <tr style="font-weight:700"><td colspan="2">Total Equity</td><td style="text-align:right">${totEq.toLocaleString(undefined,{minimumFractionDigits:2})}</td></tr>
+            <tr style="background:#dbeafe;font-weight:700"><td colspan="2">Total Liabilities + Equity</td><td style="text-align:right">${(totLiab+totEq).toLocaleString(undefined,{minimumFractionDigits:2})}</td></tr>
           </tbody></table></div>`;
     }
 
@@ -8110,6 +8484,26 @@
       { mod: "Financials", items: [
         ["fin.coa","Chart of Accounts"],["fin.je","Journal Entry"],["fin.map","Account Determination"],
         ["fin.tb","Trial Balance"],["fin.currencies","Currencies"],
+      ]},
+      { mod: "Purchasing A/P", items: [
+        ["ap.pr","Purchase Request"],["ap.pq","Purchase Quotation"],["ap.po","Purchase Order"],
+        ["ap.grpo","Goods Receipt PO"],["ap.pdpr","A/P Down Payment Request"],["ap.pdpi","A/P Down Payment Invoice"],
+        ["ap.inv","A/P Invoice"],["ap.cm","A/P Credit Memo"],
+      ]},
+      { mod: "Production", items: [
+        ["prod.bom","Bill of Materials"],["prod.order","Production Order"],
+      ]},
+      { mod: "Fixed Assets", items: [
+        ["fa.master","Asset Master"],["fa.depr","Depreciation"],
+      ]},
+      { mod: "HR / Payroll", items: [
+        ["hr.payroll","Payroll"],["hr.leave","Leave Management"],
+      ]},
+      { mod: "CRM", items: [
+        ["crm.opps","Opportunities"],["crm.activities","Activities"],
+      ]},
+      { mod: "Reports", items: [
+        ["rep.pl","Profit & Loss"],["rep.bs","Balance Sheet"],
       ]},
       { mod: "Document Actions", items: [
         ["act.delete","Delete master data"],["act.cancel","Cancel documents"],["act.close","Close documents"],
