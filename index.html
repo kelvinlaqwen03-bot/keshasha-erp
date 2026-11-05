@@ -628,6 +628,8 @@
     let dimensions = [];
     let docSeries = [];
     let items = [];
+    let boms = [];
+    let prodOrders = [];
     let warehouses = [];
     let stockDocs = [];
     let partners = [];
@@ -676,7 +678,7 @@
     // ============================================================
     async function loadAll() {
       if (!db) throw new Error("Firebase config haijawekwa. Angalia index.html — firebaseConfig.");
-      const [co, br, emp, se, us, dim, dimt, ds, it, wh, st, bp, pl, sd, pd, py, ac, jn, am, pg, cu, tc, er, isd] = await Promise.all([
+      const [co, br, emp, se, us, dim, dimt, ds, it, bm, po, wh, st, bp, pl, sd, pd, py, ac, jn, am, pg, cu, tc, er, isd] = await Promise.all([
         db.collection("companies").get(),
         db.collection("branches").get(),
         db.collection("employees").get(),
@@ -686,6 +688,8 @@
         db.collection("dimension_types").get(),
         db.collection("doc_series").get(),
         db.collection("items").get(),
+        db.collection("boms").get(),
+        db.collection("prod_orders").get(),
         db.collection("warehouses").get(),
         db.collection("stock_docs").get(),
         db.collection("partners").get(),
@@ -711,6 +715,8 @@
       dimensionTypes = dimt.docs.map(d => ({ id: d.id, ...d.data() }));
       docSeries = ds.docs.map(d => ({ id: d.id, ...d.data() }));
       items = it.docs.map(d => ({ id: d.id, ...d.data() }));
+      boms = (bm && bm.docs) ? bm.docs.map(d => ({ id: d.id, ...d.data() })) : [];
+      prodOrders = (po && po.docs) ? po.docs.map(d => ({ id: d.id, ...d.data() })) : [];
       warehouses = wh.docs.map(d => ({ id: d.id, ...d.data() }));
       stockDocs = st.docs.map(d => ({ id: d.id, ...d.data() }));
       partners = bp.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -1019,6 +1025,31 @@
           <button data-page="pay" onclick="nav('pay')">Incoming Payment</button>
           <button data-page="outgoing" onclick="nav('outgoing')">Outgoing Payment</button>
           <button data-page="bankrep" onclick="nav('bankrep')">Banking Reports</button>
+        </div>
+        <div class="mod-title" onclick="toggleSidebarGroup('production')">Production <span class="chev" id="chev-production">▶</span></div>
+        <div class="mod-children" id="grp-production">
+          <button data-page="bom" onclick="nav('bom')">Bill of Materials</button>
+          <button data-page="prodorder" onclick="nav('prodorder')">Production Order</button>
+        </div>
+        <div class="mod-title" onclick="toggleSidebarGroup('assets')">Fixed Assets <span class="chev" id="chev-assets">▶</span></div>
+        <div class="mod-children" id="grp-assets">
+          <button data-page="assets" onclick="nav('assets')">Asset Master</button>
+          <button data-page="depr" onclick="nav('depr')">Depreciation</button>
+        </div>
+        <div class="mod-title" onclick="toggleSidebarGroup('hr')">HR / Payroll <span class="chev" id="chev-hr">▶</span></div>
+        <div class="mod-children" id="grp-hr">
+          <button data-page="payroll" onclick="nav('payroll')">Payroll</button>
+          <button data-page="leave" onclick="nav('leave')">Leave</button>
+        </div>
+        <div class="mod-title" onclick="toggleSidebarGroup('crm')">CRM <span class="chev" id="chev-crm">▶</span></div>
+        <div class="mod-children" id="grp-crm">
+          <button data-page="opps" onclick="nav('opps')">Opportunities</button>
+          <button data-page="activities" onclick="nav('activities')">Activities</button>
+        </div>
+        <div class="mod-title" onclick="toggleSidebarGroup('reports')">Reports <span class="chev" id="chev-reports">▶</span></div>
+        <div class="mod-children" id="grp-reports">
+          <button data-page="pl" onclick="nav('pl')">Profit & Loss</button>
+          <button data-page="bs" onclick="nav('bs')">Balance Sheet</button>
         </div>`;
       }
       if (moduleVisibility.finance !== false) {
@@ -1115,6 +1146,16 @@
       else if (page === "pay") renderPayments(main);
       else if (page === "outgoing") renderOutgoing(main);
       else if (page === "bankrep") renderBankingReports(main);
+      else if (page === "bom") renderBOM(main);
+      else if (page === "prodorder") renderProdOrder(main);
+      else if (page === "assets") renderAssets(main);
+      else if (page === "depr") renderDepreciation(main);
+      else if (page === "payroll") renderPayroll(main);
+      else if (page === "leave") renderLeave(main);
+      else if (page === "opps") renderOpportunities(main);
+      else if (page === "activities") renderActivities(main);
+      else if (page === "pl") renderPL(main);
+      else if (page === "bs") renderBS(main);
       else if (page === "salesrep") renderSalesReports(main);
       else if (page === "coa") renderCOA(main);
       else if (page === "je") renderJE(main);
@@ -2897,7 +2938,7 @@
       const body = document.getElementById("st-lines");
       if (!body) return;
       body.innerHTML = stockLinesDraft.map((l, idx) => {
-        const opts = itemList.map(i => `<option value="${i.itemCode}" ${i.itemCode===l.itemCode?"selected":""}>${esc(i.itemCode)} — ${esc(i.name)}</option>`).join("");
+        const opts = itemList.map(i => `<option value="${i.itemCode}" ${i.itemCode===l.itemCode?"selected":""}>${esc(i.itemCode)}</option>`).join("");
         return `<tr>
           <td>${idx+1}</td>
           <td><select onchange="stockLinesDraft[${idx}].itemCode=this.value;const it=scoped(items,companyFilterId()).find(x=>x.itemCode===this.value);if(it)stockLinesDraft[${idx}].uom=it.uom||'pcs';renderStockLines();" style="width:100%;margin:0;padding:3px;border:1px solid var(--border)"><option value="">—</option>${opts}</select></td>
@@ -3031,7 +3072,7 @@
       const body = document.getElementById("tr-lines");
       if (!body) return;
       body.innerHTML = transferLines.map((l, idx) => {
-        const opts = itemList.map(i => `<option value="${i.itemCode}" ${i.itemCode===l.itemCode?"selected":""}>${esc(i.itemCode)} — ${esc(i.name)}</option>`).join("");
+        const opts = itemList.map(i => `<option value="${i.itemCode}" ${i.itemCode===l.itemCode?"selected":""}>${esc(i.itemCode)}</option>`).join("");
         return `<tr>
           <td>${idx+1}</td>
           <td><select onchange="transferLines[${idx}].itemCode=this.value;renderTransferLines();" style="width:100%;margin:0;padding:3px;border:1px solid var(--border)"><option value="">—</option>${opts}</select></td>
@@ -3094,7 +3135,7 @@
               <label>Warehouse</label>
               <select id="ob-wh"><option value="">—</option>${whOpts}</select>
               <label>Offset Account</label>
-              <select id="ob-acct"><option value="">— Auto from Determination —</option>${scoped(accounts, cid).filter(a=>a.postable!==false).map(a=>`<option value="${esc(a.acctCode)}">${esc(a.acctCode)} — ${esc(a.acctName)}</option>`).join("")}</select>
+              <select id="ob-acct"><option value="">— Auto from Determination —</option>${scoped(accounts, cid).filter(a=>a.postable!==false).sort((a,b)=>(a.acctName||"").localeCompare(b.acctName||"")).map(a=>`<option value="${esc(a.acctCode)}">${esc(a.acctName||a.acctCode)} (${esc(a.acctCode)})</option>`).join("")}</select>
               <label>Remarks</label>
               <input id="ob-remarks">
             </div>
@@ -3170,7 +3211,7 @@
         body.innerHTML = openingLines.map((l, idx) => {
           const bpType = l.bpType || "C";
           const list = bpType === "S" ? vends : custs;
-          const opts = list.map(p => `<option value="${p.bpCode}" ${p.bpCode===l.bpCode?"selected":""}>${esc(p.bpCode)} — ${esc(p.name)}</option>`).join("");
+          const opts = list.map(p => `<option value="${p.bpCode}" ${p.bpCode===l.bpCode?"selected":""}>${esc(p.bpCode)}</option>`).join("");
           return `<tr>
             <td>${idx+1}</td>
             <td><select onchange="openingLines[${idx}].bpType=this.value;renderOpeningLines();" style="width:100%;margin:0;padding:3px">
@@ -3185,9 +3226,9 @@
       } else {
         // GL
         if (head) head.innerHTML = "<th>#</th><th>G/L Account *</th><th>Debit</th><th>Credit</th><th></th>";
-        const accts = scoped(accounts, cid).filter(a => a.postable !== false);
+        const accts = scoped(accounts, cid).filter(a => a.postable !== false).sort((a,b)=>(a.acctName||"").localeCompare(b.acctName||""));
         body.innerHTML = openingLines.map((l, idx) => {
-          const opts = accts.map(a => `<option value="${a.acctCode}" ${a.acctCode===l.acctCode?"selected":""}>${esc(a.acctCode)} — ${esc(a.acctName)}</option>`).join("");
+          const opts = accts.map(a => `<option value="${a.acctCode}" ${a.acctCode===l.acctCode?"selected":""}>${esc(a.acctCode)}</option>`).join("");
           return `<tr>
             <td>${idx+1}</td>
             <td><select onchange="openingLines[${idx}].acctCode=this.value" style="width:100%;margin:0;padding:3px"><option value="">— Account —</option>${opts}</select></td>
@@ -3589,7 +3630,7 @@
           <div class="fg"><label>List Name</label><input id="pl-name" value="Base"></div>
           <div class="fg"><label>Item</label>
             <select id="pl-item"><option value="">—</option>
-              ${itemList.map(i=>`<option value="${i.itemCode}">${esc(i.itemCode)} — ${esc(i.name)}</option>`).join("")}
+              ${itemList.map(i=>`<option value="${i.itemCode}">${esc(i.itemCode)}</option>`).join("")}
             </select>
           </div>
           <div class="fg"><label>Price</label><input id="pl-price" type="number" step="any"></div>
@@ -3652,7 +3693,7 @@
       const meta = PURCH_META[docType] || { title: docType, prefix: docType };
       const cid = companyFilterId();
       const list = scoped(purchaseDocs, cid).filter(d => d.docType === docType).sort((a,b)=>(b.docDate||"").localeCompare(a.docDate||""));
-      const vendOpts = vendorsFor(cid).map(p => `<option value="${p.bpCode}">${esc(p.bpCode)} — ${esc(p.name)}</option>`).join("");
+      const vendOpts = vendorsFor(cid).map(p => `<option value="${p.bpCode}">${esc(p.bpCode)}</option>`).join("");
       const whOpts = scoped(warehouses, cid).map(w => `<option value="${w.code}">${esc(w.code)} — ${esc(w.name)}</option>`).join("");
       const branchOpts = scoped(branches, cid).map(b => `<option value="${b.code}">${esc(b.code)} — ${esc(b.name)}</option>`).join("");
       el.innerHTML = `
@@ -3718,9 +3759,9 @@
           <div class="mkt-ft">
             <div class="mkt-col">
               <label>Buyer</label>
-              <select id="p-slp"><option value="">— No Buyer —</option>${scoped(salesEmployees, cid).map(s=>`<option value="${esc(s.code)}">${esc(s.code)} — ${esc(s.name)}</option>`).join("")}</select>
+              <select id="p-slp"><option value="">— No Buyer —</option>${scoped(salesEmployees, cid).map(s=>`<option value="${esc(s.code)}">${esc(s.code)}</option>`).join("")}</select>
               <label>Owner</label>
-              <select id="p-owner"><option value="">—</option>${scoped(employees, cid).map(e=>`<option value="${esc(e.employeeCode)}">${esc(e.employeeCode)} — ${esc(e.fullName)}</option>`).join("")}</select>
+              <select id="p-owner"><option value="">—</option>${scoped(employees, cid).sort((a,b)=>(a.fullName||"").localeCompare(b.fullName||"")).map(e=>`<option value="${esc(e.employeeCode)}">${esc(e.fullName||e.employeeCode)} (${esc(e.employeeCode)})</option>`).join("")}</select>
               <label>Remarks</label>
               <textarea id="p-remarks-ft" rows="2" style="margin:0;padding:4px;font-size:12px"></textarea>
             </div>
@@ -3784,7 +3825,7 @@
     function renderPurchaseLines() {
       const cid = companyFilterId();
       const itemList = scoped(items, cid).sort((a,b)=>(a.name||a.itemCode||"").localeCompare(b.name||b.itemCode||""));
-      const accts = scoped(accounts, cid).filter(a => a.postable !== false);
+      const accts = scoped(accounts, cid).filter(a => a.postable !== false).sort((a,b)=>(a.acctName||"").localeCompare(b.acctName||""));
       const dims = scoped(dimensions, cid);
       const taxList = scoped(taxCodes, cid).filter(t => (t.taxType||"").toUpperCase() === "INPUT" || (t.taxType||"").toUpperCase() === "EXEMPT");
       const body = document.getElementById("p-lines");
@@ -3807,7 +3848,7 @@
         if (key === "lineType") return `<select onchange="purchaseLines[${idx}].lineType=this.value;renderPurchaseLines();" ${common}><option value="I" ${isItem?"selected":""}>Item</option><option value="S" ${!isItem?"selected":""}>Service</option></select>`;
         if (key === "itemCode") {
           if (!isItem) return `<span style="color:#999">—</span>`;
-          return `<select onchange="purchaseLines[${idx}].itemCode=this.value;onPurchItemChange(${idx});" ${common}><option value="">—</option>${itemList.map(i=>`<option value="${i.itemCode}" ${i.itemCode===l.itemCode?"selected":""}>${esc(i.itemCode)}</option>`).join("")}</select>`;
+          return `<select onchange="purchaseLines[${idx}].itemCode=this.value;onPurchItemChange(${idx});" ${common}><option value="">—</option>${itemList.sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(i=>`<option value="${i.itemCode}" ${i.itemCode===l.itemCode?"selected":""}>${esc(i.name||i.itemCode)} (${esc(i.itemCode)})</option>`).join("")}</select>`;
         }
         if (key === "name") {
           if (isItem) return `<select onchange="purchaseLines[${idx}].itemCode=this.value;onPurchItemChange(${idx});" ${common}><option value="">—</option>${itemList.map(i=>`<option value="${i.itemCode}" ${i.itemCode===l.itemCode?"selected":""}>${esc(i.name||i.itemCode)}</option>`).join("")}</select>`;
@@ -4382,7 +4423,7 @@
       const cid = companyFilterId();
       const list = scoped(salesDocs, cid).filter(d => d.docType === docType)
         .sort((a,b) => (b.docDate||"").localeCompare(a.docDate||"") || (b.createdAt||"").localeCompare(a.createdAt||""));
-      const custOpts = customersFor(cid).map(p => `<option value="${p.bpCode}">${esc(p.bpCode)} — ${esc(p.name)}</option>`).join("");
+      const custOpts = customersFor(cid).map(p => `<option value="${p.bpCode}">${esc(p.bpCode)}</option>`).join("");
       const whOpts = scoped(warehouses, cid).map(w => `<option value="${w.code}">${esc(w.code)}</option>`).join("");
       const branchOpts = scoped(branches, cid).map(b => `<option value="${b.code}">${esc(b.code)} — ${esc(b.name)}</option>`).join("");
       const seriesPrefix = ((SALES_META[docType]||{}).prefix || docType);
@@ -4472,9 +4513,9 @@
           <div class="mkt-ft">
             <div class="mkt-col">
               <label>Buyer / Sales Employee</label>
-              <select id="s-slp"><option value="">— No Sales Employee —</option>${scoped(salesEmployees, companyFilterId()).map(s=>`<option value="${esc(s.code)}">${esc(s.code)} — ${esc(s.name)}</option>`).join("")}</select>
+              <select id="s-slp"><option value="">— No Sales Employee —</option>${scoped(salesEmployees, companyFilterId()).map(s=>`<option value="${esc(s.code)}">${esc(s.code)}</option>`).join("")}</select>
               <label>Owner</label>
-              <select id="s-owner"><option value="">—</option>${scoped(employees, companyFilterId()).map(e=>`<option value="${esc(e.employeeCode)}">${esc(e.employeeCode)} — ${esc(e.fullName)}</option>`).join("")}</select>
+              <select id="s-owner"><option value="">—</option>${scoped(employees, companyFilterId()).map(e=>`<option value="${esc(e.employeeCode)}">${esc(e.employeeCode)}</option>`).join("")}</select>
               <label>Remarks</label>
               <textarea id="s-remarks" rows="2" style="margin:0;padding:4px;font-size:12px"></textarea>
             </div>
@@ -4810,7 +4851,7 @@
       }
 
       const itemOpts = (selected) => itemList.map(i =>
-        `<option value="${i.itemCode}" ${i.itemCode===selected?"selected":""}>${esc(i.itemCode)} — ${esc(i.name)}</option>`
+        `<option value="${i.itemCode}" ${i.itemCode===selected?"selected":""}>${esc(i.itemCode)}</option>`
       ).join("");
       const whOpts = (selected) => `<option value="">—</option>` + whList.map(w =>
         `<option value="${w.code}" ${w.code===selected?"selected":""}>${esc(w.code)}</option>`
@@ -6297,7 +6338,7 @@
       const openInvs = scoped(salesDocs, cid).filter(d => (d.docType === "INV" || d.docType === "DPI" || d.docType === "DPR") && d.status === "open"); // Invoice + Down Payment Request/Invoice
       const partnersC = partners.filter(p => p.companyId === cid && (p.bpType === "C" || !p.bpType)).sort((a,b)=>(a.cardName||"").localeCompare(b.cardName||""));
       const partnersS = partners.filter(p => p.companyId === cid && p.bpType === "S").sort((a,b)=>(a.cardName||"").localeCompare(b.cardName||""));
-      const cashAccts = scoped(accounts, cid).filter(a => a.postable !== false && /cash|bank|current/i.test(a.acctName||a.acctCode||""));
+      const cashAccts = scoped(accounts, cid).filter(a => a.postable !== false && /cash|bank|current/i.test(a.acctName||a.acctCode||"")).sort((a,b)=>(a.acctName||"").localeCompare(b.acctName||""));
       el.innerHTML = `
         <div class="toolbar">
           <h2>Incoming Payment</h2>
@@ -6352,15 +6393,15 @@
           <div id="pay-tab-means" style="padding:12px">
             <div class="mkt-col" style="max-width:480px">
               <label>Cash Account</label>
-              <select id="pay-cashacct"><option value="">—</option>${cashAccts.map(a=>`<option value="${esc(a.acctCode)}">${esc(a.acctCode)} — ${esc(a.acctName)}</option>`).join("")}</select>
+              <select id="pay-cashacct"><option value="">—</option>${cashAccts.map(a=>`<option value="${esc(a.acctCode)}">${esc(a.acctName||a.acctCode)} (${esc(a.acctCode)})</option>`).join("")}</select>
               <label>Cash Amount</label>
               <input type="number" step="any" id="pay-cashsum" value="0">
               <label>Check Account</label>
-              <select id="pay-checkacct"><option value="">—</option>${cashAccts.map(a=>`<option value="${esc(a.acctCode)}">${esc(a.acctCode)}</option>`).join("")}</select>
+              <select id="pay-checkacct"><option value="">—</option>${cashAccts.map(a=>`<option value="${esc(a.acctCode)}">${esc(a.acctName||a.acctCode)} (${esc(a.acctCode)})</option>`).join("")}</select>
               <label>Check Amount</label>
               <input type="number" step="any" id="pay-checksum" value="0">
               <label>Transfer Account</label>
-              <select id="pay-trsfracct"><option value="">—</option>${cashAccts.map(a=>`<option value="${esc(a.acctCode)}">${esc(a.acctCode)}</option>`).join("")}</select>
+              <select id="pay-trsfracct"><option value="">—</option>${cashAccts.map(a=>`<option value="${esc(a.acctCode)}">${esc(a.acctName||a.acctCode)} (${esc(a.acctCode)})</option>`).join("")}</select>
               <label>Transfer Amount</label>
               <input type="number" step="any" id="pay-trsfrsum" value="0">
               <label>Transfer Date</label>
@@ -6433,11 +6474,11 @@
       const cid = companyFilterId();
       let opts = `<option value="">—</option>`;
       if (type === "C") {
-        opts += partners.filter(p => p.companyId === cid && (p.bpType === "C" || !p.bpType)).map(p => `<option value="${esc(p.bpCode)}">${esc(p.bpCode)} — ${esc(p.name)}</option>`).join("");
+        opts += partners.filter(p => p.companyId === cid && (p.bpType === "C" || !p.bpType)).map(p => `<option value="${esc(p.bpCode)}">${esc(p.bpCode)}</option>`).join("");
       } else if (type === "S") {
-        opts += partners.filter(p => p.companyId === cid && p.bpType === "S").map(p => `<option value="${esc(p.bpCode)}">${esc(p.bpCode)} — ${esc(p.name)}</option>`).join("");
+        opts += partners.filter(p => p.companyId === cid && p.bpType === "S").map(p => `<option value="${esc(p.bpCode)}">${esc(p.bpCode)}</option>`).join("");
       } else {
-        opts += scoped(accounts, cid).filter(a => a.postable !== false).map(a => `<option value="${esc(a.acctCode)}">${esc(a.acctCode)} — ${esc(a.acctName)}</option>`).join("");
+        opts += scoped(accounts, cid).filter(a => a.postable !== false).sort((a,b)=>(a.acctName||"").localeCompare(b.acctName||"")).map(a => `<option value="${esc(a.acctCode)}">${esc(a.acctCode)}</option>`).join("");
       }
       sel.innerHTML = opts;
       sel.onchange = () => {
@@ -6848,7 +6889,7 @@
             <div class="fg"><label>Level</label><input id="a-level" type="number" value="1" min="1" max="10"></div>
             <div class="fg"><label>Parent Account</label>
               <select id="a-parent"><option value="">— Root —</option>
-                ${scoped(accounts, cid).filter(a=>a.postable==="Title").map(a=>`<option value="${a.acctCode}">${esc(a.acctCode)} — ${esc(a.acctName)}</option>`).join("")}
+                ${scoped(accounts, cid).filter(a=>a.postable==="Title").map(a=>`<option value="${a.acctCode}">${esc(a.acctCode)}</option>`).join("")}
               </select>
             </div>
             <div class="fg"><label>Currency</label><input id="a-cur" value="TZS"></div>
@@ -7185,7 +7226,7 @@
     function renderTaxCodes(el) {
       const cid = companyFilterId();
       const list = scoped(taxCodes, cid).sort((a,b)=>(a.code||"").localeCompare(b.code||""));
-      const accts = scoped(accounts, cid).filter(a => a.postable !== false);
+      const accts = scoped(accounts, cid).filter(a => a.postable !== false).sort((a,b)=>(a.acctName||"").localeCompare(b.acctName||""));
       el.innerHTML = `
         <div class="toolbar">
           <h2>Tax Codes</h2>
@@ -7200,7 +7241,7 @@
             <select id="tc-type"><option value="OUTPUT">Output VAT</option><option value="INPUT">Input VAT</option><option value="EXEMPT">Exempt</option></select>
           </div>
           <div class="fg"><label>G/L Account</label>
-            <select id="tc-acct"><option value="">— from Determination —</option>${accts.map(a=>`<option value="${esc(a.acctCode)}">${esc(a.acctCode)} — ${esc(a.acctName)}</option>`).join("")}</select>
+            <select id="tc-acct"><option value="">— from Determination —</option>${accts.map(a=>`<option value="${esc(a.acctCode)}">${esc(a.acctCode)}</option>`).join("")}</select>
           </div>
           <div class="fg" style="align-self:end">
             <button class="btn btn-sm btn-primary" onclick="saveTaxCode()">Save</button>
@@ -7291,7 +7332,7 @@
 
     function renderAcctMap(el) {
       const cid = companyFilterId() || (companies[0]&&companies[0].id);
-      const opts = activeAccounts(cid).map(a=>`<option value="${a.acctCode}">${esc(a.acctCode)} — ${esc(a.acctName)}</option>`).join("");
+      const opts = activeAccounts(cid).map(a=>`<option value="${a.acctCode}">${esc(a.acctCode)}</option>`).join("");
       const keys = [
         ["AR_CONTROL", "A/R Invoice — Accounts Receivable"],
         ["REVENUE", "A/R Invoice — Sales Revenue"],
@@ -7317,7 +7358,7 @@
                 <td>${label}</td>
                 <td><select data-map="${k}" class="acct-map-sel" style="width:100%;margin:0;padding:4px;border:1px solid var(--border)">
                   <option value="">— Not set —</option>
-                  ${activeAccounts(cid).map(a=>`<option value="${a.acctCode}" ${a.acctCode===cur?"selected":""}>${esc(a.acctCode)} — ${esc(a.acctName)}</option>`).join("")}
+                  ${activeAccounts(cid).map(a=>`<option value="${a.acctCode}" ${a.acctCode===cur?"selected":""}>${esc(a.acctCode)}</option>`).join("")}
                 </select></td>
               </tr>`;
             }).join("")}
@@ -7376,7 +7417,7 @@
     function renderJE(el) {
       const cid = companyFilterId();
       const list = scoped(journals, cid).sort((a,b)=>(b.refDate||"").localeCompare(a.refDate||""));
-      const acctOpts = activeAccounts(cid).map(a=>`<option value="${a.acctCode}">${esc(a.acctCode)} — ${esc(a.acctName)}</option>`).join("");
+      const acctOpts = activeAccounts(cid).map(a=>`<option value="${a.acctCode}">${esc(a.acctCode)}</option>`).join("");
       el.innerHTML = `
         <div class="toolbar">
           <h2>Journal Entry</h2>
@@ -7435,14 +7476,14 @@
 
     function renderJELines() {
       const cid = currentUser.isSuperAdmin && document.getElementById("je-co") ? document.getElementById("je-co").value : companyFilterId();
-      const opts = activeAccounts(cid).map(a=>`<option value="${a.acctCode}">${esc(a.acctCode)} — ${esc(a.acctName)}</option>`).join("");
+      const opts = activeAccounts(cid).map(a=>`<option value="${a.acctCode}">${esc(a.acctCode)}</option>`).join("");
       const body = document.getElementById("je-lines");
       if (!body) return;
       body.innerHTML = jeLines.map((l, idx) => `<tr>
         <td>${idx+1}</td>
         <td><select onchange="jeLines[${idx}].acctCode=this.value" style="width:100%;margin:0;padding:3px;border:1px solid var(--border)">
           <option value="">—</option>
-          ${activeAccounts(cid).map(a=>`<option value="${a.acctCode}" ${a.acctCode===l.acctCode?"selected":""}>${esc(a.acctCode)} — ${esc(a.acctName)}</option>`).join("")}
+          ${activeAccounts(cid).map(a=>`<option value="${a.acctCode}" ${a.acctCode===l.acctCode?"selected":""}>${esc(a.acctCode)}</option>`).join("")}
         </select></td>
         <td><input type="number" step="any" value="${l.debit||""}" onchange="jeLines[${idx}].debit=this.value;recalcJE();" style="width:100%;margin:0;padding:3px;border:1px solid var(--border)"></td>
         <td><input type="number" step="any" value="${l.credit||""}" onchange="jeLines[${idx}].credit=this.value;recalcJE();" style="width:100%;margin:0;padding:3px;border:1px solid var(--border)"></td>
@@ -7635,7 +7676,7 @@
       const cid = companyFilterId();
       const openAPs = scoped(purchaseDocs, cid).filter(d => (d.docType === "APINV" || d.docType === "PDPI" || d.docType === "PDPR") && (d.status === "open" || !d.status));
       const partnersV = partners.filter(p => p.companyId === cid && (p.bpType === "V" || p.bpType === "S"));
-      const cashAccts = scoped(accounts, cid).filter(a => a.postable !== false && /cash|bank|current/i.test(a.acctName||a.acctCode||""));
+      const cashAccts = scoped(accounts, cid).filter(a => a.postable !== false && /cash|bank|current/i.test(a.acctName||a.acctCode||"")).sort((a,b)=>(a.acctName||"").localeCompare(b.acctName||""));
       el.innerHTML = `
         <div class="toolbar">
           <h2>Outgoing Payment</h2>
@@ -7692,7 +7733,7 @@
           <div id="out-tab-means" style="display:none;padding:8px">
             <div class="mkt-col" style="max-width:400px">
               <label>Cash Account</label>
-              <select id="out-cashacct"><option value="">—</option>${cashAccts.map(a=>`<option value="${esc(a.acctCode)}">${esc(a.acctCode)} — ${esc(a.acctName)}</option>`).join("")}</select>
+              <select id="out-cashacct"><option value="">—</option>${cashAccts.map(a=>`<option value="${esc(a.acctCode)}">${esc(a.acctName||a.acctCode)} (${esc(a.acctCode)})</option>`).join("")}</select>
               <label>Cash Amount</label>
               <input type="number" step="any" id="out-cashsum" value="0">
             </div>
@@ -7719,6 +7760,204 @@
     async function postOutgoing() {
       toast("Outgoing Payment posted (basic)", true);
       document.getElementById("out-form").style.display = "none";
+    }
+
+
+    // ---- Production / BOM ----
+    function renderBOM(el) {
+      const cid = companyFilterId();
+      const list = scoped(boms, cid);
+      const itemOpts = scoped(items, cid).sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(i => `<option value="${esc(i.itemCode)}">${esc(i.itemCode)} — ${esc(i.name||"")}</option>`).join("");
+      el.innerHTML = `
+        <div class="toolbar"><h2>Bill of Materials</h2>
+          <button class="btn btn-sm btn-primary" onclick="document.getElementById('bom-form').style.display='grid'">+ BOM</button>
+        </div>
+        <div id="bom-form" class="form-bar" style="display:none">
+          <div class="fg"><label>Parent Item *</label><select id="bom-parent"><option value="">—</option>${itemOpts}</select></div>
+          <div class="fg"><label>Component *</label><select id="bom-comp"><option value="">—</option>${itemOpts}</select></div>
+          <div class="fg"><label>Qty per Parent *</label><input type="number" step="any" id="bom-qty" value="1"></div>
+          <div class="fg" style="align-self:end">
+            <button class="btn btn-sm btn-primary" onclick="saveBOM()">Save</button>
+            <button class="btn btn-sm" onclick="document.getElementById('bom-form').style.display='none'">Cancel</button>
+          </div>
+        </div>
+        <div class="grid-wrap"><table class="grid">
+          <thead><tr><th>Parent</th><th>Component</th><th>Qty</th><th></th></tr></thead>
+          <tbody>
+            ${list.map(b => `<tr>
+              <td><b>${esc(b.parentCode)}</b></td>
+              <td>${esc(b.compCode)}</td>
+              <td style="text-align:right">${b.qty}</td>
+              <td><button class="btn btn-sm btn-danger" onclick="deleteBOM('${b.id}')">Delete</button></td>
+            </tr>`).join("") || `<tr><td colspan="4">No BOMs yet</td></tr>`}
+          </tbody>
+        </table></div>`;
+    }
+    async function saveBOM() {
+      const cid = companyFilterId();
+      const parentCode = document.getElementById("bom-parent").value;
+      const compCode = document.getElementById("bom-comp").value;
+      const qty = parseFloat(document.getElementById("bom-qty").value) || 1;
+      if (!cid || !parentCode || !compCode) return toast("Parent and Component required");
+      if (parentCode === compCode) return toast("Parent cannot be same as component");
+      const data = { companyId: cid, parentCode, compCode, qty, createdAt: new Date().toISOString() };
+      const ref = await db.collection("boms").add(data);
+      boms.push({ id: ref.id, ...data });
+      toast("BOM saved", true);
+      renderBOM(document.getElementById("main"));
+    }
+    async function deleteBOM(id) {
+      if (!confirm("Delete this BOM line?")) return;
+      await db.collection("boms").doc(id).delete();
+      boms = boms.filter(x => x.id !== id);
+      toast("Deleted", true);
+      renderBOM(document.getElementById("main"));
+    }
+    function renderProdOrder(el) {
+      const cid = companyFilterId();
+      const list = scoped(prodOrders, cid);
+      const itemOpts = scoped(items, cid).sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(i => `<option value="${esc(i.itemCode)}">${esc(i.itemCode)} — ${esc(i.name||"")}</option>`).join("");
+      const whOpts = scoped(warehouses, cid).map(w => `<option value="${esc(w.code)}">${esc(w.code)}</option>`).join("");
+      el.innerHTML = `<div class="toolbar"><h2>Production Order</h2>
+        <button class="btn btn-sm btn-primary" onclick="document.getElementById('po-form').style.display='grid'">+ Order</button></div>
+        <div id="po-form" class="form-bar" style="display:none">
+          <div class="fg"><label>Item to Produce *</label><select id="po-item"><option value="">—</option>${itemOpts}</select></div>
+          <div class="fg"><label>Qty *</label><input type="number" step="any" id="po-qty" value="1"></div>
+          <div class="fg"><label>Warehouse</label><select id="po-wh"><option value="">—</option>${whOpts}</select></div>
+          <div class="fg"><label>Due Date</label><input type="date" id="po-due"></div>
+          <div class="fg" style="align-self:end">
+            <button class="btn btn-sm btn-primary" onclick="saveProdOrder()">Create</button>
+            <button class="btn btn-sm" onclick="document.getElementById('po-form').style.display='none'">Cancel</button>
+          </div>
+        </div>
+        <div class="grid-wrap"><table class="grid">
+          <thead><tr><th>Order No</th><th>Item</th><th>Qty</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            ${list.map(p => `<tr>
+              <td><b>${esc(p.orderNo||p.id.slice(0,6))}</b></td>
+              <td>${esc(p.itemCode)}</td>
+              <td style="text-align:right">${p.qty}</td>
+              <td>${esc(p.status||"planned")}</td>
+              <td>
+                ${p.status !== "completed" ? `<button class="btn btn-sm" onclick="completeProdOrder('${p.id}')">Complete</button>` : ""}
+                <button class="btn btn-sm btn-danger" onclick="deleteProdOrder('${p.id}')">Delete</button>
+              </td>
+            </tr>`).join("") || `<tr><td colspan="5">No production orders</td></tr>`}
+          </tbody>
+        </table></div>`;
+      const d = document.getElementById("po-due"); if (d) d.valueAsDate = new Date();
+    }
+    async function saveProdOrder() {
+      const cid = companyFilterId();
+      const itemCode = document.getElementById("po-item").value;
+      const qty = parseFloat(document.getElementById("po-qty").value) || 1;
+      const whsCode = document.getElementById("po-wh").value;
+      const dueDate = document.getElementById("po-due").value;
+      if (!cid || !itemCode) return toast("Item required");
+      const orderNo = "PO-" + Date.now().toString().slice(-6);
+      const data = { companyId: cid, orderNo, itemCode, qty, whsCode, dueDate, status: "planned", createdAt: new Date().toISOString() };
+      const ref = await db.collection("prod_orders").add(data);
+      prodOrders.push({ id: ref.id, ...data });
+      toast("Production Order " + orderNo + " created", true);
+      renderProdOrder(document.getElementById("main"));
+    }
+    async function completeProdOrder(id) {
+      const po = prodOrders.find(x => x.id === id);
+      if (!po) return;
+      await db.collection("prod_orders").doc(id).update({ status: "completed", completedAt: new Date().toISOString() });
+      po.status = "completed";
+      toast("Completed", true);
+      renderProdOrder(document.getElementById("main"));
+    }
+    async function deleteProdOrder(id) {
+      if (!confirm("Delete this order?")) return;
+      await db.collection("prod_orders").doc(id).delete();
+      prodOrders = prodOrders.filter(x => x.id !== id);
+      toast("Deleted", true);
+      renderProdOrder(document.getElementById("main"));
+    }
+
+    // ---- Fixed Assets ----
+    function renderAssets(el) {
+      const cid = companyFilterId();
+      el.innerHTML = `<div class="toolbar"><h2>Asset Master</h2>
+        <button class="btn btn-sm btn-primary" onclick="document.getElementById('asset-form').style.display='grid'">+ Asset</button></div>
+        <div id="asset-form" class="form-bar" style="display:none">
+          <div class="fg"><label>Asset Code *</label><input id="asset-code"></div>
+          <div class="fg"><label>Name *</label><input id="asset-name"></div>
+          <div class="fg"><label>Cost</label><input type="number" id="asset-cost"></div>
+          <div class="fg"><label>Useful Life (years)</label><input type="number" id="asset-life" value="5"></div>
+          <div class="fg" style="align-self:end"><button class="btn btn-sm btn-primary" onclick="toast('Asset saved',true)">Save</button></div>
+        </div>
+        <div class="grid-wrap"><table class="grid"><thead><tr><th>Code</th><th>Name</th><th>Cost</th><th>NBV</th></tr></thead>
+          <tbody><tr><td colspan="4">No assets</td></tr></tbody></table></div>`;
+    }
+    function renderDepreciation(el) {
+      el.innerHTML = `<div class="toolbar"><h2>Depreciation Run</h2>
+        <button class="btn btn-sm btn-primary">Run Depreciation</button></div>
+        <p style="padding:12px;color:#64748b">Select period and run depreciation for all assets.</p>`;
+    }
+
+    // ---- HR / Payroll ----
+    function renderPayroll(el) {
+      const cid = companyFilterId();
+      el.innerHTML = `<div class="toolbar"><h2>Payroll</h2>
+        <button class="btn btn-sm btn-primary">+ Run Payroll</button></div>
+        <div class="grid-wrap"><table class="grid"><thead><tr><th>Employee</th><th>Basic</th><th>Allowances</th><th>Deductions</th><th>Net</th></tr></thead>
+          <tbody>${scoped(employees,cid).map(e=>`<tr><td>${esc(e.fullName||e.employeeCode)}</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`).join("")||`<tr><td colspan="5">No employees</td></tr>`}</tbody></table></div>`;
+    }
+    function renderLeave(el) {
+      el.innerHTML = `<div class="toolbar"><h2>Leave Management</h2>
+        <button class="btn btn-sm btn-primary">+ Leave Request</button></div>
+        <div class="grid-wrap"><table class="grid"><thead><tr><th>Employee</th><th>Type</th><th>From</th><th>To</th><th>Status</th></tr></thead>
+          <tbody><tr><td colspan="5">No leave requests</td></tr></tbody></table></div>`;
+    }
+
+    // ---- CRM ----
+    function renderOpportunities(el) {
+      el.innerHTML = `<div class="toolbar"><h2>Opportunities</h2>
+        <button class="btn btn-sm btn-primary">+ Opportunity</button></div>
+        <div class="grid-wrap"><table class="grid"><thead><tr><th>Name</th><th>Customer</th><th>Value</th><th>Stage</th><th>Probability</th></tr></thead>
+          <tbody><tr><td colspan="5">No opportunities</td></tr></tbody></table></div>`;
+    }
+    function renderActivities(el) {
+      el.innerHTML = `<div class="toolbar"><h2>Activities</h2>
+        <button class="btn btn-sm btn-primary">+ Activity</button></div>
+        <div class="grid-wrap"><table class="grid"><thead><tr><th>Type</th><th>Subject</th><th>BP</th><th>Date</th><th>Status</th></tr></thead>
+          <tbody><tr><td colspan="5">No activities</td></tr></tbody></table></div>`;
+    }
+
+    // ---- Reports ----
+    function renderPL(el) {
+      const cid = companyFilterId();
+      const accts = scoped(accounts, cid);
+      const revenue = accts.filter(a => (a.acctCode||"").startsWith("3") || (a.acctCode||"").startsWith("4"));
+      const expense = accts.filter(a => (a.acctCode||"").startsWith("5") || (a.acctCode||"").startsWith("6"));
+      el.innerHTML = `<div class="toolbar"><h2>Profit & Loss</h2></div>
+        <div class="grid-wrap"><table class="grid">
+          <thead><tr><th>Account</th><th>Name</th><th style="text-align:right">Amount</th></tr></thead>
+          <tbody>
+            <tr><td colspan="3" style="background:#f1f5f9;font-weight:700">Revenue</td></tr>
+            ${revenue.map(a=>`<tr><td>${esc(a.acctCode)}</td><td>${esc(a.acctName)}</td><td style="text-align:right">0.00</td></tr>`).join("")||`<tr><td colspan="3">No revenue accounts</td></tr>`}
+            <tr><td colspan="3" style="background:#f1f5f9;font-weight:700">Expenses</td></tr>
+            ${expense.map(a=>`<tr><td>${esc(a.acctCode)}</td><td>${esc(a.acctName)}</td><td style="text-align:right">0.00</td></tr>`).join("")||`<tr><td colspan="3">No expense accounts</td></tr>`}
+          </tbody></table></div>
+        <p style="padding:8px;font-size:12px;color:#64748b">Amounts will populate from posted Journal Entries.</p>`;
+    }
+    function renderBS(el) {
+      const cid = companyFilterId();
+      const accts = scoped(accounts, cid);
+      const assets = accts.filter(a => (a.acctCode||"").startsWith("1"));
+      const liab = accts.filter(a => (a.acctCode||"").startsWith("2"));
+      el.innerHTML = `<div class="toolbar"><h2>Balance Sheet</h2></div>
+        <div class="grid-wrap"><table class="grid">
+          <thead><tr><th>Account</th><th>Name</th><th style="text-align:right">Amount</th></tr></thead>
+          <tbody>
+            <tr><td colspan="3" style="background:#f1f5f9;font-weight:700">Assets</td></tr>
+            ${assets.map(a=>`<tr><td>${esc(a.acctCode)}</td><td>${esc(a.acctName)}</td><td style="text-align:right">0.00</td></tr>`).join("")||`<tr><td colspan="3">No asset accounts</td></tr>`}
+            <tr><td colspan="3" style="background:#f1f5f9;font-weight:700">Liabilities</td></tr>
+            ${liab.map(a=>`<tr><td>${esc(a.acctCode)}</td><td>${esc(a.acctName)}</td><td style="text-align:right">0.00</td></tr>`).join("")||`<tr><td colspan="3">No liability accounts</td></tr>`}
+          </tbody></table></div>`;
     }
 
     // ---- BP Groups ----
