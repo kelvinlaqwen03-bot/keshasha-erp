@@ -7788,21 +7788,27 @@
         <div id="bom-form" class="form-bar" style="display:none">
           <div class="fg"><label>Parent Item *</label><select id="bom-parent"><option value="">—</option>${itemOpts}</select></div>
           <div class="fg"><label>Component *</label><select id="bom-comp"><option value="">—</option>${itemOpts}</select></div>
+          <div class="fg"><label>Type</label><select id="bom-type"><option>Component</option><option>Assembly</option><option>Packaging</option><option>Production</option></select></div>
           <div class="fg"><label>Qty per Parent *</label><input type="number" step="any" id="bom-qty" value="1"></div>
+          <div class="fg"><label>UoM</label><input id="bom-uom"></div>
+          <div class="fg"><label>Warehouse</label><select id="bom-wh"><option value="">—</option>${scoped(warehouses,cid).map(w=>`<option value="${esc(w.code)}">${esc(w.code)}</option>`).join("")}</select></div>
           <div class="fg" style="align-self:end">
             <button class="btn btn-sm btn-primary" onclick="saveBOM()">Save</button>
             <button class="btn btn-sm" onclick="document.getElementById('bom-form').style.display='none'">Cancel</button>
           </div>
         </div>
         <div class="grid-wrap"><table class="grid">
-          <thead><tr><th>Parent</th><th>Component</th><th>Qty</th><th></th></tr></thead>
+          <thead><tr><th>Parent</th><th>Component</th><th>Type</th><th>Qty</th><th>UoM</th><th>Warehouse</th><th></th></tr></thead>
           <tbody>
             ${list.map(b => `<tr>
               <td><b>${esc(b.parentCode)}</b></td>
               <td>${esc(b.compCode)}</td>
+              <td>${esc(b.compType||"Component")}</td>
               <td style="text-align:right">${b.qty}</td>
+              <td>${esc(b.uom||"")}</td>
+              <td>${esc(b.whsCode||"")}</td>
               <td><button class="btn btn-sm btn-danger" onclick="deleteBOM('${b.id}')">Delete</button></td>
-            </tr>`).join("") || `<tr><td colspan="4">No BOMs yet</td></tr>`}
+            </tr>`).join("") || `<tr><td colspan="7">No BOMs yet</td></tr>`}
           </tbody>
         </table></div>`;
     }
@@ -7813,7 +7819,7 @@
       const qty = parseFloat(document.getElementById("bom-qty").value) || 1;
       if (!cid || !parentCode || !compCode) return toast("Parent and Component required");
       if (parentCode === compCode) return toast("Parent cannot be same as component");
-      const data = { companyId: cid, parentCode, compCode, qty, createdAt: new Date().toISOString() };
+      const data = { companyId: cid, parentCode, compCode, qty, compType: document.getElementById("bom-type").value, uom: document.getElementById("bom-uom").value, whsCode: document.getElementById("bom-wh").value, createdAt: new Date().toISOString() };
       const ref = await db.collection("boms").add(data);
       boms.push({ id: ref.id, ...data });
       toast("BOM saved", true);
@@ -7955,22 +7961,46 @@
              </tbody></table>`
           : `<p style="color:#64748b">No BOM defined for this item. Create BOM first or use Special type.</p>`;
       } else {
-        listDiv.innerHTML = `<table class="grid"><thead><tr><th>Component</th><th>Qty</th><th></th></tr></thead>
-          <tbody id="po-special-rows"></tbody></table>`;
+        listDiv.innerHTML = `<table class="grid"><thead><tr>
+            <th>Item Code</th><th>Description</th><th>Warehouse</th><th>Qty</th><th>Unit Price</th><th>Total</th><th></th>
+          </tr></thead><tbody id="po-special-rows"></tbody></table>`;
         prodComponents = [];
       }
     }
     function addSpecialComponent() {
       const cid = companyFilterId();
-      const itemOpts = scoped(items, cid).map(i => `<option value="${esc(i.itemCode)}">${esc(i.name||i.itemCode)}</option>`).join("");
+      const sortedItems = scoped(items, cid).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+      const itemCodeOpts = sortedItems.map(i => `<option value="${esc(i.itemCode)}">${esc(i.itemCode)}</option>`).join("");
+      const itemNameOpts = sortedItems.map(i => `<option value="${esc(i.itemCode)}">${esc(i.name||i.itemCode)}</option>`).join("");
+      const whOpts = scoped(warehouses, cid).sort((a,b)=>(a.code||"").localeCompare(b.code||"")).map(w => `<option value="${esc(w.code)}">${esc(w.code)}</option>`).join("");
       const tbody = document.getElementById("po-special-rows");
       if (!tbody) return;
-      const idx = tbody.children.length;
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td><select class="po-comp-code" style="width:100%;margin:0;padding:2px"><option value="">—</option>${itemOpts}</select></td>
-        <td><input type="number" class="po-comp-qty" value="1" style="width:80px;margin:0;padding:2px"></td>
+      tr.innerHTML = `<td><select class="po-comp-code" onchange="onCompCodeChange(this)" style="width:100%;margin:0;padding:2px"><option value="">—</option>${itemCodeOpts}</select></td>
+        <td><select class="po-comp-name" onchange="onCompNameChange(this)" style="width:100%;margin:0;padding:2px"><option value="">—</option>${itemNameOpts}</select></td>
+        <td><select class="po-comp-wh" style="width:80px;margin:0;padding:2px"><option value="">—</option>${whOpts}</select></td>
+        <td><input type="number" class="po-comp-qty" value="1" onchange="calcCompTotal(this)" style="width:60px;margin:0;padding:2px"></td>
+        <td><input type="number" class="po-comp-price" value="0" onchange="calcCompTotal(this)" style="width:80px;margin:0;padding:2px"></td>
+        <td class="po-comp-total" style="text-align:right;padding:2px">0.00</td>
         <td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()">✕</button></td>`;
       tbody.appendChild(tr);
+    }
+    function onCompCodeChange(sel) {
+      const tr = sel.closest("tr");
+      const nameSel = tr.querySelector(".po-comp-name");
+      if (nameSel) nameSel.value = sel.value;
+    }
+    function onCompNameChange(sel) {
+      const tr = sel.closest("tr");
+      const codeSel = tr.querySelector(".po-comp-code");
+      if (codeSel) codeSel.value = sel.value;
+    }
+    function calcCompTotal(inp) {
+      const tr = inp.closest("tr");
+      const qty = parseFloat(tr.querySelector(".po-comp-qty").value) || 0;
+      const price = parseFloat(tr.querySelector(".po-comp-price").value) || 0;
+      const total = tr.querySelector(".po-comp-total");
+      if (total) total.textContent = (qty * price).toLocaleString(undefined,{minimumFractionDigits:2});
     }
 
     async function saveProdOrder() {
