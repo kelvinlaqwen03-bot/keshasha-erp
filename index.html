@@ -769,7 +769,7 @@
         const cur = sel.value;
         sel.innerHTML = `<option value="">— Select company —</option>` +
           companies.filter(c => c.isActive !== false)
-            .map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.name)}</option>`).join("");
+            .map(c => `<option value="${c.id}">${esc(c.code)}</option>`).join("");
         if (cur) sel.value = cur;
       } catch (e) { console.error(e); }
     }
@@ -1505,7 +1505,7 @@
             <div class="fg"><label>Department</label><input id="emp-dept"></div>
             <div class="fg"><label>Branch</label>
               <select id="emp-branch"><option value="">—</option>
-                ${scoped(branches, cid).map(b=>`<option value="${b.code}">${esc(b.code)} — ${esc(b.name)}</option>`).join("")}
+                ${scoped(branches, cid).map(b=>`<option value="${b.code}">${esc(b.code)}</option>`).join("")}
               </select>
             </div>
             <div class="fg"><label>Employee Type</label>
@@ -2425,7 +2425,7 @@
         : companyFilterId();
       const defs = scoped(itemSeriesDefs, cid);
       sel.innerHTML = `<option value="MANUAL">Manual</option>` +
-        defs.map(d => `<option value="${esc(d.code)}">${esc(d.code)} — ${esc(d.name)} (${esc(d.prefix)}…)</option>`).join("");
+        defs.map(d => `<option value="${esc(d.code)}">${esc(d.code)} (${esc(d.prefix)}…)</option>`).join("");
     }
     function nextItemCode(companyId, seriesCode) {
       const def = itemSeriesDefs.find(d => d.companyId===companyId && d.code===seriesCode);
@@ -2741,7 +2741,7 @@
           <div class="fg"><label>Name</label><input id="wh-name" placeholder="Name"></div>
           <div class="fg"><label>Branch</label>
             <select id="wh-branch"><option value="">—</option>
-              ${scoped(branches, companyFilterId()).map(b=>`<option value="${b.code}">${esc(b.code)} — ${esc(b.name)}</option>`).join("")}
+              ${scoped(branches, companyFilterId()).map(b=>`<option value="${b.code}">${esc(b.code)}</option>`).join("")}
             </select>
           </div>
           <div class="fg" style="align-self:end">
@@ -2863,7 +2863,7 @@
       const cid = companyFilterId();
       const list = scoped(stockDocs, cid).filter(d => d.docType === "IN" || d.docType === "OUT")
         .sort((a, b) => (b.docDate || "").localeCompare(a.docDate || ""));
-      const whOpts = scoped(warehouses, cid).map(w => `<option value="${w.code}">${esc(w.code)} — ${esc(w.name)}</option>`).join("");
+      const whOpts = scoped(warehouses, cid).map(w => `<option value="${w.code}">${esc(w.code)}</option>`).join("");
       el.innerHTML = `
         <div class="toolbar">
           <h2>Goods Receipt / Issue</h2>
@@ -3207,7 +3207,7 @@
         if (head) head.innerHTML = "<th>#</th><th>Item *</th><th>Qty</th><th>Unit Cost</th><th></th>";
         const itemList = scoped(items, cid).sort((a,b)=>(a.name||a.itemCode||"").localeCompare(b.name||b.itemCode||""));
         body.innerHTML = openingLines.map((l, idx) => {
-          const opts = itemList.map(i => `<option value="${i.itemCode}" ${i.itemCode===l.itemCode?"selected":""}>${esc(i.itemCode)} — ${esc(i.name||"")}</option>`).join("");
+          const opts = itemList.map(i => `<option value="${i.itemCode}" ${i.itemCode===l.itemCode?"selected":""}>${esc(i.itemCode)}</option>`).join("");
           return `<tr>
             <td>${idx+1}</td>
             <td><select onchange="openingLines[${idx}].itemCode=this.value" style="width:100%;margin:0;padding:3px"><option value="">— Item —</option>${opts}</select></td>
@@ -3405,7 +3405,7 @@
         const gType = type === "S" ? "V" : (type === "C" ? "C" : "");
         const groups = scoped(partnerGroups, cid).filter(g => !gType || g.groupType === gType || g.groupType === "B");
         groupSel.innerHTML = `<option value="">—</option>` + groups.map(g =>
-          `<option value="${esc(g.code)}">${esc(g.code)} — ${esc(g.name)}</option>`
+          `<option value="${esc(g.code)}">${esc(g.code)}</option>`
         ).join("");
       }
       if (!keepCode) onBpSeriesChange();
@@ -3706,8 +3706,8 @@
       const cid = companyFilterId();
       const list = scoped(purchaseDocs, cid).filter(d => d.docType === docType).sort((a,b)=>(b.docDate||"").localeCompare(a.docDate||""));
       const vendOpts = vendorsFor(cid).map(p => `<option value="${p.bpCode}">${esc(p.bpCode)}</option>`).join("");
-      const whOpts = scoped(warehouses, cid).map(w => `<option value="${w.code}">${esc(w.code)} — ${esc(w.name)}</option>`).join("");
-      const branchOpts = scoped(branches, cid).map(b => `<option value="${b.code}">${esc(b.code)} — ${esc(b.name)}</option>`).join("");
+      const whOpts = scoped(warehouses, cid).map(w => `<option value="${w.code}">${esc(w.code)}</option>`).join("");
+      const branchOpts = scoped(branches, cid).map(b => `<option value="${b.code}">${esc(b.code)}</option>`).join("");
       el.innerHTML = `
         <div class="toolbar">
           <h2>${esc(meta.title)}</h2>
@@ -3738,7 +3738,7 @@
               <select id="p-bp-name-sel" onchange="onPurchVendorNameChange()" style="background:#fffef0"><option value="">— Name —</option>${vendorsFor(cid).map(p=>`<option value="${esc(p.bpCode)}">${esc(p.name||"")}</option>`).join("")}</select>
               <input id="p-bp-name" type="hidden">
               <label>Branch *</label>
-              <select id="p-branch"><option value="">—</option>${scoped(dimensions, cid).filter(d=>(d.dimType||"").toUpperCase()==="BRANCH").map(d=>`<option value="${esc(d.code)}">${esc(d.code)} — ${esc(d.name)}</option>`).join("") || branchOpts}</select>
+              <select id="p-branch"><option value="">—</option>${scoped(dimensions, cid).filter(d=>(d.dimType||"").toUpperCase()==="BRANCH").map(d=>`<option value="${esc(d.code)}">${esc(d.code)}</option>`).join("") || branchOpts}</select>
               <label>Warehouse</label>
               <select id="p-wh"><option value="">—</option>${whOpts}</select>
               <label>Remarks</label>
@@ -4437,7 +4437,7 @@
         .sort((a,b) => (b.docDate||"").localeCompare(a.docDate||"") || (b.createdAt||"").localeCompare(a.createdAt||""));
       const custOpts = customersFor(cid).map(p => `<option value="${p.bpCode}">${esc(p.bpCode)}</option>`).join("");
       const whOpts = scoped(warehouses, cid).map(w => `<option value="${w.code}">${esc(w.code)}</option>`).join("");
-      const branchOpts = scoped(branches, cid).map(b => `<option value="${b.code}">${esc(b.code)} — ${esc(b.name)}</option>`).join("");
+      const branchOpts = scoped(branches, cid).map(b => `<option value="${b.code}">${esc(b.code)}</option>`).join("");
       const seriesPrefix = ((SALES_META[docType]||{}).prefix || docType);
 
       el.innerHTML = `
@@ -4896,7 +4896,7 @@
           if (key === "ocrCode2" && !dims.length) {
             return `<select onchange="salesLines[${idx}].${key}=this.value" ${common}><option value="">—</option>${scoped(branches,cid).map(b=>`<option value="${b.code}" ${b.code===val?"selected":""}>${esc(b.code)}</option>`).join("")}</select>`;
           }
-          return `<select onchange="salesLines[${idx}].${key}=this.value" ${common}><option value="">—</option>${dims.map(d=>`<option value="${d.code}" ${d.code===val?"selected":""}>${esc(d.code)} — ${esc(d.name||"")}</option>`).join("")}</select>`;
+          return `<select onchange="salesLines[${idx}].${key}=this.value" ${common}><option value="">—</option>${dims.map(d=>`<option value="${d.code}" ${d.code===val?"selected":""}>${esc(d.code)}</option>`).join("")}</select>`;
         }
         if (key === "lineTotal" || key === "gTotal" || key === "vatSum" || key === "priceAfVAT" || key === "price" || key === "grssProfit") {
           syncLinePrices(salesLines[idx]);
@@ -6378,7 +6378,7 @@
               <select id="pay-name-sel" onchange="onPayNameChange()"><option value="">—</option></select>
               <input id="pay-name" type="hidden">
               <label>Branch</label>
-              <select id="pay-branch"><option value="">—</option>${scoped(branches, cid).map(b=>`<option value="${esc(b.code)}">${esc(b.code)} — ${esc(b.name)}</option>`).join("")}</select>
+              <select id="pay-branch"><option value="">—</option>${scoped(branches, cid).map(b=>`<option value="${esc(b.code)}">${esc(b.code)}</option>`).join("")}</select>
               <label>Remarks</label>
               <input id="pay-remarks">
               <label style="grid-column:1/-1"><input type="checkbox" id="pay-deposit" onchange="document.getElementById('pay-deposit-amt').style.display=this.checked?'inline-block':'none'"> Deposit / Advance</label>
@@ -7779,7 +7779,8 @@
     function renderBOM(el) {
       const cid = companyFilterId();
       const list = scoped(boms, cid);
-      const itemOpts = scoped(items, cid).sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(i => `<option value="${esc(i.itemCode)}">${esc(i.itemCode)} — ${esc(i.name||"")}</option>`).join("");
+      const itemOpts = scoped(items, cid).sort((a,b)=>(a.itemCode||"").localeCompare(b.itemCode||"")).map(i => `<option value="${esc(i.itemCode)}">${esc(i.itemCode)}</option>`).join("");
+      const itemNameOpts = scoped(items, cid).sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(i => `<option value="${esc(i.itemCode)}">${esc(i.name||i.itemCode)}</option>`).join("");
       el.innerHTML = `
         <div class="toolbar"><h2>Bill of Materials</h2>
           <button class="btn btn-sm btn-primary" onclick="document.getElementById('bom-form').style.display='grid'">+ BOM</button>
@@ -7837,7 +7838,8 @@
     function renderProdOrder(el) {
       const cid = companyFilterId();
       const list = scoped(prodOrders, cid);
-      const itemOpts = scoped(items, cid).sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(i => `<option value="${esc(i.itemCode)}">${esc(i.itemCode)} — ${esc(i.name||"")}</option>`).join("");
+      const itemOpts = scoped(items, cid).sort((a,b)=>(a.itemCode||"").localeCompare(b.itemCode||"")).map(i => `<option value="${esc(i.itemCode)}">${esc(i.itemCode)}</option>`).join("");
+      const itemNameOpts = scoped(items, cid).sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(i => `<option value="${esc(i.itemCode)}">${esc(i.name||i.itemCode)}</option>`).join("");
       const whOpts = scoped(warehouses, cid).map(w => `<option value="${esc(w.code)}">${esc(w.code)}</option>`).join("");
       el.innerHTML = `<div class="toolbar"><h2>Production Order</h2>
         <button class="btn btn-sm btn-primary" onclick="document.getElementById('po-form').style.display='block'">+ Order</button></div>
@@ -7852,9 +7854,9 @@
               <label>Status</label>
               <input readonly value="Planned">
               <label>Product No. *</label>
-              <select id="po-item" onchange="checkItemBatchSerial(this.value);loadBOMComponents()"><option value="">—</option>${itemOpts}</select>
+              <select id="po-item" onchange="onProdItemChange()"><option value="">—</option>${itemOpts}</select>
               <label>Product Description</label>
-              <input id="po-desc" readonly>
+              <select id="po-desc" onchange="onProdDescChange()"><option value="">—</option>${itemNameOpts}</select>
               <label>Planned Quantity *</label>
               <input type="number" step="any" id="po-qty" value="1" onchange="loadBOMComponents()">
               <label>Warehouse</label>
@@ -7913,23 +7915,37 @@
       const d = document.getElementById("po-due"); if (d) d.valueAsDate = new Date();
     }
 
+
+    function onProdItemChange() {
+      const code = document.getElementById("po-item").value;
+      const desc = document.getElementById("po-desc");
+      if (desc) desc.value = code;
+      checkItemBatchSerial(code);
+      loadBOMComponents();
+    }
+    function onProdDescChange() {
+      const code = document.getElementById("po-desc").value;
+      const item = document.getElementById("po-item");
+      if (item) item.value = code;
+      checkItemBatchSerial(code);
+      loadBOMComponents();
+    }
+
     let prodComponents = [];
     function onProdTypeChange() {
-      const type = document.getElementById("po-type").value;
-      document.getElementById("po-add-comp").style.display = type === "special" ? "inline-block" : "none";
+      const type = document.getElementById("po-type") && document.getElementById("po-type").value;
+      const addBtn = document.getElementById("po-add-comp");
+      if (addBtn) addBtn.style.display = type === "special" ? "inline-block" : "none";
       loadBOMComponents();
     }
     function loadBOMComponents() {
       const cid = companyFilterId();
-      const itemCode = document.getElementById("po-item").value;
-      const qty = parseFloat(document.getElementById("po-qty").value) || 1;
-      const type = document.getElementById("po-type").value;
-      const compDiv = document.getElementById("po-components");
+      const itemCode = document.getElementById("po-item") && document.getElementById("po-item").value;
+      const qty = parseFloat(document.getElementById("po-qty") && document.getElementById("po-qty").value) || 1;
+      const type = document.getElementById("po-type") && document.getElementById("po-type").value;
       const listDiv = document.getElementById("po-comp-list");
-      const btns = document.getElementById("po-form-btns");
-      if (!itemCode) { compDiv.style.display = "none"; btns.style.display = "none"; return; }
-      compDiv.style.display = "block";
-      btns.style.display = "block";
+      if (!listDiv) return;
+      if (!itemCode) { listDiv.innerHTML = ""; return; }
       if (type === "standard") {
         const bomLines = scoped(boms, cid).filter(b => b.parentCode === itemCode);
         prodComponents = bomLines.map(b => ({ compCode: b.compCode, qty: (parseFloat(b.qty)||1) * qty }));
