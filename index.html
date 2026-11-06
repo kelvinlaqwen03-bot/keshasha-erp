@@ -625,6 +625,7 @@
     let employees = [];
     let salesEmployees = [];
     let users = [];
+    let roles = [];
     let dimensions = [];
     let docSeries = [];
     let items = [];
@@ -688,6 +689,7 @@
         db.collection("employees").get(),
         db.collection("sales_employees").get(),
         db.collection("users").get(),
+        db.collection("roles").get(),
         db.collection("dimensions").get(),
         db.collection("dimension_types").get(),
         db.collection("doc_series").get(),
@@ -972,6 +974,7 @@
           <button data-page="employees" onclick="nav('employees')">Employees</button>
           <button data-page="salesemp" onclick="nav('salesemp')">Sales Employees</button>
           <button data-page="users" onclick="nav('users')">Users</button>
+          <button data-page="roles" onclick="nav('roles')">Roles</button>
           <button data-page="dimtypes" onclick="nav('dimtypes')">Dimension Types</button>
           <button data-page="dimensions" onclick="nav('dimensions')">Dimension Values</button>
           <button data-page="docseries" onclick="nav('docseries')">Document Numbering</button>
@@ -1125,6 +1128,7 @@
       else if (page === "employees") renderEmployees(main);
       else if (page === "salesemp") renderSalesEmployees(main);
       else if (page === "users") renderUsers(main);
+      else if (page === "roles") renderRoles(main);
       else if (page === "dimtypes") renderDimensionTypes(main);
       else if (page === "dimensions") renderDimensions(main);
       else if (page === "docseries") renderDocSeries(main);
@@ -1685,6 +1689,62 @@
     // ============================================================
     // USERS
     // ============================================================
+
+    function renderRoles(el) {
+      const cid = companyFilterId();
+      const list = scoped(roles, cid);
+      el.innerHTML = `<div class="toolbar"><h2>User Roles</h2>
+        <button class="btn btn-sm btn-primary" onclick="document.getElementById('role-form').style.display='grid'">+ Role</button>
+      </div>
+      <div id="role-form" class="form-bar" style="display:none">
+        <div class="fg"><label>Role Code *</label><input id="role-code"></div>
+        <div class="fg"><label>Role Name *</label><input id="role-name"></div>
+        <div class="fg"><label>Description</label><input id="role-desc"></div>
+        <div class="fg" style="align-self:end">
+          <button class="btn btn-sm btn-primary" onclick="saveRole()">Save</button>
+          <button class="btn btn-sm" onclick="document.getElementById('role-form').style.display='none'">Cancel</button>
+        </div>
+      </div>
+      <div class="grid-wrap"><table class="grid">
+        <thead><tr><th>Code</th><th>Name</th><th>Description</th><th></th></tr></thead>
+        <tbody>
+          ${list.map(r => `<tr>
+            <td><b>${esc(r.code)}</b></td><td>${esc(r.name)}</td><td>${esc(r.description||"")}</td>
+            <td>
+              <button class="btn btn-sm" onclick="editRole('${r.id}')">Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteRole('${r.id}')">Delete</button>
+            </td>
+          </tr>`).join("") || `<tr><td colspan="4">No roles. Create roles like Admin, Sales, Accountant.</td></tr>`}
+        </tbody></table></div>
+      <p style="padding:8px;font-size:12px;color:#64748b">Assign roles to users in Authorizations. Each role can have different permissions.</p>`;
+    }
+    async function saveRole() {
+      const cid = companyFilterId();
+      const code = document.getElementById("role-code").value.trim().toUpperCase();
+      const name = document.getElementById("role-name").value.trim();
+      if (!cid || !code || !name) return toast("Code and Name required");
+      const data = { companyId: cid, code, name, description: document.getElementById("role-desc").value.trim(), createdAt: new Date().toISOString() };
+      const ref = await db.collection("roles").add(data);
+      roles.push({ id: ref.id, ...data });
+      toast("Role saved", true);
+      renderRoles(document.getElementById("main"));
+    }
+    async function deleteRole(id) {
+      if (!confirm("Delete this role?")) return;
+      await db.collection("roles").doc(id).delete();
+      roles = roles.filter(x => x.id !== id);
+      toast("Deleted", true);
+      renderRoles(document.getElementById("main"));
+    }
+    function editRole(id) {
+      const r = roles.find(x => x.id === id);
+      if (!r) return;
+      document.getElementById("role-form").style.display = "grid";
+      document.getElementById("role-code").value = r.code || "";
+      document.getElementById("role-name").value = r.name || "";
+      document.getElementById("role-desc").value = r.description || "";
+    }
+
     function renderUsers(el) {
       let list = users.filter(u => u.companyId === activeCompanyId || (u.isSuperAdmin && currentUser.isSuperAdmin));
       el.innerHTML = `
@@ -3807,6 +3867,8 @@
                 <button class="btn btn-sm" onclick="viewPurchaseDoc('${d.id}')">View</button>
                 <button class="btn btn-sm" onclick="printDocument(purchaseDocs.find(x=>x.id==='${d.id}'),'purch')">Print</button>
                 <button class="btn btn-sm" ${d.status==="closed"?"disabled style='opacity:.45'":""} onclick="openPurchCopyTo('${d.id}')">Copy To</button>
+                ${hasAuth("act.cancel",2) && d.status!=="cancelled" && d.status!=="closed" ? `<button class="btn btn-sm" onclick="cancelPurchDoc('${d.id}')">Cancel</button>` : ""}
+                ${hasAuth("act.close",2) && d.status!=="closed" && d.status!=="cancelled" ? `<button class="btn btn-sm" onclick="closePurchDoc('${d.id}')">Close</button>` : ""}
               </td>
             </tr>`).join("") || `<tr><td colspan="6">No documents</td></tr>`}
           </tbody>
@@ -4054,10 +4116,11 @@
       }
       const ref = await db.collection("purchase_docs").add(data);
       purchaseDocs.unshift({ id: ref.id, ...data });
-      // Close base
+      // Close base (but NOT if copying to Down Payment)
       if (purchaseCopyFromId) {
         const base = purchaseDocs.find(x => x.id === purchaseCopyFromId);
-        if (base && base.status !== "cancelled") {
+        const isDownPay = docType === "PDPR" || docType === "PDPI";
+        if (base && base.status !== "cancelled" && !isDownPay) {
           const payload = { status: "closed", targetDocType: docType, targetDocNo: docNo, targetDocId: ref.id };
           await db.collection("purchase_docs").doc(base.id).update(payload);
           Object.assign(base, payload);
@@ -4069,6 +4132,24 @@
       nav(pageMap[docType] || "pr");
     }
 
+    async function cancelPurchDoc(id) {
+      if (!hasAuth("act.cancel", 2)) return toast("No authorization to cancel");
+      if (!confirm("Cancel this document?")) return;
+      await db.collection("purchase_docs").doc(id).update({ status: "cancelled", cancelledAt: new Date().toISOString() });
+      const d = purchaseDocs.find(x => x.id === id);
+      if (d) d.status = "cancelled";
+      toast("Cancelled", true);
+      nav(d.docType.toLowerCase());
+    }
+    async function closePurchDoc(id) {
+      if (!hasAuth("act.close", 2)) return toast("No authorization to close");
+      if (!confirm("Close this document?")) return;
+      await db.collection("purchase_docs").doc(id).update({ status: "closed", closedAt: new Date().toISOString() });
+      const d = purchaseDocs.find(x => x.id === id);
+      if (d) d.status = "closed";
+      toast("Closed", true);
+      nav(d.docType.toLowerCase());
+    }
     function viewPurchaseDoc(id) {
       const d = purchaseDocs.find(x => x.id === id);
       if (!d) return toast("Not found");
@@ -4571,7 +4652,8 @@
                   <button class="btn btn-sm" onclick="event.stopPropagation();viewSalesDoc('${d.id}')">View</button>
                   <button class="btn btn-sm" onclick="event.stopPropagation();printDocument(salesDocs.find(x=>x.id==='${d.id}'),'sales')">Print</button>
                   <button class="btn btn-sm" ${d.status==="closed"?"disabled style='opacity:.45;cursor:not-allowed'":""} onclick="event.stopPropagation();openCopyTo('${d.id}')">Copy To</button>
-                  ${canCancel() && d.status!=="cancelled" && d.status!=="closed" ? `<button class="btn btn-sm" onclick="event.stopPropagation();cancelSalesDoc('${d.id}')">Cancel</button>` : ""}
+                  ${hasAuth("act.cancel",2) && d.status!=="cancelled" && d.status!=="closed" ? `<button class="btn btn-sm" onclick="event.stopPropagation();cancelSalesDoc('${d.id}')">Cancel</button>` : ""}
+                  ${hasAuth("act.close",2) && d.status!=="closed" && d.status!=="cancelled" ? `<button class="btn btn-sm" onclick="event.stopPropagation();closeSalesDoc('${d.id}')">Close</button>` : ""}
                   ${canClose() && d.status==="open" ? `<button class="btn btn-sm" onclick="event.stopPropagation();closeSalesDoc('${d.id}')">Close</button>` : ""}
                   ${(d.status==="closed" && (d.docType==="INV"||d.docType==="DPI")) ? `<button class="btn btn-sm" onclick="event.stopPropagation();reopenSalesDoc('${d.id}')">Reopen</button>` : ""}
                   ${(canDelete()||currentUser.isSuperAdmin) ? `<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteSalesDoc('${d.id}')">Delete</button>` : ""}
@@ -5174,10 +5256,11 @@
         const ref = await db.collection("sales_docs").add(data);
         salesDocs.unshift({ id: ref.id, ...data });
 
-        // Relationship map: close base document (SQ→SO→DN→INV flow)
+        // Relationship map: close base document (but NOT if copying to Down Payment)
         if (salesCopyFromId) {
           const base = salesDocs.find(x => x.id === salesCopyFromId);
-          if (base && base.status !== "cancelled") {
+          const isDownPay = docType === "DPR" || docType === "DPI";
+          if (base && base.status !== "cancelled" && !isDownPay) {
             const closePayload = {
               status: "closed",
               closedAt: new Date().toISOString(),
@@ -6435,7 +6518,7 @@
                       <td>${esc(i.docNo)}</td>
                       <td>${esc(i.docDate)}</td>
                       <td style="text-align:right">${bal.toLocaleString(undefined,{minimumFractionDigits:2})}</td>
-                      <td><input type="number" step="any" class="pay-applied" data-docno="${esc(i.docNo)}" value="0" style="width:100px;margin:0"></td>
+                      <td><input type="number" step="any" class="pay-applied" data-docno="${esc(i.docNo)}" value="0" onchange="recalcPayTotal()" style="width:100px;margin:0"></td>
                     </tr>`;
                   }).join("") || `<tr><td colspan="5">No open invoices</td></tr>`}
                 </tbody>
@@ -6451,7 +6534,8 @@
             </div>
           </div>
           <div class="toolbar" style="justify-content:flex-end;border-top:1px solid #ccc">
-            <button class="btn btn-sm btn-primary" onclick="postPayment()">Add & Post</button>
+            <button class="btn btn-sm btn-primary" onclick="postPayment()">Add & View</button>
+            <button class="btn btn-sm" onclick="postPayment();setTimeout(()=>startNewPayment(),500)">Add & New</button>
             <button class="btn btn-sm" onclick="document.getElementById('pay-form').style.display='none'">Cancel</button>
           </div>
         </div>
@@ -6484,6 +6568,20 @@
       const sel = document.getElementById("pay-bp");
       if (!sel) return;
       const cid = companyFilterId();
+      // Update content table based on type
+      const invRows = document.getElementById("pay-inv-rows");
+      if (type === "A" && invRows) {
+        const accts = scoped(accounts, cid).filter(a => a.postable !== false).sort((a,b)=>(a.acctName||"").localeCompare(b.acctName||""));
+        const dims = scoped(dimensions, cid);
+        invRows.innerHTML = `<tr>
+          <td><select class="pay-acct-code" style="width:100%;margin:0;padding:2px"><option value="">—</option>${accts.map(a=>`<option value="${esc(a.acctCode)}">${esc(a.acctCode)}</option>`).join("")}</select></td>
+          <td><select class="pay-acct-name" style="width:100%;margin:0;padding:2px"><option value="">—</option>${accts.map(a=>`<option value="${esc(a.acctCode)}">${esc(a.acctName||"")}</option>`).join("")}</select></td>
+          <td><input type="number" class="pay-acct-amt" value="0" onchange="recalcPayTotal()" style="width:80px;margin:0;padding:2px"></td>
+          <td><select class="pay-acct-proj" style="width:80px;margin:0;padding:2px"><option value="">—</option>${dims.filter(d=>(d.dimType||"").toUpperCase()==="PROJECT").map(d=>`<option value="${esc(d.code)}">${esc(d.code)}</option>`).join("")}</select></td>
+          <td><select class="pay-acct-dept" style="width:80px;margin:0;padding:2px"><option value="">—</option>${dims.filter(d=>(d.dimType||"").toUpperCase()==="DEPARTMENT").map(d=>`<option value="${esc(d.code)}">${esc(d.code)}</option>`).join("")}</select></td>
+          <td><select class="pay-acct-br" style="width:80px;margin:0;padding:2px"><option value="">—</option>${dims.filter(d=>(d.dimType||"").toUpperCase()==="BRANCH").map(d=>`<option value="${esc(d.code)}">${esc(d.code)}</option>`).join("")}</select></td>
+        </tr>`;
+      }
       let opts = `<option value="">—</option>`;
       if (type === "C") {
         opts += partners.filter(p => p.companyId === cid && (p.bpType === "C" || !p.bpType)).map(p => `<option value="${esc(p.bpCode)}">${esc(p.bpCode)}</option>`).join("");
@@ -6535,7 +6633,10 @@
       else alert(p.docNo);
     }
 
+    let isPosting = false;
     async function postPayment() {
+      if (isPosting) return toast("Please wait...");
+      isPosting = true;
       const companyId = activeCompanyId || (currentUser.isSuperAdmin ? document.getElementById("pay-co").value : currentUser.companyId);
       const docType = document.getElementById("pay-type").value;
       const cardCode = document.getElementById("pay-bp").value;
@@ -6588,20 +6689,46 @@
       payments.unshift({ id: ref.id, ...data });
       // Update invoices
       for (const app of applied) {
-        const inv = salesDocs.find(d => d.companyId === companyId && d.docType === "INV" && d.docNo === app.docNo);
+        const inv = salesDocs.find(d => d.companyId === companyId && (d.docType === "INV" || d.docType === "DPI" || d.docType === "DPR") && d.docNo === app.docNo);
         if (inv) {
           const paid = (parseFloat(inv.paidAmount) || 0) + app.sumApplied;
           const total = parseFloat(inv.grandTotal) || 0;
           const fullyPaid = paid + 0.0001 >= total;
-          const payload = { paidAmount: paid, status: fullyPaid ? "paid" : "open", paidAt: fullyPaid ? new Date().toISOString() : null };
+          const isDownPay = inv.docType === "DPI" || inv.docType === "DPR";
+          const payload = { paidAmount: paid, status: (fullyPaid || isDownPay) ? "closed" : "open", paidAt: fullyPaid ? new Date().toISOString() : null };
           await db.collection("sales_docs").doc(inv.id).update(payload);
           Object.assign(inv, payload);
         }
       }
       toast("Posted " + docNo, true);
+      isPosting = false;
       renderPayments(document.getElementById("main"));
     }
 
+    function renderBankStatement(el) {
+      const cid = companyFilterId();
+      const list = scoped(payments, cid).filter(p => p.trsfrSum > 0 || p.checkSum > 0);
+      let running = 0;
+      const rows = list.map(p => {
+        const amt = (parseFloat(p.trsfrSum)||0) + (parseFloat(p.checkSum)||0);
+        const isIn = p.docType === "C" || p.docType === "RC";
+        running += isIn ? amt : -amt;
+        return `<tr>
+          <td>${esc(p.docDate)}</td><td>${esc(p.docNo)}</td>
+          <td>${esc(p.cardName||p.cardCode||"")}</td>
+          <td style="text-align:right">${isIn ? amt.toLocaleString(undefined,{minimumFractionDigits:2}) : ""}</td>
+          <td style="text-align:right">${!isIn ? amt.toLocaleString(undefined,{minimumFractionDigits:2}) : ""}</td>
+          <td style="text-align:right">${running.toLocaleString(undefined,{minimumFractionDigits:2})}</td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="6">No transactions</td></tr>`;
+      el.innerHTML = `<div class="toolbar"><h2>Bank Statement</h2></div>
+        <div style="padding:8px;background:#f1f5f9;font-weight:700">Opening Balance: 0.00</div>
+        <div class="grid-wrap"><table class="grid">
+          <thead><tr><th>Date</th><th>Doc No</th><th>Name</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+        <div style="padding:8px;background:#dbeafe;font-weight:700">Closing Balance: ${running.toLocaleString(undefined,{minimumFractionDigits:2})}</div>`;
+    }
     function renderBankingReports(el) {
       const cid = companyFilterId();
       const list = scoped(payments, cid);
@@ -7668,10 +7795,29 @@
       const rows = document.querySelectorAll("#pay-inv-rows tr");
       rows.forEach(tr => {
         const docNo = tr.querySelector("[data-docno]");
-        if (!docNo) return;
+        if (!docNo) { tr.style.display = bp ? "none" : ""; return; }
         const doc = salesDocs.find(d => d.docNo === docNo.dataset.docno);
-        tr.style.display = (!bp || !doc || doc.bpCode === bp) ? "" : "none";
+        tr.style.display = (bp && doc && doc.bpCode === bp) ? "" : "none";
       });
+      if (!bp) {
+        const tbody = document.getElementById("pay-inv-rows");
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="color:#64748b">Select a Customer/Vendor to see documents</td></tr>`;
+      }
+    }
+    function recalcPayTotal() {
+      let total = 0;
+      document.querySelectorAll(".pay-applied").forEach(inp => {
+        const tr = inp.closest("tr");
+        if (tr && tr.style.display !== "none") total += parseFloat(inp.value) || 0;
+      });
+      const depAmt = document.getElementById("pay-deposit-amt");
+      if (depAmt && depAmt.style.display !== "none") total += parseFloat(depAmt.value) || 0;
+      const dt = document.getElementById("pay-doctotal");
+      if (dt) dt.textContent = total.toLocaleString(undefined,{minimumFractionDigits:2});
+      // Auto-fill cash amount if cash account selected
+      const cashAcct = document.getElementById("pay-cashacct");
+      const cashSum = document.getElementById("pay-cashsum");
+      if (cashAcct && cashAcct.value && cashSum) cashSum.value = total.toFixed(2);
     }
     function filterOutDocs() {
       const bp = document.getElementById("out-bp") && document.getElementById("out-bp").value;
@@ -7770,8 +7916,20 @@
       });
     }
     async function postOutgoing() {
-      toast("Outgoing Payment posted (basic)", true);
-      document.getElementById("out-form").style.display = "none";
+      if (isPosting) return toast("Please wait...");
+      isPosting = true;
+      const cid = companyFilterId();
+      const bpCode = document.getElementById("out-bp").value;
+      const docDate = document.getElementById("out-date").value;
+      const cashSum = parseFloat(document.getElementById("out-cashsum").value) || 0;
+      if (!cid || !bpCode || !docDate || !(cashSum > 0)) { isPosting = false; return toast("Vendor, date and amount required"); }
+      const docNo = "OUT-" + Date.now().toString().slice(-6);
+      const data = { companyId: cid, docNo, docType: "OUT", cardCode: bpCode, docDate, cashSum, docTotal: cashSum, status: "posted", createdAt: new Date().toISOString() };
+      const ref = await db.collection("payments").add(data);
+      payments.unshift({ id: ref.id, ...data });
+      isPosting = false;
+      toast("Posted " + docNo, true);
+      renderOutgoing(document.getElementById("main"));
     }
 
 
@@ -8031,9 +8189,23 @@
     async function completeProdOrder(id) {
       const po = prodOrders.find(x => x.id === id);
       if (!po) return;
-      await db.collection("prod_orders").doc(id).update({ status: "completed", completedAt: new Date().toISOString() });
-      po.status = "completed";
-      toast("Completed", true);
+      const cid = po.companyId;
+      const wh = po.whsCode || "MAIN";
+      // Issue components (stock out)
+      const components = po.components || [];
+      for (const c of components) {
+        const outDoc = { companyId: cid, docType: "OUT", docDate: new Date().toISOString().slice(0,10), warehouseCode: c.whsCode || wh, lines: [{ itemCode: c.compCode, qty: c.qty, name: "" }], remarks: "Production " + po.orderNo, status: "posted", createdAt: new Date().toISOString() };
+        const ref = await db.collection("stock_docs").add(outDoc);
+        stockDocs.unshift({ id: ref.id, ...outDoc });
+      }
+      // Receive finished goods (stock in)
+      const inDoc = { companyId: cid, docType: "IN", docDate: new Date().toISOString().slice(0,10), warehouseCode: wh, lines: [{ itemCode: po.itemCode, qty: po.qty, name: "" }], remarks: "Production " + po.orderNo, status: "posted", createdAt: new Date().toISOString() };
+      const refIn = await db.collection("stock_docs").add(inDoc);
+      stockDocs.unshift({ id: refIn.id, ...inDoc });
+      // Update order status
+      await db.collection("prod_orders").doc(id).update({ status: "closed", completedAt: new Date().toISOString() });
+      po.status = "closed";
+      toast("Completed — stock updated", true);
       renderProdOrder(document.getElementById("main"));
     }
     async function deleteProdOrder(id) {
@@ -8512,38 +8684,51 @@
     const AUTH_SUBJECTS = [
       { mod: "Administration", items: [
         ["admin.companies","Companies"],["admin.branches","Branches"],["admin.users","Users"],
-        ["admin.employees","Employees"],["admin.docseries","Document Numbering"],["admin.itemseries","Item Series"],
-        ["admin.authz","Authorizations"],["admin.dimensions","Dimensions"],["admin.uitemplate","UI Templates"],
+        ["admin.employees","Employees"],["admin.salesemp","Sales Employees"],
+        ["admin.docseries","Document Numbering"],["admin.itemseries","Item Series"],
+        ["admin.authz","Authorizations"],["admin.roles","User Roles"],["admin.dimensions","Dimensions"],["admin.dimtypes","Dimension Types"],
+        ["admin.uitemplate","UI Templates"],["admin.doctemplate","Document Templates"],
       ]},
       { mod: "Business Partners", items: [
         ["bp.master","BP Master Data"],["bp.groups","BP Groups"],["bp.recon","Reconciliation"],
+        ["bp.reconprev","Manage Previous Reconciliation"],
       ]},
       { mod: "Inventory", items: [
         ["inv.items","Item Master"],["inv.warehouses","Warehouses"],["inv.pricelists","Price Lists"],
-        ["inv.stock","Goods Receipt / Issue"],["inv.transfer","Inventory Transfer"],["inv.opening","Opening Balance"],
-        ["inv.balance","Stock Balance"],["inv.reports","Inventory Reports"],
+        ["inv.stock","Goods Receipt / Issue"],["inv.transfer","Inventory Transfer"],
+        ["inv.opening","Opening Balance"],["inv.balance","Stock Balance"],
+        ["inv.posting","Inventory Posting"],["inv.reval","Inventory Revaluation"],
+        ["inv.serial","Serial Numbers"],["inv.batch","Batch Numbers"],["inv.reports","Inventory Reports"],
       ]},
       { mod: "Sales A/R", items: [
-        ["ar.sq","Sales Quotation"],["ar.so","Sales Order"],["ar.dn","Delivery"],["ar.ret","Return"],
-        ["ar.inv","A/R Invoice"],["ar.cm","A/R Credit Memo"],["ar.pay","Incoming Payment"],["ar.reports","Sales Reports"],
-      ]},
-      { mod: "Financials", items: [
-        ["fin.coa","Chart of Accounts"],["fin.je","Journal Entry"],["fin.map","Account Determination"],
-        ["fin.tb","Trial Balance"],["fin.currencies","Currencies"],
+        ["ar.sq","Sales Quotation"],["ar.so","Sales Order"],["ar.dn","Delivery"],
+        ["ar.retreq","Return Request"],["ar.ret","Return"],
+        ["ar.dpr","A/R Down Payment Request"],["ar.dpi","A/R Down Payment Invoice"],
+        ["ar.inv","A/R Invoice"],["ar.cm","A/R Credit Memo"],["ar.reports","Sales Reports"],
       ]},
       { mod: "Purchasing A/P", items: [
         ["ap.pr","Purchase Request"],["ap.pq","Purchase Quotation"],["ap.po","Purchase Order"],
-        ["ap.grpo","Goods Receipt PO"],["ap.pdpr","A/P Down Payment Request"],["ap.pdpi","A/P Down Payment Invoice"],
-        ["ap.inv","A/P Invoice"],["ap.cm","A/P Credit Memo"],
+        ["ap.grpo","Goods Receipt PO"],["ap.ret","Goods Return"],
+        ["ap.pdpr","A/P Down Payment Request"],["ap.pdpi","A/P Down Payment Invoice"],
+        ["ap.inv","A/P Invoice"],["ap.cm","A/P Credit Memo"],["ap.reports","Purchase Reports"],
+      ]},
+      { mod: "Banking", items: [
+        ["bank.incoming","Incoming Payment"],["bank.outgoing","Outgoing Payment"],
+        ["bank.statement","Bank Statement"],["bank.reports","Banking Reports"],
+      ]},
+      { mod: "Financials", items: [
+        ["fin.coa","Chart of Accounts"],["fin.je","Journal Entry"],["fin.map","Account Determination"],
+        ["fin.tax","Tax Codes"],["fin.rates","Exchange Rates"],["fin.currencies","Currencies"],
+        ["fin.tb","Trial Balance"],["fin.pl","Profit & Loss"],["fin.bs","Balance Sheet"],
       ]},
       { mod: "Production", items: [
-        ["prod.bom","Bill of Materials"],["prod.order","Production Order"],
+        ["prod.bom","Bill of Materials"],["prod.order","Production Order"],["prod.reports","Production Reports"],
       ]},
       { mod: "Fixed Assets", items: [
-        ["fa.master","Asset Master"],["fa.depr","Depreciation"],
+        ["fa.master","Asset Master"],["fa.depr","Depreciation"],["fa.disposal","Asset Disposal"],
       ]},
       { mod: "HR / Payroll", items: [
-        ["hr.payroll","Payroll"],["hr.leave","Leave Management"],
+        ["hr.payroll","Payroll"],["hr.leave","Leave Management"],["hr.attendance","Attendance"],
       ]},
       { mod: "CRM", items: [
         ["crm.opps","Opportunities"],["crm.activities","Activities"],
