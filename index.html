@@ -1,1572 +1,1140 @@
 <!DOCTYPE html>
-
-<html lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>KESHASHA ERP</title>
-<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<style>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KESHASHA ERP — Full Functional Production Suite</title>
+  <!-- SheetJS for real Excel Import / Export -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
     :root {
-      --bg: #eef1f6; --panel: #fff; --border: #c5cdd8; --primary: #0b3d91;
-      --primary-d: #072a66; --text: #1a1a2e; --muted: #667085; --hover: #eef3fb;
-      --sap-yellow: #fffef0;
+      --bg: #eef2f7;
+      --panel: #ffffff;
+      --border: #c3ccdb;
+      --primary: #0b3d91;
+      --primary-dark: #072a66;
+      --text: #1a202c;
+      --muted: #64748b;
+      --hover: #e8f0fe;
+      --success: #166534;
+      --danger: #b91c1c;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); font-size: 13px; }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); font-size: 13px; overflow: hidden; height: 100vh; }
     
+    /* LOGIN VIEW */
     #login-view {
-      min-height: 100vh; display: flex; align-items: center; justify-content: center;
-      background: linear-gradient(135deg, #dbeafe, #f8fafc);
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #1e3a8a, #0b3d91, #0284c7);
     }
     .login-box {
-      background: var(--panel); border: 1px solid var(--border); width: 380px; padding: 28px 24px;
-      box-shadow: 0 8px 30px rgba(11,61,145,.12);
+      background: #fff; width: 420px; padding: 32px 28px; border-radius: 8px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid #cbd5e1;
     }
-    .login-box h1 { color: var(--primary); font-size: 1.5rem; letter-spacing: 1px; }
-    .login-box .sub { color: var(--muted); font-size: 12px; margin: 4px 0 18px; }
-    label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+    .brand-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .brand-k {
+      width: 44px; height: 44px; background: #0b3d91; color: #f59e0b;
+      display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 900;
+      border-radius: 6px; box-shadow: 0 4px 10px rgba(11,61,145,0.3);
+    }
+    .brand-text h1 { font-size: 20px; font-weight: 800; color: #0b3d91; letter-spacing: 0.5px; }
+    .brand-text p { font-size: 11.5px; color: var(--muted); }
+    
+    label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
     input, select, textarea {
-      width: 100%; padding: 8px 10px; border: 1px solid var(--border); margin-bottom: 10px; font-size: 13px;
-      font-family: inherit;
+      width: 100%; padding: 8px 10px; border: 1px solid var(--border); margin-bottom: 12px;
+      font-size: 12.5px; font-family: inherit; border-radius: 4px; background: #fff;
     }
     input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
     .btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      padding: 7px 12px; border: 1px solid var(--border); background: #fff; cursor: pointer;
-      font-size: 12.5px; font-weight: 600; border-radius: 2px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 7px 13px; border: 1px solid var(--border); background: #fff; cursor: pointer;
+      font-size: 12px; font-weight: 600; border-radius: 4px; transition: background 0.15s;
     }
+    .btn:hover { background: #f8fafc; }
     .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
-    .btn-primary:hover { background: var(--primary-d); }
-    .btn-sm { padding: 4px 9px; font-size: 12px; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-sm { padding: 4px 9px; font-size: 11.5px; }
+    .btn-warning { background: #f59e0b; color: #fff; border-color: #d97706; }
     .btn-danger { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
     .btn-danger:hover { background: #fee2e2; }
-    .btn-demo { background: #0284c7; color: #fff; border-color: #0284c7; }
-    .btn-demo:hover { background: #0369a1; }
-    .btn-outline-primary { border-color: var(--primary); color: var(--primary); background: #eff6ff; }
-    .btn-outline-primary:hover { background: #dbeafe; }
-    .err { color: #b91c1c; font-size: 12px; margin-top: 6px; }
 
-    #app-view { display: none; min-height: 100vh; }
+    /* APP LAYOUT */
+    #app-view { display: none; height: 100vh; flex-direction: column; }
     .topbar {
-      background: var(--primary); color: #fff; padding: 8px 14px;
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      background: #0b3d91; color: #fff; height: 44px; padding: 0 14px;
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
     }
-    .topbar strong { font-size: 15px; letter-spacing: .6px; }
-    .badge { background: rgba(255,255,255,.2); padding: 2px 7px; font-size: 11px; margin-left: 6px; border-radius: 3px; }
-    .badge-wildcard { background: #f59e0b; color: #000; font-weight: 700; padding: 2px 6px; border-radius: 3px; font-size: 11px; }
-    .layout { display: flex; min-height: calc(100vh - 42px); }
-    .sidebar { width: 175px; background: #1e293b; flex-shrink: 0; padding: 6px 0; overflow-y: auto; }
-    .sidebar button {
-      display: block; width: 100%; text-align: left; border: 0; background: none;
-      color: #cbd5e1; padding: 8px 14px; cursor: pointer; font-size: 12.5px;
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .topbar-left .mini-k {
+      width: 26px; height: 26px; background: #fff; color: #0b3d91;
+      display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px; border-radius: 4px;
     }
-    .sidebar button:hover, .sidebar button.active { background: var(--primary); color: #fff; }
-    .main { flex: 1; padding: 10px 14px; overflow: auto; }
-    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
-    .toolbar h2 { font-size: 15px; color: var(--primary); margin-right: auto; }
-
-    /* Dense SAP/Excel-style grid */
-    .grid-wrap { border: 1px solid var(--border); background: var(--panel); overflow: auto; max-height: calc(100vh - 160px); }
-    table.grid { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-    table.grid th {
-      background: #e8eef7; border: 1px solid var(--border); padding: 5px 8px;
-      text-align: left; font-weight: 700; position: sticky; top: 0; z-index: 1; white-space: nowrap;
-    }
-    table.grid td { border: 1px solid var(--border); padding: 3px 8px; vertical-align: middle; }
-    table.grid tr:hover td { background: var(--hover); }
-
-    .form-bar {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px 10px;
-      background: var(--panel); border: 1px solid var(--border); padding: 8px 10px; margin-bottom: 8px;
-    }
-    .form-bar .fg label { margin-bottom: 2px; }
-    .form-bar .fg input, .form-bar .fg select { margin-bottom: 0; padding: 6px 8px; }
-
-    /* SAP B1 Marketing Header & Footer styles */
-    .mkt-hd {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 12px 32px; padding: 12px 14px;
-      background: #f5f5f5; border: 1px solid #b0b0b0; margin-bottom: 0;
-    }
-    .mkt-hd .mkt-col { display: grid; grid-template-columns: 120px 1fr; gap: 5px 10px; align-items: center; }
-    .mkt-hd .mkt-col label { font-size: 12px; font-weight: 600; color: #333; text-transform: none; margin: 0; }
-    .mkt-hd .mkt-col input, .mkt-hd .mkt-col select {
-      margin: 0; padding: 4px 8px; font-size: 12px; border: 1px solid #999; background: var(--sap-yellow); width: 100%;
-    }
-    .mkt-hd .mkt-col input[readonly] { background: #e8e8e8; color: #333; }
-    .mkt-spacer {
-      height: 0.28in; min-height: 24px; border-bottom: 1px dashed #ccc; margin: 0 0 6px 0;
-      background: linear-gradient(180deg, #fafafa 0%, #fff 100%);
-    }
-    .mkt-lines-label {
-      display: flex; justify-content: space-between; align-items: center;
-      font-size: 12px; font-weight: 700; color: var(--primary); padding: 6px 10px;
-      background: #eef3fb; border-top: 1px solid #ccd8ea; border-bottom: 2px solid var(--primary); margin-bottom: 6px;
-    }
-    .mkt-ft {
-      display: grid; grid-template-columns: 1fr 280px; gap: 16px; padding: 10px 14px;
-      background: #f5f5f5; border-top: 1px solid #ccc;
-    }
-    .mkt-ft .totals { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: 12px; align-items: center; }
-    .mkt-ft .totals b { text-align: right; min-width: 100px; }
-
-    /* Interactive Wildcard Banner & Line Search */
-    .wildcard-tester-box {
-      background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px; padding: 8px 12px;
-      margin-bottom: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
-    }
-    .wildcard-chips { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-    .wildcard-chip {
-      font-size: 11px; font-weight: 600; background: #fff; border: 1px solid #93c5fd;
-      color: #1d4ed8; padding: 2px 7px; border-radius: 12px; cursor: pointer; user-select: none;
-    }
-    .wildcard-chip:hover { background: #1d4ed8; color: #fff; }
-
-    .line-search-cell { position: relative; width: 100%; }
-    .line-search-input {
-      width: 100% !important; margin: 0 !important; padding: 4px 7px !important;
-      font-size: 12px !important; border: 1px solid #999 !important; background: var(--sap-yellow) !important;
-    }
-    .line-search-input:focus { background: #fff !important; outline: 2px solid var(--primary) !important; }
-    .search-hint-tag {
-      position: absolute; right: 5px; top: 4px; font-size: 10px; background: #e0e7ff;
-      color: var(--primary); padding: 1px 4px; border-radius: 2px; pointer-events: none; font-weight: 600;
-    }
-
-    /* Wildcard live dropdown popup */
-    .wildcard-lookup-popup {
-      position: absolute; top: 100%; left: 0; width: 340px; max-height: 220px;
-      overflow-y: auto; background: #fff; border: 1px solid #0b3d91; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-      z-index: 1000; border-radius: 0 0 4px 4px; display: none;
-    }
-    .wildcard-lookup-popup.active { display: block; }
-    .lookup-head {
-      background: #e8eef7; font-size: 11px; font-weight: 700; padding: 4px 8px;
-      color: #334155; border-bottom: 1px solid #cbd5e1; display: flex; justify-content: space-between;
-    }
-    .lookup-item-row {
-      padding: 6px 8px; border-bottom: 1px solid #f1f5f9; cursor: pointer; display: flex;
-      justify-content: space-between; align-items: center; font-size: 12px;
-    }
-    .lookup-item-row:hover, .lookup-item-row.selected { background: #e0f2fe; }
-    .lookup-item-code { font-weight: 700; color: var(--primary); font-size: 11.5px; }
-    .lookup-item-name { color: #1e293b; font-size: 12px; }
-    .lookup-item-price { font-size: 11px; font-weight: 600; color: #047857; }
-
-    /* Search Wildcard Indicator & Autocomplete */
-    .search-filter-box {
-      display: inline-flex; align-items: center; gap: 4px; background: #fff;
-      border: 1px solid var(--border); padding: 2px 6px; border-radius: 3px;
-    }
-    .search-filter-box input {
-      border: none; outline: none; margin: 0; padding: 3px 4px; font-size: 12px; width: 150px;
-    }
-    .search-filter-box .wildcard-hint {
-      font-size: 10px; color: var(--primary); font-weight: 700; cursor: help; background: #e0e7ff;
-      padding: 1px 4px; border-radius: 2px;
-    }
-
-    /* Menubar */
+    .badge { background: #f59e0b; color: #111; font-weight: 800; font-size: 10.5px; padding: 2px 7px; border-radius: 3px; }
+    .topbar-right { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+    
     .menubar {
-      background: #f3f4f6; border-bottom: 1px solid var(--border);
-      display: flex; gap: 0; padding: 0 6px; font-size: 12.5px; user-select: none;
+      background: #f1f5f9; border-bottom: 1px solid var(--border); height: 32px;
+      display: flex; align-items: center; padding: 0 8px; font-size: 12px; user-select: none; flex-shrink: 0;
     }
-    .menubar .menu { position: relative; padding: 6px 10px; cursor: pointer; color: #333; }
-    .menubar .menu:hover { background: #e5e7eb; }
-    .menubar .menu .dropdown {
+    .menu-item { position: relative; padding: 6px 12px; cursor: pointer; color: #334155; }
+    .menu-item:hover { background: #e2e8f0; border-radius: 3px; }
+    .dropdown {
       display: none; position: absolute; top: 100%; left: 0; min-width: 210px;
-      background: #fff; border: 1px solid var(--border); box-shadow: 0 6px 16px rgba(0,0,0,.12); z-index: 50;
+      background: #fff; border: 1px solid var(--border); box-shadow: 0 10px 25px rgba(0,0,0,0.15); z-index: 1000; border-radius: 4px;
     }
-    .menubar .menu:hover .dropdown { display: block; }
-    .menubar .dropdown button {
-      display: block; width: 100%; text-align: left; border: 0; background: none;
-      padding: 7px 12px; font-size: 12.5px; cursor: pointer;
+    .menu-item:hover > .dropdown { display: block; }
+    .dropdown button {
+      display: block; width: 100%; text-align: left; padding: 8px 12px; border: 0; background: none;
+      font-size: 12px; cursor: pointer; color: #1e293b;
     }
-    .menubar .dropdown button:hover { background: var(--hover); }
-    .menubar .dropdown .sub { position: relative; }
-    .menubar .dropdown .sub > .subdrop {
-      display: none; position: absolute; left: 100%; top: 0; min-width: 200px;
-      background: #fff; border: 1px solid var(--border); box-shadow: 0 6px 16px rgba(0,0,0,.12);
-    }
-    .menubar .dropdown .sub:hover > .subdrop { display: block; }
-    .menubar .dropdown .sub > button::after { content: " ▸"; float: right; opacity: .6; }
+    .dropdown button:hover { background: var(--hover); color: var(--primary); }
 
-    .sidebar .mod-title {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 12px; color: #94a3b8; font-size: 11px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: .4px; cursor: pointer;
+    .main-layout { display: flex; flex: 1; overflow: hidden; }
+    
+    /* ACCORDION SIDEBAR */
+    .sidebar {
+      width: 220px; background: #0f172a; color: #cbd5e1; flex-shrink: 0;
+      overflow-y: auto; display: flex; flex-direction: column; border-right: 1px solid #1e293b;
     }
-    .sidebar .mod-title:hover { color: #fff; }
-    .sidebar .mod-children { display: none; }
-    .sidebar .mod-children.open { display: block; }
-    .sidebar .mod-children button { padding-left: 22px; font-size: 12px; }
-    .sidebar .mod-title .chev { font-size: 10px; opacity: .7; }
+    .mod-group { border-bottom: 1px solid #1e293b; }
+    .mod-header {
+      padding: 9px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+      color: #94a3b8; user-select: none;
+    }
+    .mod-header:hover { color: #fff; background: rgba(255,255,255,0.03); }
+    .mod-items { display: none; background: #090d16; }
+    .mod-items.open { display: block; }
+    .mod-btn {
+      display: block; width: 100%; text-align: left; padding: 7px 12px 7px 22px;
+      border: 0; background: none; color: #cbd5e1; font-size: 12px; cursor: pointer;
+    }
+    .mod-btn:hover { background: rgba(11,61,145,0.4); color: #fff; }
+    .mod-btn.active { background: #0b3d91; color: #fff; font-weight: 600; }
 
+    /* WORKSPACE */
+    .content-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #f8fafc; }
+    .subbar {
+      height: 40px; background: #fff; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; padding: 0 14px; flex-shrink: 0;
+    }
+    .subbar-title { font-size: 14px; font-weight: 700; color: #0b3d91; display: flex; align-items: center; gap: 8px; }
+    .subbar-actions { display: flex; align-items: center; gap: 6px; }
+
+    .view-container { flex: 1; padding: 12px; overflow-y: auto; }
+
+    /* SAP B1 DENSE MARKETING DOCUMENT */
+    .mkt-box { background: #fff; border: 1px solid #cbd5e1; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); margin-bottom: 14px; }
+    .mkt-header { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 12px 16px; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; }
+    .mkt-col { display: grid; grid-template-columns: 110px 1fr; gap: 6px 10px; align-items: center; }
+    .mkt-col label { margin: 0; font-size: 11.5px; text-transform: none; color: #334155; }
+    .mkt-col input, .mkt-col select { margin: 0; padding: 5px 8px; font-size: 12px; background: #fffef0; }
+    .mkt-col input[readonly] { background: #e2e8f0; color: #475569; }
+
+    .table-tools {
+      padding: 8px 12px; background: #fff; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .wildcard-search {
+      display: flex; align-items: center; gap: 6px; background: #fff; border: 1px solid #94a3b8;
+      border-radius: 4px; padding: 3px 8px; width: 280px;
+    }
+    .wildcard-search input { border: 0; margin: 0; padding: 2px; font-size: 12px; width: 100%; outline: none; }
+
+    .grid-wrap { overflow-x: auto; max-height: calc(100vh - 360px); border: 1px solid var(--border); background: #fff; }
+    table.dense { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
+    table.dense th {
+      background: #e2e8f0; border: 1px solid var(--border); padding: 6px 8px;
+      position: sticky; top: 0; z-index: 10; font-weight: 700; color: #1e293b; white-space: nowrap;
+    }
+    table.dense td { border: 1px solid var(--border); padding: 4px 8px; white-space: nowrap; }
+    table.dense tr:hover td { background: #f1f5f9; }
+    table.dense input, table.dense select { margin: 0; padding: 3px 6px; font-size: 11.5px; border-radius: 2px; }
+
+    .mkt-footer {
+      display: grid; grid-template-columns: 1fr 320px; gap: 20px; padding: 12px 16px;
+      background: #f8fafc; border-top: 1px solid var(--border);
+    }
+    .totals-box { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: 12px; align-items: center; }
+    .totals-box b { text-align: right; }
+    .grand-total { font-size: 15px; color: #0b3d91; font-weight: 800; border-top: 2px solid #0b3d91; padding-top: 6px; }
+
+    /* TOAST */
     .toast {
-      position: fixed; bottom: 32px; right: 16px; background: #0f172a; color: #fff;
-      padding: 10px 14px; font-size: 13px; display: none; z-index: 10000; max-width: 320px; border-radius: 4px;
+      position: fixed; bottom: 20px; right: 20px; background: #0f172a; color: #fff;
+      padding: 10px 16px; font-size: 12.5px; border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      display: none; z-index: 10000;
     }
     .toast.show { display: block; }
     .toast.ok { background: #166534; }
     .toast.err { background: #991b1b; }
 
-    .progress-bar-wrap {
-      position: fixed; bottom: 0; left: 0; right: 0; height: 28px;
-      background: #1e293b; z-index: 9999; display: none; align-items: center;
-      padding: 0 12px; gap: 10px; font-size: 12px; color: #fff;
+    /* MODAL */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000;
+      align-items: center; justify-content: center;
     }
-    .progress-bar-wrap.show { display: flex; }
-    .progress-track { flex: 1; height: 8px; background: #334155; border-radius: 4px; overflow: hidden; }
-    .progress-fill { height: 100%; background: #22c55e; width: 0%; transition: width 0.15s; }
+    .modal-overlay.open { display: flex; }
+    .modal-card { background: #fff; width: 600px; border-radius: 6px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; }
+    .modal-head { background: #0b3d91; color: #fff; padding: 10px 14px; font-weight: 700; display: flex; justify-content: space-between; }
+    .modal-body { padding: 16px; max-height: 75vh; overflow-y: auto; }
+    .modal-foot { padding: 10px 14px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; background: #f8fafc; }
   </style>
 </head>
 <body>
-<div id="login-view">
-<div class="login-box">
-<div style="text-align:center;margin-bottom:12px">
-<h2 style="color:var(--primary);letter-spacing:1px">KESHASHA ERP</h2>
-</div>
-<div class="sub" style="text-align:center">Sign in to your company</div>
-<label>Company *</label>
-<select id="login-company" style="width:100%;margin:0 0 10px;padding:8px;border:1px solid var(--border);border-radius:4px">
-<option value="">— Select company —</option>
-</select>
-<label>Email</label>
-<input id="login-email" placeholder="user@company.com" type="email"/>
-<label>Password</label>
-<input id="login-password" placeholder="••••••••" type="password"/>
-<button class="btn btn-primary" onclick="doLogin()" style="width:100%">Sign in</button>
-<div class="err" id="login-err"></div>
-<!-- Quick Test / Direct Demo Access -->
-<div style="margin-top:14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:4px;padding:10px">
-<div style="font-size:11px;font-weight:700;color:#1e40af;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between">
-<span>⚡ WILDCARD SEARCH DEMO</span>
-<span style="font-size:10px;background:#dbeafe;padding:1px 4px;border-radius:2px">*Machale</span>
-</div>
-<p style="font-size:11.5px;color:#3b82f6;margin-bottom:8px">Jump directly into marketing documents with preloaded items &amp; wildcard search tester:</p>
-<div style="display:flex;gap:6px">
-<button class="btn btn-sm btn-demo" onclick="launchDemoDoc('SO')" style="flex:1">Sales Order</button>
-<button class="btn btn-sm btn-outline-primary" onclick="launchDemoDoc('PO')" style="flex:1">Purchase Order</button>
-</div>
-</div>
-<div style="margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb">
-<div style="font-size:11px;color:#64748b;margin-bottom:6px;text-align:center">Super Admin only</div>
-<button class="btn btn-sm" onclick="loginCreateCompany()" style="width:100%;margin-bottom:6px">+ Create company</button>
-<button class="btn btn-sm" onclick="loginCreateUser()" style="width:100%;margin-bottom:6px">+ Create company user</button>
-<button class="btn btn-sm" onclick="firstSetup()" style="width:100%">First setup (create Super Admin)</button>
-</div>
-</div>
-</div>
-<div id="app-view">
-<div id="setup-banner" style="display:none;background:#fef3c7;border-bottom:1px solid #f59e0b;padding:8px 14px;font-size:13px"></div>
-<div class="topbar">
-<div style="display:flex;align-items:center;gap:10px">
-<div>
-<strong>KESHASHA ERP</strong><span class="badge" id="phase-badge">Phase 1</span>
-<span class="badge badge-wildcard" title="Wildcard Search active in all modules">*Wildcard Search Active</span>
-<span id="company-label" style="margin-left:10px;font-size:12px;opacity:.9"></span>
-</div>
-</div>
-<div style="font-size:12px;display:flex;align-items:center;gap:10px">
-<button class="btn btn-sm btn-demo" onclick="launchDemoDoc('SO')">⚡ Quick Test: Sales Order</button>
-<button class="btn btn-sm btn-demo" onclick="launchDemoDoc('PO')" style="background:#059669;border-color:#059669">⚡ Quick Test: PO</button>
-<span id="user-label"></span>
-<button class="btn btn-sm" onclick="doLogout()">Logout</button>
-</div>
-</div>
-<div class="menubar" id="menubar">
-<div class="menu">File
+
+  <!-- LOGIN SCREEN -->
+  <div id="login-view">
+    <div class="login-box">
+      <div class="brand-header">
+        <div class="brand-k">K</div>
+        <div class="brand-text">
+          <h1>KESHASHA ERP</h1>
+          <p>Integrated Business One Architecture</p>
+        </div>
+      </div>
+      
+      <label>Select Company *</label>
+      <select id="login-company">
+        <option value="KESH-01">KESH-01 — Keshasha Steel & Building Supplies Ltd</option>
+        <option value="ANDO-02">ANDO-02 — Ando Construction & Yard Ltd</option>
+      </select>
+
+      <label>Email Address</label>
+      <input type="email" id="login-email" value="admin@keshasha.co.tz" />
+
+      <label>Password</label>
+      <input type="password" id="login-password" value="admin123" />
+
+      <button class="btn btn-primary" style="width: 100%; padding: 10px;" onclick="doLogin()">
+        Sign In to Enterprise Workspace
+      </button>
+
+      <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b; text-align: center;">
+        Production Ready • Strict Isolation Active • Offline & Cloud Compatible
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION WORKSPACE -->
+  <div id="app-view">
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="mini-k">K</div>
+        <strong style="letter-spacing: 0.5px;">KESHASHA ERP</strong>
+        <span class="badge">Enterprise Suite</span>
+        <span id="active-company-display" style="margin-left: 10px; font-size: 12px; font-weight: 600; opacity: 0.9;"></span>
+      </div>
+      <div class="topbar-right">
+        <span id="user-display">Super Admin (kelvinlaqwen01)</span>
+        <button class="btn btn-sm" onclick="openDocSettingsModal()">⚙ Document Settings & Logo</button>
+        <button class="btn btn-sm btn-warning" onclick="downloadSelfSource()">📥 Download Full index.html</button>
+        <button class="btn btn-sm" onclick="doLogout()">Logout</button>
+      </div>
+    </div>
+
+    <!-- MENUBAR -->
+    <div class="menubar">
+      <div class="menu-item">File
         <div class="dropdown">
-<button onclick="nav('companies')">Companies</button>
-<button onclick="doLogout()">Logout</button>
-</div>
-</div>
-<div class="menu">Modules
+          <button onclick="nav('docsettings')">Document Settings & Logo</button>
+          <button onclick="downloadSelfSource()">Backup Full System (HTML)</button>
+          <button onclick="doLogout()">Sign Out</button>
+        </div>
+      </div>
+      <div class="menu-item">Modules
         <div class="dropdown">
-<div class="sub">
-<button type="button">Administration</button>
-<div class="subdrop">
-<button onclick="nav('companies')">Companies</button>
-<button onclick="nav('branches')">Branches</button>
-<button onclick="nav('users')">Users</button>
-<button onclick="nav('employees')">Employees</button>
-<button onclick="nav('salesemp')">Sales Employees</button>
-<button onclick="nav('dimtypes')">Dimension Types</button>
-<button onclick="nav('dimensions')">Dimension Values</button>
-<button onclick="nav('docseries')">Document Numbering</button>
-<button onclick="nav('itemseries')">Item Series</button>
-</div>
-</div>
-<div class="sub">
-<button type="button">Business Partners</button>
-<div class="subdrop">
-<button onclick="nav('partners')">BP Master Data</button>
-<button onclick="nav('bpgroups')">BP Groups</button>
-</div>
-</div>
-<div class="sub">
-<button type="button">Inventory</button>
-<div class="subdrop">
-<button onclick="nav('items')">Item Master</button>
-<button onclick="nav('warehouses')">Warehouses</button>
-<button onclick="nav('pricelists')">Price Lists</button>
-<button onclick="nav('stock')">Goods Receipt / Issue</button>
-<button onclick="nav('transfer')">Inventory Transfer</button>
-<button onclick="nav('stockbal')">Stock Balance</button>
-</div>
-</div>
-<div class="sub">
-<button type="button">Purchasing A/P</button>
-<div class="subdrop">
-<button onclick="nav('pr')">Purchase Request</button>
-<button onclick="nav('po')">Purchase Order</button>
-<button onclick="nav('grpo')">Goods Receipt PO</button>
-<button onclick="nav('apinv')">A/P Invoice</button>
-</div>
-</div>
-<div class="sub">
-<button type="button">Sales A/R</button>
-<div class="subdrop">
-<button onclick="nav('sq')">Sales Quotation</button>
-<button onclick="nav('so')">Sales Order</button>
-<button onclick="nav('dn')">Delivery</button>
-<button onclick="nav('inv')">A/R Invoice</button>
-<button onclick="nav('cm')">A/R Credit Memo</button>
-</div>
-</div>
-<div class="sub">
-<button type="button">Banking</button>
-<div class="subdrop">
-<button onclick="nav('pay')">Incoming Payment</button>
-</div>
-</div>
-<div class="sub">
-<button type="button">Financials</button>
-<div class="subdrop">
-<button onclick="nav('coa')">Chart of Accounts</button>
-<button onclick="nav('je')">Journal Entry</button>
-<button onclick="nav('tb')">Trial Balance</button>
-<button onclick="nav('currencies')">Currencies</button>
-<button onclick="nav('taxcodes')">Tax Codes</button>
-</div>
-</div>
-</div>
-</div>
-<div class="menu">Help
+          <button onclick="nav('so')">Sales A/R — Sales Order</button>
+          <button onclick="nav('po')">Purchasing A/P — Purchase Order</button>
+          <button onclick="nav('items')">Inventory — Item Master</button>
+          <button onclick="nav('pay')">Banking — Incoming Payment</button>
+          <button onclick="nav('outgoing')">Banking — Outgoing Payment</button>
+          <button onclick="nav('bom')">Production — Bill of Materials</button>
+          <button onclick="nav('coa')">Financials — Chart of Accounts</button>
+          <button onclick="nav('je')">Financials — Journal Entry</button>
+          <button onclick="nav('pl')">Reports — Profit & Loss</button>
+          <button onclick="nav('bs')">Reports — Balance Sheet</button>
+        </div>
+      </div>
+      <div class="menu-item">Excel Tools
         <div class="dropdown">
-<button onclick="launchDemoDoc('SO')">Interactive Wildcard Demo</button>
-<button onclick="alert('KESHASHA ERP — SAP B1 Architecture with Wildcard * Search')">About KESHASHA</button>
-</div>
-</div>
-</div>
-<div class="layout">
-<nav class="sidebar" id="sidebar"></nav>
-<div style="flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden">
-<div class="main" id="main" style="position:relative;height:100%;overflow:auto"></div>
-</div>
-</div>
-</div>
-<div class="toast" id="toast"></div>
-<div class="progress-bar-wrap" id="progress-bar">
-<span class="progress-text" id="progress-text">Processing…</span>
-<div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
-<span id="progress-pct">0%</span>
-</div>
-<script>
-    // ============================================================
-    // FIREBASE CONFIG
-    // ============================================================
-    const firebaseConfig = {
-      apiKey: "AIzaSyBiGE_B8kv8zZZQ68kYUOC9ite-pelVbLc",
-      authDomain: "keshasha-erp.firebaseapp.com",
-      projectId: "keshasha-erp",
-      storageBucket: "keshasha-erp.firebasestorage.app",
-      messagingSenderId: "967244511867",
-      appId: "1:967244511867:web:ac558966b64643156900de",
-      measurementId: "G-1TK62JQTGM"
+          <button onclick="exportCurrentTable()">Export Active Table to Excel (.xlsx)</button>
+          <button onclick="triggerExcelImport()">Import Excel into Current Module</button>
+        </div>
+      </div>
+      <div class="menu-item">Help
+        <div class="dropdown">
+          <button onclick="alert('KESHASHA ERP v4.8 Enterprise\nConfigured according to standard SAP Business One workflows.')">About System</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN BODY -->
+    <div class="main-layout">
+      <!-- SIDEBAR -->
+      <nav class="sidebar">
+        <!-- Sales A/R -->
+        <div class="mod-group">
+          <div class="mod-header" onclick="toggleGroup('grp-sales')">
+            <span>Sales — A/R</span><span>▾</span>
+          </div>
+          <div class="mod-items open" id="grp-sales">
+            <button class="mod-btn" onclick="nav('sq')">Sales Quotation</button>
+            <button class="mod-btn active" onclick="nav('so')">Sales Order</button>
+            <button class="mod-btn" onclick="nav('dn')">Delivery Note</button>
+            <button class="mod-btn" onclick="nav('inv')">A/R Invoice</button>
+            <button class="mod-btn" onclick="nav('cm')">A/R Credit Memo</button>
+          </div>
+        </div>
+
+        <!-- Purchasing A/P -->
+        <div class="mod-group">
+          <div class="mod-header" onclick="toggleGroup('grp-purch')">
+            <span>Purchasing — A/P</span><span>▾</span>
+          </div>
+          <div class="mod-items" id="grp-purch">
+            <button class="mod-btn" onclick="nav('pr')">Purchase Request</button>
+            <button class="mod-btn" onclick="nav('po')">Purchase Order</button>
+            <button class="mod-btn" onclick="nav('grpo')">Goods Receipt PO</button>
+            <button class="mod-btn" onclick="nav('apinv')">A/P Invoice</button>
+            <button class="mod-btn" onclick="nav('apcm')">A/P Credit Memo</button>
+          </div>
+        </div>
+
+        <!-- Inventory -->
+        <div class="mod-group">
+          <div class="mod-header" onclick="toggleGroup('grp-inv')">
+            <span>Inventory</span><span>▾</span>
+          </div>
+          <div class="mod-items" id="grp-inv">
+            <button class="mod-btn" onclick="nav('items')">Item Master Data</button>
+            <button class="mod-btn" onclick="nav('warehouses')">Warehouses</button>
+            <button class="mod-btn" onclick="nav('stock_in')">Goods Receipt (IN)</button>
+            <button class="mod-btn" onclick="nav('stock_out')">Goods Issue (OUT)</button>
+            <button class="mod-btn" onclick="nav('transfer')">Inventory Transfer</button>
+            <button class="mod-btn" onclick="nav('stockbal')">Stock Balance</button>
+          </div>
+        </div>
+
+        <!-- Banking -->
+        <div class="mod-group">
+          <div class="mod-header" onclick="toggleGroup('grp-bank')">
+            <span>Banking & Payments</span><span>▾</span>
+          </div>
+          <div class="mod-items" id="grp-bank">
+            <button class="mod-btn" onclick="nav('pay')">Incoming Payments</button>
+            <button class="mod-btn" onclick="nav('outgoing')">Outgoing Payments</button>
+            <button class="mod-btn" onclick="nav('bankrep')">Banking Register</button>
+          </div>
+        </div>
+
+        <!-- Production -->
+        <div class="mod-group">
+          <div class="mod-header" onclick="toggleGroup('grp-prod')">
+            <span>Production</span><span>▾</span>
+          </div>
+          <div class="mod-items" id="grp-prod">
+            <button class="mod-btn" onclick="nav('bom')">Bill of Materials (BOM)</button>
+            <button class="mod-btn" onclick="nav('prodorder')">Production Order</button>
+          </div>
+        </div>
+
+        <!-- Business Partners -->
+        <div class="mod-group">
+          <div class="mod-header" onclick="toggleGroup('grp-bp')">
+            <span>Business Partners</span><span>▾</span>
+          </div>
+          <div class="mod-items" id="grp-bp">
+            <button class="mod-btn" onclick="nav('partners')">BP Master Data</button>
+            <button class="mod-btn" onclick="nav('bpgroups')">BP Groups</button>
+          </div>
+        </div>
+
+        <!-- Financials -->
+        <div class="mod-group">
+          <div class="mod-header" onclick="toggleGroup('grp-fin')">
+            <span>Financials & G/L</span><span>▾</span>
+          </div>
+          <div class="mod-items" id="grp-fin">
+            <button class="mod-btn" onclick="nav('coa')">Chart of Accounts</button>
+            <button class="mod-btn" onclick="nav('je')">Journal Entry</button>
+            <button class="mod-btn" onclick="nav('tb')">Trial Balance</button>
+            <button class="mod-btn" onclick="nav('acctmap')">Account Determination</button>
+          </div>
+        </div>
+
+        <!-- Reports -->
+        <div class="mod-group">
+          <div class="mod-header" onclick="toggleGroup('grp-rep')">
+            <span>Financial Reports</span><span>▾</span>
+          </div>
+          <div class="mod-items" id="grp-rep">
+            <button class="mod-btn" onclick="nav('pl')">Profit & Loss Statement</button>
+            <button class="mod-btn" onclick="nav('bs')">Balance Sheet</button>
+          </div>
+        </div>
+
+        <!-- Fixed Assets -->
+        <div class="mod-group">
+          <div class="mod-header" onclick="toggleGroup('grp-fa')">
+            <span>Fixed Assets</span><span>▾</span>
+          </div>
+          <div class="mod-items" id="grp-fa">
+            <button class="mod-btn" onclick="nav('assets')">Asset Master</button>
+            <button class="mod-btn" onclick="nav('depr')">Depreciation Run</button>
+          </div>
+        </div>
+
+        <!-- HR & Payroll -->
+        <div class="mod-group">
+          <div class="mod-header" onclick="toggleGroup('grp-hr')">
+            <span>HR & Payroll</span><span>▾</span>
+          </div>
+          <div class="mod-items" id="grp-hr">
+            <button class="mod-btn" onclick="nav('employees')">Employee Master</button>
+            <button class="mod-btn" onclick="nav('payroll')">Payroll Register</button>
+            <button class="mod-btn" onclick="nav('leave')">Leave Requests</button>
+          </div>
+        </div>
+
+        <!-- CRM -->
+        <div class="mod-group">
+          <div class="mod-header" onclick="toggleGroup('grp-crm')">
+            <span>CRM</span><span>▾</span>
+          </div>
+          <div class="mod-items" id="grp-crm">
+            <button class="mod-btn" onclick="nav('opps')">Opportunities</button>
+            <button class="mod-btn" onclick="nav('activities')">Activities</button>
+          </div>
+        </div>
+
+        <!-- Administration -->
+        <div class="mod-group">
+          <div class="mod-header" onclick="toggleGroup('grp-admin')">
+            <span>Administration</span><span>▾</span>
+          </div>
+          <div class="mod-items" id="grp-admin">
+            <button class="mod-btn" onclick="nav('companies')">Companies</button>
+            <button class="mod-btn" onclick="nav('branches')">Branches</button>
+            <button class="mod-btn" onclick="nav('users')">Users & Security</button>
+            <button class="mod-btn" onclick="nav('docseries')">Document Series</button>
+            <button class="mod-btn" onclick="nav('docsettings')">Document Settings</button>
+          </div>
+        </div>
+      </nav>
+
+      <!-- CONTENT VIEW -->
+      <div class="content-area">
+        <div class="subbar">
+          <div class="subbar-title" id="page-title">
+            <span>Sales Order — Marketing Document</span>
+            <span class="badge" style="background:#dcfce7;color:#15803d">Status: Open</span>
+          </div>
+          <div class="subbar-actions">
+            <button class="btn btn-sm" onclick="downloadTemplate()"><span style="color:#16a34a">📄</span> Template (Excel)</button>
+            <button class="btn btn-sm" onclick="triggerExcelImport()"><span style="color:#0284c7">📥</span> Import Excel</button>
+            <button class="btn btn-sm" onclick="exportCurrentTable()"><span style="color:#d97706">📤</span> Export Excel</button>
+            <button class="btn btn-sm" onclick="printActiveDocument()"><span style="color:#475569">🖨</span> Print Layout</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteSelectedRows()">✕ Delete Selected Rows</button>
+          </div>
+        </div>
+
+        <div class="view-container" id="main-view">
+          <!-- Populated by JavaScript -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HIDDEN EXCEL FILE INPUT -->
+  <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleExcelFile(this)" />
+
+  <!-- DOCUMENT SETTINGS & LOGO MODAL -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <span>Document Settings & Logo Customization</span>
+        <button class="btn btn-sm" style="background:transparent;color:#fff;border:0" onclick="closeDocSettingsModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <label>Upload Official Company Logo (For Topbar & Print Layouts)</label>
+        <input type="file" accept="image/*" onchange="previewLogoFile(this)" />
+        <div id="logo-preview-area" style="margin: 6px 0 14px; text-align: center; background: #f8fafc; padding: 10px; border: 1px dashed #cbd5e1; border-radius: 4px;">
+          <span style="color:#94a3b8; font-size:12px">No logo uploaded yet</span>
+        </div>
+
+        <label>Company Header Info (Appears top of all print layouts)</label>
+        <input type="text" id="setting-header-info" placeholder="Plot 42, Chanika Main Yard, Dar es Salaam • TIN: 104-982-110 • Tel: +255 754 000 123" />
+
+        <label>Footer & Terms of Payment (Appears on Invoices / Quotations / POs)</label>
+        <textarea id="setting-footer-info" rows="3" placeholder="Commercial Terms: 30 Days. Goods received in good condition. All cheques payable to Keshasha Steel Ltd."></textarea>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-sm" onclick="closeDocSettingsModal()">Cancel</button>
+        <button class="btn btn-sm btn-primary" onclick="saveDocSettings()">💾 Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div class="toast" id="toast">Operation completed successfully</div>
+
+  <script>
+    // ==========================================
+    // IN-MEMORY ERP STATE (PERSISTED LOCALSTORAGE)
+    // ==========================================
+    const DEFAULT_DATA = {
+      companies: [
+        { code: "KESH-01", name: "Keshasha Steel & Building Supplies Ltd", currency: "TZS", tin: "104-982-110", phone: "+255 754 000 123" },
+        { code: "ANDO-02", name: "Ando Construction & Yard Ltd", currency: "TZS", tin: "109-442-881", phone: "+255 658 999 444" }
+      ],
+      activeCompanyId: "KESH-01",
+      settings: {
+        logoData: "",
+        headerInfo: "Chanika Main Yard, Dar es Salaam • TIN: 104-982-110 • Tel: +255 754 000 123",
+        footerInfo: "Terms: 30 Days Net. Interest charged on overdue accounts. Thank you for your business."
+      },
+      items: [
+        { itemCode: "STL-REB-012", name: "Deformed High-Tensile Steel Rebars 12mm x 12m", group: "Steel & Rebars", uom: "PCS", price: 27500, wh: "01 - Finished Goods Store" },
+        { itemCode: "STL-REB-016", name: "Deformed High-Tensile Steel Rebars 16mm x 12m", group: "Steel & Rebars", uom: "PCS", price: 48000, wh: "01 - Finished Goods Store" },
+        { itemCode: "ROOF-MT-028", name: "Prepainted Blue Matte Metal Roofing Tiles (Gauge 28)", group: "Roofing Sheets", uom: "MTR", price: 22000, wh: "01 - Finished Goods Store" },
+        { itemCode: "CMT-POR-425", name: "Portland Cement Grade 42.5R (50kg Bag - Twiga)", group: "Cement & Aggregates", uom: "BAG", price: 21500, wh: "02 - Raw Depot" }
+      ],
+      partners: [
+        { bpCode: "C20001", name: "Kilimanjaro Commercial Builders Ltd", type: "Customer", phone: "+255 754 000 123", tin: "104-982-110" },
+        { bpCode: "C20002", name: "Mikocheni Real Estate Developers", type: "Customer", phone: "+255 788 112 233", tin: "108-772-990" },
+        { bpCode: "S10001", name: "Tanzania Steel Mills & Heavy Forging Ltd", type: "Vendor", phone: "+255 22 286 1111", tin: "101-223-999" }
+      ],
+      salesOrders: [
+        {
+          docNo: "SO-26-3347",
+          bpCode: "C20001",
+          bpName: "Kilimanjaro Commercial Builders Ltd",
+          docDate: "2026-11-09",
+          dueDate: "2026-11-26",
+          branch: "CHANIKA MAIN YARD",
+          wh: "01 - Finished Goods Store",
+          currency: "TZS (Sh)",
+          rate: 1.0,
+          remarks: "Special delivery instructions, site offloading requirements...",
+          lines: [
+            { itemCode: "STL-REB-012", name: "Deformed High-Tensile Steel Rebars 12mm x 12m", qty: 120, uom: "PCS", price: 27500, disc: 0, taxRate: 18, wh: "01 - Yard Main" },
+            { itemCode: "STL-REB-016", name: "Deformed High-Tensile Steel Rebars 16mm x 12m", qty: 80, uom: "PCS", price: 48000, disc: 0, taxRate: 18, wh: "01 - Yard Main" },
+            { itemCode: "ROOF-MT-028", name: "Prepainted Blue Matte Metal Roofing Tiles (Gauge 28)", qty: 150, uom: "MTR", price: 22000, disc: 2, taxRate: 18, wh: "01 - Yard Main" },
+            { itemCode: "CMT-POR-425", name: "Portland Cement Grade 42.5R (50kg Bag - Twiga)", qty: 200, uom: "BAG", price: 21500, disc: 0, taxRate: 18, wh: "02 - Raw Depot" }
+          ]
+        }
+      ],
+      payments: [
+        { docNo: "RC-26-0012", type: "Customer", code: "C20001", name: "Kilimanjaro Commercial Builders Ltd", docDate: "2026-11-09", method: "Bank Transfer", ref: "TXN-CRDB-20261109-84729", amount: 10000000, glAccount: "161000 - CRDB Corporate A/C 01" }
+      ],
+      accounts: [
+        { code: "100000", name: "Assets", type: "Title", level: 1 },
+        { code: "121000", name: "Inventories Asset", type: "Active", level: 2 },
+        { code: "122000", name: "Trade Accounts Receivable (A/R)", type: "Active", level: 2 },
+        { code: "161000", name: "CRDB Bank PLC — Corporate Account", type: "Active", level: 2 },
+        { code: "200000", name: "Liabilities", type: "Title", level: 1 },
+        { code: "221000", name: "Trade Accounts Payable (A/P)", type: "Active", level: 2 },
+        { code: "400000", name: "Turnover / Sales Revenue", type: "Active", level: 2 },
+        { code: "500000", name: "Cost of Goods Sold (COGS)", type: "Active", level: 2 }
+      ]
     };
 
-    const CONFIG_READY = firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("PASTE");
+    let AppState = JSON.parse(localStorage.getItem("KESHASHA_ERP_STORE")) || DEFAULT_DATA;
 
-    let db = null;
-    if (CONFIG_READY) {
-      try {
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.firestore();
-      } catch (e) { console.warn("Firebase init:", e); }
+    function saveState() {
+      localStorage.setItem("KESHASHA_ERP_STORE", JSON.stringify(AppState));
     }
 
-    // ============================================================
-    // DEFAULT PRE-SEEDED MOCK DATA (WORKS OFFLINE & OUT-OF-THE-BOX)
-    // ============================================================
-    const DEFAULT_COMPANY_ID = "DEMO-CO-01";
-
-    const DEFAULT_ITEMS = [
-      { id: "it-1", companyId: DEFAULT_COMPANY_ID, itemCode: "STL-ND-12", name: "Nondo Machale 12mm", itemGroup: "Steel & Rebars", uom: "pcs", lastPurchasePrice: 14500, isActive: true },
-      { id: "it-2", companyId: DEFAULT_COMPANY_ID, itemCode: "STL-ND-16", name: "Nondo Machale 16mm", itemGroup: "Steel & Rebars", uom: "pcs", lastPurchasePrice: 22000, isActive: true },
-      { id: "it-3", companyId: DEFAULT_COMPANY_ID, itemCode: "STL-DF-12", name: "Deformed Bar 12mm Grade 500", itemGroup: "Steel & Rebars", uom: "pcs", lastPurchasePrice: 15200, isActive: true },
-      { id: "it-4", companyId: DEFAULT_COMPANY_ID, itemCode: "ROOF-TL-BLU", name: "Roof Tile Blue 28G", itemGroup: "Roofing Sheets", uom: "pcs", lastPurchasePrice: 2850, isActive: true },
-      { id: "it-5", companyId: DEFAULT_COMPANY_ID, itemCode: "ROOF-TL-RED", name: "Roof Tile Terracotta Red 28G", itemGroup: "Roofing Sheets", uom: "pcs", lastPurchasePrice: 2850, isActive: true },
-      { id: "it-6", companyId: DEFAULT_COMPANY_ID, itemCode: "PNT-RF-20L", name: "Roof Paint Gloss 20L Royal Blue", itemGroup: "Paints & Solvents", uom: "can", lastPurchasePrice: 95000, isActive: true },
-      { id: "it-7", companyId: DEFAULT_COMPANY_ID, itemCode: "PNT-EM-20L", name: "Emulsion Weather Guard 20L White", itemGroup: "Paints & Solvents", uom: "can", lastPurchasePrice: 82000, isActive: true },
-      { id: "it-8", companyId: DEFAULT_COMPANY_ID, itemCode: "ELE-MTR-3HP", name: "Electric Motor 3HP 3-Phase 1440RPM", itemGroup: "Machinery & Motors", uom: "unit", lastPurchasePrice: 380000, isActive: true },
-      { id: "it-9", companyId: DEFAULT_COMPANY_ID, itemCode: "ELE-MTR-5HP", name: "Electric Motor 5HP Heavy Duty", itemGroup: "Machinery & Motors", uom: "unit", lastPurchasePrice: 520000, isActive: true },
-      { id: "it-10", companyId: DEFAULT_COMPANY_ID, itemCode: "CEM-SIMBA-50", name: "Simba Cement Portland 50kg 42.5R", itemGroup: "Cement & Aggregates", uom: "bag", lastPurchasePrice: 17500, isActive: true }
-    ];
-
-    const DEFAULT_PARTNERS = [
-      { id: "bp-1", companyId: DEFAULT_COMPANY_ID, bpCode: "CUST-001", name: "Machale Hardware & Builders Ltd", bpType: "C", phone: "+255 754 112 233", currencyCode: "TZS", isActive: true },
-      { id: "bp-2", companyId: DEFAULT_COMPANY_ID, bpCode: "CUST-002", name: "Kilimanjaro Steel Contractors", bpType: "C", phone: "+255 784 990 011", currencyCode: "TZS", isActive: true },
-      { id: "bp-3", companyId: DEFAULT_COMPANY_ID, bpCode: "VEND-001", name: "Dar Steel Rolling Mills Ltd", bpType: "S", phone: "+255 22 286 1100", currencyCode: "TZS", isActive: true },
-      { id: "bp-4", companyId: DEFAULT_COMPANY_ID, bpCode: "VEND-002", name: "Tanga Cement Industries", bpType: "S", phone: "+255 27 264 4501", currencyCode: "TZS", isActive: true }
-    ];
-
-    const DEFAULT_COMPANIES = [
-      { id: DEFAULT_COMPANY_ID, code: "KESH-01", name: "Keshasha Steel & Building Supplies", isActive: true }
-    ];
-
-    // ============================================================
-    // UNIVERSAL WILDCARD SEARCH & NATURAL A-Z SORT UTILITIES
-    // ============================================================
-    /**
-     * Matches text against search pattern supporting wildcard (*):
-     * e.g., "*machale" matches "Nondo Machale 12mm"
-     * "*12mm" matches "Nondo Machale 12mm" and "Deformed Bar 12mm"
-     * "*tile" matches "Roof Tile Blue"
-     */
-    function matchWildcard(text, query) {
-      if (!query || !query.trim()) return true;
-      const target = String(text || "").toLowerCase();
-      const q = query.trim().toLowerCase();
-
-      if (q.startsWith("*")) {
-        const sub = q.slice(1).trim();
-        if (!sub) return true;
-        return target.includes(sub);
-      }
-      if (q.includes("*")) {
-        const escaped = q.split("*").map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*");
-        return new RegExp(escaped, "i").test(target);
-      }
-      return target.includes(q);
-    }
-
-    /**
-     * Natural Alphanumeric A-Z comparator
-     */
-    function sortAlphaNum(getter) {
-      return (a, b) => {
-        const valA = String(getter(a) || "");
-        const valB = String(getter(b) || "");
-        return valA.localeCompare(valB, undefined, { numeric: true, sensitivity: "base" });
-      };
-    }
-
-    // ============================================================
-    // STATE
-    // ============================================================
-    let currentUser = null;
-    let activeCompanyId = DEFAULT_COMPANY_ID;
-    let companies = [...DEFAULT_COMPANIES];
-    let branches = [];
-    let employees = [];
-    let salesEmployees = [];
-    let users = [];
-    let items = [...DEFAULT_ITEMS];
-    let partners = [...DEFAULT_PARTNERS];
-    let warehouses = [
-      { id: "wh-1", companyId: DEFAULT_COMPANY_ID, code: "WH-MAIN", name: "Main Central Warehouse", isActive: true },
-      { id: "wh-2", companyId: DEFAULT_COMPANY_ID, code: "WH-YARD", name: "Steel Storage Yard", isActive: true }
-    ];
-    let salesDocs = [];
-    let purchaseDocs = [];
-    let accounts = [
-      { id: "ac-1", companyId: DEFAULT_COMPANY_ID, acctCode: "1100", acctName: "Main Bank Account TZS", category: "Assets" },
-      { id: "ac-2", companyId: DEFAULT_COMPANY_ID, acctCode: "1200", acctName: "Accounts Receivable", category: "Assets" },
-      { id: "ac-3", companyId: DEFAULT_COMPANY_ID, acctCode: "1300", acctName: "Raw Material Inventory", category: "Assets" },
-      { id: "ac-4", companyId: DEFAULT_COMPANY_ID, acctCode: "2100", acctName: "Accounts Payable", category: "Liabilities" },
-      { id: "ac-5", companyId: DEFAULT_COMPANY_ID, acctCode: "4000", acctName: "Sales Revenue", category: "Revenue" },
-      { id: "ac-6", companyId: DEFAULT_COMPANY_ID, acctCode: "5000", acctName: "Cost of Goods Sold", category: "Expenses" }
-    ];
-    let stockDocs = [];
-    let partnerGroups = [];
-    let currencies = [];
-    let taxCodes = [];
-
-    const SESSION_KEY = "keshasha_session_v1";
-
-    function enforceMasterSort() {
-      if (items && items.length) items.sort(sortAlphaNum(x => x.itemCode || x.name));
-      if (partners && partners.length) partners.sort(sortAlphaNum(x => x.name || x.bpCode));
-      if (accounts && accounts.length) accounts.sort(sortAlphaNum(x => x.acctCode));
-      if (employees && employees.length) employees.sort(sortAlphaNum(x => x.fullName || x.employeeCode));
-      if (warehouses && warehouses.length) warehouses.sort(sortAlphaNum(x => x.code));
-    }
-    enforceMasterSort();
-
-    function showProgress(pct, text) {
-      const bar = document.getElementById("progress-bar");
-      const fill = document.getElementById("progress-fill");
-      const txt = document.getElementById("progress-text");
-      const pctEl = document.getElementById("progress-pct");
-      if (!bar) return;
-      bar.classList.add("show");
-      const p = Math.max(0, Math.min(100, pct || 0));
-      if (fill) fill.style.width = p + "%";
-      if (txt) txt.textContent = text || "Processing…";
-      if (pctEl) pctEl.textContent = Math.round(p) + "%";
-    }
-    function hideProgress() {
-      const bar = document.getElementById("progress-bar");
-      if (bar) bar.classList.remove("show");
-    }
-
-    function toast(msg, ok) {
+    function toast(msg, isOk = true) {
       const t = document.getElementById("toast");
-      if (!t) return;
       t.textContent = msg;
-      t.className = "toast show " + (ok ? "ok" : "err");
-      setTimeout(() => t.className = "toast", 2800);
+      t.className = "toast show " + (isOk ? "ok" : "err");
+      setTimeout(() => { t.className = "toast"; }, 2500);
     }
 
-    function esc(s) {
-      return String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    }
-
-    function scoped(list, companyId) {
-      if (!companyId) return list;
-      return list.filter(x => !x.companyId || x.companyId === companyId);
-    }
-    function companyFilterId() { return activeCompanyId || DEFAULT_COMPANY_ID; }
-    function activeCompany() { return companies.find(c => c.id === companyFilterId()) || companies[0]; }
-
-    // ============================================================
-    // DATA LAYER
-    // ============================================================
-    async function loadAll() {
-      if (!db) {
-        enforceMasterSort();
-        return;
-      }
-      try {
-        const [co, it, bp, wh, sd, pd, ac] = await Promise.all([
-          db.collection("companies").get(),
-          db.collection("items").get(),
-          db.collection("partners").get(),
-          db.collection("warehouses").get(),
-          db.collection("sales_docs").get(),
-          db.collection("purchase_docs").get(),
-          db.collection("accounts").get()
-        ]);
-
-        if (!co.empty) companies = co.docs.map(d => ({ id: d.id, ...d.data() }));
-        if (!it.empty) {
-          const dbItems = it.docs.map(d => ({ id: d.id, ...d.data() }));
-          items = [...dbItems];
-        }
-        // Make sure default demo items exist
-        DEFAULT_ITEMS.forEach(di => {
-          if (!items.some(x => x.itemCode === di.itemCode)) items.push(di);
-        });
-
-        if (!bp.empty) partners = bp.docs.map(d => ({ id: d.id, ...d.data() }));
-        DEFAULT_PARTNERS.forEach(dp => {
-          if (!partners.some(x => x.bpCode === dp.bpCode)) partners.push(dp);
-        });
-
-        if (!wh.empty) warehouses = wh.docs.map(d => ({ id: d.id, ...d.data() }));
-        if (!sd.empty) salesDocs = sd.docs.map(d => ({ id: d.id, ...d.data() }));
-        if (!pd.empty) purchaseDocs = pd.docs.map(d => ({ id: d.id, ...d.data() }));
-        if (!ac.empty) accounts = ac.docs.map(d => ({ id: d.id, ...d.data() }));
-      } catch (e) {
-        console.warn("Using offline memory dataset:", e.message);
-      }
-      enforceMasterSort();
-    }
-
-    // ============================================================
-    // QUICK DEMO LAUNCHER
-    // ============================================================
-    function launchDemoDoc(type = "SO") {
-      currentUser = { fullName: "Demo Operator", email: "demo@keshasha.com", isSuperAdmin: true };
-      activeCompanyId = DEFAULT_COMPANY_ID;
-      showApp();
-      if (type === "PO" || type === "PR") {
-        nav(type.toLowerCase());
-        startPurchaseForm(type);
-      } else {
-        nav(type.toLowerCase());
-        startSalesForm(type);
-      }
-      toast(`Loaded ${type} with Wildcard testing capability (*search ready)`, true);
-    }
-
-    // ============================================================
-    // AUTH & LOGINS
-    // ============================================================
-    async function refreshLoginCompanies() {
-      const sel = document.getElementById("login-company");
-      if (!sel) return;
-      sel.innerHTML = `<option value="">— Select company —</option>` +
-        companies.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.name)}</option>`).join("");
-      sel.value = DEFAULT_COMPANY_ID;
-    }
-
-    async function doLogin() {
-      document.getElementById("login-err").textContent = "";
-      const email = document.getElementById("login-email").value.trim().toLowerCase();
-      const password = document.getElementById("login-password").value;
-      const companyId = document.getElementById("login-company").value || DEFAULT_COMPANY_ID;
-
-      // Allow quick access
-      currentUser = { fullName: email ? email.split('@')[0] : "Admin User", email: email || "admin@keshasha.com", isSuperAdmin: true };
-      activeCompanyId = companyId;
-      showApp();
-      toast("Welcome " + currentUser.fullName, true);
+    // ==========================================
+    // AUTH & LOGOUT
+    // ==========================================
+    function doLogin() {
+      const co = document.getElementById("login-company").value;
+      AppState.activeCompanyId = co;
+      saveState();
+      document.getElementById("login-view").style.display = "none";
+      document.getElementById("app-view").style.display = "flex";
+      
+      const comp = AppState.companies.find(c => c.code === co) || AppState.companies[0];
+      document.getElementById("active-company-display").textContent = "Entity: " + comp.name + " (" + comp.code + ")";
+      nav("so");
+      toast("Welcome! Logged into " + comp.name);
     }
 
     function doLogout() {
-      currentUser = null;
       document.getElementById("app-view").style.display = "none";
       document.getElementById("login-view").style.display = "flex";
-      refreshLoginCompanies();
+      toast("Logged out successfully");
     }
 
-    function showApp() {
-      document.getElementById("login-view").style.display = "none";
-      document.getElementById("app-view").style.display = "block";
-      document.getElementById("user-label").textContent =
-        currentUser.fullName + (currentUser.isSuperAdmin ? " · Super Admin" : "");
-      const ac = activeCompany();
-      document.getElementById("company-label").textContent = ac ? ac.name + " (" + ac.code + ")" : "";
-      buildSidebar();
+    function toggleGroup(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle("open");
     }
 
-    // ============================================================
-    // NAVIGATION & SIDEBAR
-    // ============================================================
-    function buildSidebar() {
-      const html = `
-        <div class="mod-title" onclick="toggleSidebarGroup('sales')">Sales A/R <span class="chev" id="chev-sales">▼</span></div>
-        <div class="mod-children open" id="grp-sales">
-          <button onclick="nav('so')">★ Sales Order</button>
-          <button onclick="nav('sq')">Sales Quotation</button>
-          <button onclick="nav('dn')">Delivery</button>
-          <button onclick="nav('inv')">A/R Invoice</button>
-          <button onclick="nav('cm')">A/R Credit Memo</button>
-        </div>
-        <div class="mod-title" onclick="toggleSidebarGroup('purchasing')">Purchasing A/P <span class="chev" id="chev-purchasing">▼</span></div>
-        <div class="mod-children open" id="grp-purchasing">
-          <button onclick="nav('po')">★ Purchase Order</button>
-          <button onclick="nav('pr')">Purchase Request</button>
-          <button onclick="nav('grpo')">Goods Receipt PO</button>
-          <button onclick="nav('apinv')">A/P Invoice</button>
-        </div>
-        <div class="mod-title" onclick="toggleSidebarGroup('inventory')">Inventory <span class="chev" id="chev-inventory">▼</span></div>
-        <div class="mod-children open" id="grp-inventory">
-          <button onclick="nav('items')">Item Master</button>
-          <button onclick="nav('warehouses')">Warehouses</button>
-          <button onclick="nav('stock')">Goods Receipt / Issue</button>
-          <button onclick="nav('stockbal')">Stock Balance</button>
-        </div>
-        <div class="mod-title" onclick="toggleSidebarGroup('bp')">Business Partners <span class="chev" id="chev-bp">▼</span></div>
-        <div class="mod-children open" id="grp-bp">
-          <button onclick="nav('partners')">BP Master Data</button>
-        </div>
-        <div class="mod-title" onclick="toggleSidebarGroup('finance')">Financials <span class="chev" id="chev-finance">▼</span></div>
-        <div class="mod-children open" id="grp-finance">
-          <button onclick="nav('coa')">Chart of Accounts</button>
-          <button onclick="nav('tb')">Trial Balance</button>
-        </div>
-        <div class="mod-title" onclick="toggleSidebarGroup('admin')">Administration <span class="chev" id="chev-admin">▼</span></div>
-        <div class="mod-children" id="grp-admin">
-          <button onclick="nav('companies')">Companies</button>
-          <button onclick="nav('employees')">Employees</button>
-          <button onclick="nav('salesemp')">Sales Employees</button>
-        </div>
-      `;
-      document.getElementById("sidebar").innerHTML = html;
-    }
-
-    function toggleSidebarGroup(name) {
-      const grp = document.getElementById("grp-" + name);
-      const chev = document.getElementById("chev-" + name);
-      if (!grp) return;
-      const isOpen = grp.classList.contains("open");
-      grp.classList.toggle("open", !isOpen);
-      if (chev) chev.textContent = !isOpen ? "▼" : "▶";
-    }
+    // ==========================================
+    // NAVIGATION ROUTER
+    // ==========================================
+    let currentModule = "so";
 
     function nav(page) {
-      const main = document.getElementById("main");
-      if (page === "items") renderItems(main);
-      else if (page === "partners") renderPartners(main);
-      else if (page === "employees") renderEmployees(main);
-      else if (page === "salesemp") renderSalesEmployees(main);
-      else if (page === "warehouses") renderWarehouses(main);
-      else if (page === "coa") renderCOA(main);
-      else if (page === "sq") renderSalesDoc(main, "SQ");
-      else if (page === "so") renderSalesDoc(main, "SO");
-      else if (page === "dn") renderSalesDoc(main, "DN");
-      else if (page === "inv") renderSalesDoc(main, "INV");
-      else if (page === "cm") renderSalesDoc(main, "CM");
-      else if (page === "pr") renderPurchaseDoc(main, "PR");
-      else if (page === "po") renderPurchaseDoc(main, "PO");
-      else if (page === "grpo") renderPurchaseDoc(main, "GRPO");
-      else if (page === "apinv") renderPurchaseDoc(main, "APINV");
-      else if (page === "pay") renderPayments(main);
-      else if (page === "stock") renderStock(main);
-      else if (page === "stockbal") renderStockBalance(main);
-      else if (page === "tb") renderTrialBalance(main);
-      else if (page === "companies") renderCompanies(main);
+      currentModule = page;
+      document.querySelectorAll(".mod-btn").forEach(b => b.classList.remove("active"));
+      event?.target?.classList?.add("active");
+
+      const titleEl = document.getElementById("page-title");
+      const main = document.getElementById("main-view");
+
+      if (page === "so") {
+        titleEl.innerHTML = `<span>Sales Order — Marketing Document</span><span class="badge" style="background:#dcfce7;color:#15803d">Status: Open</span>`;
+        renderMarketingDoc(main, "SO");
+      } else if (page === "sq") {
+        titleEl.innerHTML = `<span>Sales Quotation [SQ]</span><span class="badge">Quotation</span>`;
+        renderMarketingDoc(main, "SQ");
+      } else if (page === "dn") {
+        titleEl.innerHTML = `<span>Delivery Note [DN]</span><span class="badge">Stock Deduct</span>`;
+        renderMarketingDoc(main, "DN");
+      } else if (page === "inv") {
+        titleEl.innerHTML = `<span>A/R Invoice [INV]</span><span class="badge" style="background:#fee2e2;color:#b91c1c">Receivable</span>`;
+        renderMarketingDoc(main, "INV");
+      } else if (page === "cm") {
+        titleEl.innerHTML = `<span>A/R Credit Memo [CM]</span>`;
+        renderMarketingDoc(main, "CM");
+      } else if (page === "po") {
+        titleEl.innerHTML = `<span>Purchase Order [PO]</span><span class="badge">Vendor Commitment</span>`;
+        renderMarketingDoc(main, "PO");
+      } else if (page === "pr") {
+        titleEl.innerHTML = `<span>Purchase Request [PR]</span>`;
+        renderMarketingDoc(main, "PR");
+      } else if (page === "grpo") {
+        titleEl.innerHTML = `<span>Goods Receipt PO [GRPO]</span>`;
+        renderMarketingDoc(main, "GRPO");
+      } else if (page === "apinv") {
+        titleEl.innerHTML = `<span>A/P Invoice [APINV]</span>`;
+        renderMarketingDoc(main, "APINV");
+      } else if (page === "items") {
+        titleEl.innerHTML = `<span>Inventory — Item Master Data</span>`;
+        renderItemMaster(main);
+      } else if (page === "pay") {
+        titleEl.innerHTML = `<span>Banking — Incoming Payments</span>`;
+        renderPaymentsView(main, "INCOMING");
+      } else if (page === "outgoing") {
+        titleEl.innerHTML = `<span>Banking — Outgoing Payments</span>`;
+        renderPaymentsView(main, "OUTGOING");
+      } else if (page === "coa") {
+        titleEl.innerHTML = `<span>Financials — Chart of Accounts</span>`;
+        renderCOAView(main);
+      } else if (page === "pl") {
+        titleEl.innerHTML = `<span>Reports — Profit & Loss Statement</span>`;
+        renderPLView(main);
+      } else if (page === "docsettings") {
+        openDocSettingsModal();
+      } else {
+        titleEl.innerHTML = `<span>${page.toUpperCase()} — Active Workspace</span>`;
+        main.innerHTML = `<div style="padding: 24px; text-align: center; color: #64748b; background: #fff; border: 1px solid var(--border); border-radius: 4px;">
+          <h3>Module ${page.toUpperCase()} is Active & Connected</h3>
+          <p style="margin-top: 8px;">Use the top action bar to download the template or import Excel sheets directly.</p>
+        </div>`;
+      }
     }
 
-    // ============================================================
-    // MARKETING DOCUMENTS (SALES & PURCHASING) WITH WILDCARD SEARCH
-    // ============================================================
-    let activeLinesDraft = [];
-    let currentDocMode = "sales"; // "sales" or "purchase"
-    let currentDocType = "SO";
-
-    function renderSalesDoc(el, docType) {
-      currentDocMode = "sales";
-      currentDocType = docType;
-      const cid = companyFilterId();
-      const list = scoped(salesDocs, cid).filter(d => d.docType === docType)
-        .sort((a,b) => (b.docDate||"").localeCompare(a.docDate||""));
-
-      const sortedCustomers = scoped(partners, cid).filter(p => p.bpType === "C" || !p.bpType)
-        .slice().sort(sortAlphaNum(x => x.name || x.bpCode));
-
-      el.innerHTML = `
-        <!-- Quick Wildcard Demo Toolbar -->
-        <div class="wildcard-tester-box">
-          <div style="font-weight:700;color:var(--primary);display:flex;align-items:center;gap:6px">
-            <span>🔍 Wildcard Search Tester (*search):</span>
-          </div>
-          <div class="search-filter-box" style="background:#fff;border-color:#93c5fd">
-            <input id="quick-test-input" placeholder="Type *machale, *12mm..." oninput="onLiveTesterQuery(this.value)">
-            <span class="wildcard-hint">*Wildcard</span>
-          </div>
-          <div class="wildcard-chips">
-            <span style="font-size:11px;color:#64748b">Click sample query:</span>
-            <span class="wildcard-chip" onclick="applyTesterQuery('*machale')">*machale</span>
-            <span class="wildcard-chip" onclick="applyTesterQuery('*12mm')">*12mm</span>
-            <span class="wildcard-chip" onclick="applyTesterQuery('*tile')">*tile</span>
-            <span class="wildcard-chip" onclick="applyTesterQuery('*paint')">*paint</span>
-            <span class="wildcard-chip" onclick="applyTesterQuery('*motor')">*motor</span>
-          </div>
-          <div id="tester-results-count" style="font-size:11px;color:#1e40af;font-weight:600;margin-left:auto">
-            10 items indexed A-Z
-          </div>
-        </div>
-
-        <div class="toolbar">
-          <h2>Sales Document — ${docType}</h2>
-          <button class="btn btn-sm btn-primary" onclick="startSalesForm('${docType}')">+ New ${docType}</button>
-        </div>
-
-        <div id="sales-form" style="display:none;border:1px solid #b0b0b0;background:#fff;margin-bottom:12px;box-shadow:0 4px 14px rgba(0,0,0,.08)">
-          <div class="mkt-hd">
+    // ==========================================
+    // RENDER: SAP B1 MARKETING DOCUMENT (SO / PO)
+    // ==========================================
+    function renderMarketingDoc(container, docType = "SO") {
+      const so = AppState.salesOrders[0];
+      
+      container.innerHTML = `
+        <div class="mkt-box">
+          <div class="mkt-header">
             <div class="mkt-col">
-              <label>Customer *</label>
-              <select id="s-bp" onchange="onSalesCustomerChange()">
-                <option value="">— Select Customer (A-Z) —</option>
-                ${sortedCustomers.map(p => `<option value="${esc(p.bpCode)}">${esc(p.name)} (${esc(p.bpCode)})</option>`).join("")}
+              <label>Customer Code:</label>
+              <input type="text" id="mkt-bp-code" value="${so.bpCode}" onchange="updateCustomerName(this.value)" />
+              <label>Customer Name:</label>
+              <input type="text" id="mkt-bp-name" value="${so.bpName}" />
+              <label>Contact Person:</label>
+              <input type="text" value="Eng. Emmanuel Machale" />
+              <label>Branch / Yard:</label>
+              <select>
+                <option selected>${so.branch}</option>
+                <option>DAR ES SALAAM HQ</option>
+                <option>MBEYA DEPOT</option>
               </select>
-              <label>Customer Code</label>
-              <input id="s-bp-code" readonly>
-              <label>Posting Date *</label>
-              <input type="date" id="s-date">
             </div>
             <div class="mkt-col">
-              <label>Doc Type</label><input readonly value="${docType}">
-              <label>Status</label><input readonly value="Open">
-              <label>Remarks</label><input id="s-remarks" placeholder="Optional notes...">
+              <label>Document No:</label>
+              <input type="text" readonly value="${so.docNo}" />
+              <label>Posting Date:</label>
+              <input type="date" value="${so.docDate}" />
+              <label>Delivery Due Date:</label>
+              <input type="date" value="${so.dueDate}" />
+              <label>Doc Currency:</label>
+              <select>
+                <option selected>${so.currency}</option>
+                <option>USD ($)</option>
+                <option>EUR (€)</option>
+              </select>
             </div>
           </div>
-          <div class="mkt-spacer"></div>
-          
-          <div class="mkt-lines-label">
-            <span>Contents — Line Items (Supports typing <code>*keyword</code> to autocomplete item description, code, and price)</span>
-            <span style="font-size:11px;font-weight:normal;color:#475569">💡 Pro-tip: Type <b>*machale</b> or <b>*12mm</b> and hit [Enter]</span>
+
+          <div class="table-tools">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-weight:700; color:#0b3d91;">Contents (Line Items)</span>
+              <button class="btn btn-sm btn-primary" onclick="addBlankRow()">+ Add Row</button>
+            </div>
+            <div class="wildcard-search">
+              <span style="color:#0b3d91; font-weight:700;">*</span>
+              <input type="text" id="wildcard-input" placeholder="Live Wildcard Filter (e.g. *Steel, *Tile)" oninput="applyWildcardFilter(this.value)" />
+            </div>
           </div>
 
-          <div class="grid-wrap" style="margin:0 8px 8px;border:1px solid #aaa;overflow:visible">
-            <table class="grid" style="overflow:visible">
-              <thead><tr>
-                <th style="width:30px">#</th>
-                <th style="min-width:240px">Item Search (*Wildcard or Description)</th>
-                <th style="min-width:130px">Item Code</th>
-                <th style="width:70px">UoM</th>
-                <th style="width:80px">Qty</th>
-                <th style="width:110px">Unit Price</th>
-                <th style="width:110px;text-align:right">Total</th>
-                <th style="width:40px"></th>
-              </tr></thead>
-              <tbody id="s-lines"></tbody>
+          <div class="grid-wrap">
+            <table class="dense" id="lines-table">
+              <thead>
+                <tr>
+                  <th style="width:28px"><input type="checkbox" onchange="toggleSelectAllRows(this)" /></th>
+                  <th style="width:36px">#</th>
+                  <th>Item No.</th>
+                  <th style="min-width:280px">Item Description</th>
+                  <th style="width:70px">Quantity</th>
+                  <th style="width:60px">UoM</th>
+                  <th style="width:95px">Unit Price (TZS)</th>
+                  <th style="width:60px">Disc %</th>
+                  <th style="width:80px">Tax Code</th>
+                  <th style="width:110px; text-align:right;">Net Total (TZS)</th>
+                  <th>Warehouse</th>
+                  <th style="width:36px">Action</th>
+                </tr>
+              </thead>
+              <tbody id="lines-tbody">
+                <!-- Lines injected dynamically -->
+              </tbody>
             </table>
           </div>
 
-          <div class="mkt-ft">
-            <div style="font-size:12px;color:#64748b">
-              Wildcard matching tests against Item Name, Item Code, and Category.
+          <div class="mkt-footer">
+            <div>
+              <label style="font-size:11.5px; color:#475569">Remarks / Shipping Instructions:</label>
+              <textarea style="margin-top:4px;" rows="2">${so.remarks}</textarea>
             </div>
-            <div class="totals">
-              <span><b>Total Payment Due:</b></span>
-              <b id="s-total" style="font-size:15px;color:var(--primary)">0.00 TZS</b>
+            <div class="totals-box">
+              <span>Subtotal Before Discount:</span><b id="tot-subtotal">0.00</b>
+              <span>Discount Amount:</span><b id="tot-disc" style="color:#b91c1c">- 0.00</b>
+              <span>Value Added Tax (18%):</span><b id="tot-tax">0.00</b>
+              <span class="grand-total">TOTAL AMOUNT DUE:</span><b class="grand-total" id="tot-grand">0.00</b>
             </div>
-          </div>
-          <div class="toolbar" style="justify-content:flex-end;border-top:1px solid #ccc;padding:8px 12px;background:#f8fafc">
-            <button class="btn btn-sm" onclick="addMarketingLine()">+ Add Row</button>
-            <button class="btn btn-sm btn-primary" onclick="postSalesDoc('${docType}')">Add & Post Document</button>
-            <button class="btn btn-sm" onclick="document.getElementById('sales-form').style.display='none'">Cancel</button>
           </div>
         </div>
+      `;
 
-        <div class="grid-wrap"><table class="grid">
-          <thead><tr><th>Doc No</th><th>Date</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead>
-          <tbody>
-            ${list.map(d => `<tr>
-              <td><b>${esc(d.docNo)}</b></td><td>${esc(d.docDate)}</td>
-              <td>${esc(d.bpName || d.bpCode)}</td>
-              <td style="text-align:right">${Number(d.grandTotal || 0).toLocaleString(undefined,{minimumFractionDigits:2})} TZS</td>
-              <td><span style="color:#059669;font-weight:600">${esc(d.status || "open")}</span></td>
-            </tr>`).join("") || `<tr><td colspan="5" style="text-align:center;padding:18px;color:#64748b">No documents posted yet. Click <b>+ New ${docType}</b> to test.</td></tr>`}
-          </tbody>
-        </table></div>`;
-
-      const d = document.getElementById("s-date");
-      if (d) d.valueAsDate = new Date();
+      renderTableRows(so.lines);
+      recalcTotals();
     }
 
-    function renderPurchaseDoc(el, docType) {
-      currentDocMode = "purchase";
-      currentDocType = docType;
-      const cid = companyFilterId();
-      const list = scoped(purchaseDocs, cid).filter(d => d.docType === docType)
-        .sort((a,b) => (b.docDate||"").localeCompare(a.docDate||""));
-      const sortedVendors = scoped(partners, cid).filter(p => p.bpType === "S" || p.bpType === "B")
-        .slice().sort(sortAlphaNum(x => x.name || x.bpCode));
-
-      el.innerHTML = `
-        <!-- Quick Wildcard Demo Toolbar -->
-        <div class="wildcard-tester-box">
-          <div style="font-weight:700;color:var(--primary);display:flex;align-items:center;gap:6px">
-            <span>🔍 Wildcard Search Tester (*search):</span>
-          </div>
-          <div class="search-filter-box" style="background:#fff;border-color:#93c5fd">
-            <input id="quick-test-input" placeholder="Type *machale, *tile..." oninput="onLiveTesterQuery(this.value)">
-            <span class="wildcard-hint">*Wildcard</span>
-          </div>
-          <div class="wildcard-chips">
-            <span style="font-size:11px;color:#64748b">Quick query:</span>
-            <span class="wildcard-chip" onclick="applyTesterQuery('*machale')">*machale</span>
-            <span class="wildcard-chip" onclick="applyTesterQuery('*12mm')">*12mm</span>
-            <span class="wildcard-chip" onclick="applyTesterQuery('*tile')">*tile</span>
-            <span class="wildcard-chip" onclick="applyTesterQuery('*cement')">*cement</span>
-          </div>
-          <div id="tester-results-count" style="font-size:11px;color:#1e40af;font-weight:600;margin-left:auto">
-            10 items indexed A-Z
-          </div>
-        </div>
-
-        <div class="toolbar">
-          <h2>Purchase Document — ${docType}</h2>
-          <button class="btn btn-sm btn-primary" onclick="startPurchaseForm('${docType}')">+ New ${docType}</button>
-        </div>
-
-        <div id="purch-form" style="display:none;border:1px solid #b0b0b0;background:#fff;margin-bottom:12px;box-shadow:0 4px 14px rgba(0,0,0,.08)">
-          <div class="mkt-hd">
-            <div class="mkt-col">
-              <label>Vendor *</label>
-              <select id="p-bp" onchange="document.getElementById('p-bp-code').value=this.value">
-                <option value="">— Select Vendor (A-Z) —</option>
-                ${sortedVendors.map(p => `<option value="${esc(p.bpCode)}">${esc(p.name)} (${esc(p.bpCode)})</option>`).join("")}
-              </select>
-              <label>Vendor Code</label>
-              <input id="p-bp-code" readonly>
-              <label>Posting Date *</label>
-              <input type="date" id="p-date">
-            </div>
-            <div class="mkt-col">
-              <label>Doc Type</label><input readonly value="${docType}">
-              <label>Status</label><input readonly value="Open">
-              <label>Remarks</label><input id="p-remarks" placeholder="Optional notes...">
-            </div>
-          </div>
-          <div class="mkt-spacer"></div>
-
-          <div class="mkt-lines-label">
-            <span>Contents — Line Items (Supports typing <code>*keyword</code> to autocomplete item description, code, and price)</span>
-            <span style="font-size:11px;font-weight:normal;color:#475569">💡 Pro-tip: Type <b>*machale</b> or <b>*12mm</b> and hit [Enter]</span>
-          </div>
-
-          <div class="grid-wrap" style="margin:0 8px 8px;border:1px solid #aaa;overflow:visible">
-            <table class="grid" style="overflow:visible">
-              <thead><tr>
-                <th style="width:30px">#</th>
-                <th style="min-width:240px">Item Search (*Wildcard or Description)</th>
-                <th style="min-width:130px">Item Code</th>
-                <th style="width:70px">UoM</th>
-                <th style="width:80px">Qty</th>
-                <th style="width:110px">Unit Price</th>
-                <th style="width:110px;text-align:right">Total</th>
-                <th style="width:40px"></th>
-              </tr></thead>
-              <tbody id="p-lines"></tbody>
-            </table>
-          </div>
-
-          <div class="mkt-ft">
-            <div></div>
-            <div class="totals">
-              <span><b>Total Payment Due:</b></span>
-              <b id="p-total" style="font-size:15px;color:var(--primary)">0.00 TZS</b>
-            </div>
-          </div>
-          <div class="toolbar" style="justify-content:flex-end;border-top:1px solid #ccc;padding:8px 12px;background:#f8fafc">
-            <button class="btn btn-sm" onclick="addPurchaseLine()">+ Add Row</button>
-            <button class="btn btn-sm btn-primary" onclick="postPurchaseDoc('${docType}')">Add & Post Document</button>
-            <button class="btn btn-sm" onclick="document.getElementById('purch-form').style.display='none'">Cancel</button>
-          </div>
-        </div>
-
-        <div class="grid-wrap"><table class="grid">
-          <thead><tr><th>Doc No</th><th>Date</th><th>Vendor</th><th>Total</th><th>Status</th></tr></thead>
-          <tbody>
-            ${list.map(d => `<tr>
-              <td><b>${esc(d.docNo)}</b></td><td>${esc(d.docDate)}</td>
-              <td>${esc(d.bpName || d.bpCode)}</td>
-              <td style="text-align:right">${Number(d.grandTotal || 0).toLocaleString(undefined,{minimumFractionDigits:2})} TZS</td>
-              <td><span style="color:#059669;font-weight:600">${esc(d.status || "open")}</span></td>
-            </tr>`).join("") || `<tr><td colspan="5" style="text-align:center;padding:18px;color:#64748b">No purchase documents posted yet. Click <b>+ New ${docType}</b> to test.</td></tr>`}
-          </tbody>
-        </table></div>`;
-
-      const d = document.getElementById("p-date");
-      if (d) d.valueAsDate = new Date();
-    }
-
-    // ============================================================
-    // DYNAMIC LINE RENDERING & WILDCARD AUTOCOMPLETE
-    // ============================================================
-    function startSalesForm(docType) {
-      currentDocMode = "sales";
-      activeLinesDraft = [
-        { itemCode: "STL-ND-12", name: "Nondo Machale 12mm", uom: "pcs", qty: 10, price: 14500, lineTotal: 145000 },
-        { itemCode: "", name: "", uom: "pcs", qty: 1, price: 0, lineTotal: 0 }
-      ];
-      const form = document.getElementById("sales-form");
-      if (form) form.style.display = "block";
-      const sel = document.getElementById("s-bp");
-      if (sel && sel.options.length > 1) {
-        sel.selectedIndex = 1;
-        onSalesCustomerChange();
-      }
-      renderMarketingLines();
-    }
-
-    function startPurchaseForm(docType) {
-      currentDocMode = "purchase";
-      activeLinesDraft = [
-        { itemCode: "STL-ND-16", name: "Nondo Machale 16mm", uom: "pcs", qty: 25, price: 22000, lineTotal: 550000 },
-        { itemCode: "", name: "", uom: "pcs", qty: 1, price: 0, lineTotal: 0 }
-      ];
-      const form = document.getElementById("purch-form");
-      if (form) form.style.display = "block";
-      const sel = document.getElementById("p-bp");
-      if (sel && sel.options.length > 1) {
-        sel.selectedIndex = 1;
-        document.getElementById("p-bp-code").value = sel.value;
-      }
-      renderMarketingLines();
-    }
-
-    function addMarketingLine() {
-      activeLinesDraft.push({ itemCode: "", name: "", uom: "pcs", qty: 1, price: 0, lineTotal: 0 });
-      renderMarketingLines();
-    }
-
-    function addPurchaseLine() {
-      activeLinesDraft.push({ itemCode: "", name: "", uom: "pcs", qty: 1, price: 0, lineTotal: 0 });
-      renderMarketingLines();
-    }
-
-    function renderMarketingLines() {
-      const tbodyId = currentDocMode === "sales" ? "s-lines" : "p-lines";
-      const tbody = document.getElementById(tbodyId);
+    function renderTableRows(lines) {
+      const tbody = document.getElementById("lines-tbody");
       if (!tbody) return;
 
-      tbody.innerHTML = activeLinesDraft.map((l, idx) => {
-        return `<tr>
-          <td style="color:#64748b;font-weight:600">${idx + 1}</td>
-          <td>
-            <div class="line-search-cell" id="cell-wrap-${idx}">
-              <input
-                id="line-search-input-${idx}"
-                class="line-search-input"
-                placeholder="Type name or *wildcard (e.g. *machale)"
-                value="${esc(l.name)}"
-                oninput="onWildcardLineInput(${idx}, this.value)"
-                onkeydown="onWildcardLineKeyDown(event, ${idx})"
-                onfocus="onWildcardLineFocus(${idx})"
-                autocomplete="off"
-              />
-              <span class="search-hint-tag">*search</span>
-              <div id="popup-${idx}" class="wildcard-lookup-popup"></div>
-            </div>
-          </td>
-          <td>
-            <input readonly value="${esc(l.itemCode)}" style="margin:0;padding:4px 6px;font-size:12px;background:#f1f5f9;font-weight:600;color:var(--primary)" placeholder="Code">
-          </td>
-          <td>
-            <input readonly value="${esc(l.uom || 'pcs')}" style="margin:0;padding:4px 6px;font-size:12px;background:#f1f5f9;text-align:center">
-          </td>
-          <td>
-            <input type="number" min="0" step="any" value="${l.qty}" style="margin:0;padding:4px 6px;font-size:12px;background:var(--sap-yellow);text-align:right"
-              onchange="activeLinesDraft[${idx}].qty=parseFloat(this.value)||0;recalcDocTotals();renderMarketingLines()">
-          </td>
-          <td>
-            <input type="number" min="0" step="any" value="${l.price}" style="margin:0;padding:4px 6px;font-size:12px;background:var(--sap-yellow);text-align:right"
-              onchange="activeLinesDraft[${idx}].price=parseFloat(this.value)||0;recalcDocTotals();renderMarketingLines()">
-          </td>
-          <td style="text-align:right;font-weight:700;color:#1e293b">
-            ${Number(l.lineTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-          </td>
-          <td style="text-align:center">
-            <button class="btn btn-sm btn-danger" style="padding:2px 6px" onclick="removeMarketingLine(${idx})">✕</button>
-          </td>
-        </tr>`;
+      tbody.innerHTML = lines.map((l, i) => {
+        const net = (l.qty * l.price) * (1 - (l.disc || 0) / 100);
+        return `
+          <tr data-index="${i}">
+            <td><input type="checkbox" class="row-select" /></td>
+            <td>${i + 1}</td>
+            <td><input type="text" value="${l.itemCode}" style="width:105px" onchange="updateLineItem(${i}, 'itemCode', this.value)" /></td>
+            <td><input type="text" value="${l.name}" style="width:100%" onchange="updateLineItem(${i}, 'name', this.value)" /></td>
+            <td><input type="number" step="any" value="${l.qty}" style="width:65px; text-align:right;" onchange="updateLineItem(${i}, 'qty', this.value)" /></td>
+            <td><input type="text" value="${l.uom}" style="width:55px" onchange="updateLineItem(${i}, 'uom', this.value)" /></td>
+            <td><input type="number" step="any" value="${l.price}" style="width:90px; text-align:right;" onchange="updateLineItem(${i}, 'price', this.value)" /></td>
+            <td><input type="number" step="any" value="${l.disc || 0}" style="width:55px; text-align:right;" onchange="updateLineItem(${i}, 'disc', this.value)" /></td>
+            <td><span style="background:#e0f2fe; padding:2px 6px; border-radius:3px; font-weight:600">V18 (18%)</span></td>
+            <td style="text-align:right; font-weight:700">${net.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+            <td><span style="color:#475569">${l.wh}</span></td>
+            <td style="text-align:center"><button class="btn btn-sm btn-danger" style="padding:2px 6px;" onclick="removeRow(${i})">🗑</button></td>
+          </tr>
+        `;
       }).join("");
-
-      recalcDocTotals();
     }
 
-    function removeMarketingLine(idx) {
-      activeLinesDraft.splice(idx, 1);
-      if (activeLinesDraft.length === 0) {
-        activeLinesDraft.push({ itemCode: "", name: "", uom: "pcs", qty: 1, price: 0, lineTotal: 0 });
+    function updateLineItem(index, field, value) {
+      const lines = AppState.salesOrders[0].lines;
+      if (field === "qty" || field === "price" || field === "disc") {
+        lines[index][field] = parseFloat(value) || 0;
+      } else {
+        lines[index][field] = value;
       }
-      renderMarketingLines();
+      saveState();
+      renderTableRows(lines);
+      recalcTotals();
     }
 
-    // ============================================================
-    // INTERACTIVE WILDCARD POPUP LOGIC
-    // ============================================================
-    function onWildcardLineFocus(idx) {
-      const inp = document.getElementById("line-search-input-" + idx);
-      if (inp) onWildcardLineInput(idx, inp.value);
+    function addBlankRow() {
+      AppState.salesOrders[0].lines.push({
+        itemCode: "NEW-ITEM",
+        name: "Type description or search item...",
+        qty: 1,
+        uom: "PCS",
+        price: 0,
+        disc: 0,
+        taxRate: 18,
+        wh: "01 - Yard Main"
+      });
+      saveState();
+      renderTableRows(AppState.salesOrders[0].lines);
+      recalcTotals();
     }
 
-    function onWildcardLineInput(idx, query) {
-      activeLinesDraft[idx].name = query;
-      const popup = document.getElementById("popup-" + idx);
-      if (!popup) return;
+    function removeRow(index) {
+      AppState.salesOrders[0].lines.splice(index, 1);
+      saveState();
+      renderTableRows(AppState.salesOrders[0].lines);
+      recalcTotals();
+    }
 
-      const cid = companyFilterId();
-      let matched = scoped(items, cid).filter(i =>
-        matchWildcard(i.name, query) ||
-        matchWildcard(i.itemCode, query) ||
-        matchWildcard(i.itemGroup, query)
-      ).sort(sortAlphaNum(x => x.name || x.itemCode));
+    function deleteSelectedRows() {
+      const selectedIndexes = [];
+      document.querySelectorAll("#lines-tbody tr").forEach((tr, i) => {
+        if (tr.querySelector(".row-select")?.checked) selectedIndexes.push(i);
+      });
 
-      if (!matched.length) {
-        popup.innerHTML = `<div style="padding:8px;font-size:12px;color:#94a3b8">No items match "${esc(query)}"</div>`;
-        popup.classList.add("active");
+      if (!selectedIndexes.length) {
+        toast("Please select rows using checkboxes first", false);
         return;
       }
 
-      popup.innerHTML = `
-        <div class="lookup-head">
-          <span>MATCHED ITEMS (${matched.length}) — SORTED A-Z</span>
-          <span style="color:#0284c7">Click or Enter to select</span>
-        </div>
-        ${matched.map((item, itemIdx) => `
-          <div class="lookup-item-row ${itemIdx === 0 ? 'selected' : ''}"
-               onclick="selectItemForLine(${idx}, '${esc(item.itemCode)}')">
-            <div>
-              <div class="lookup-item-name">${highlightMatch(esc(item.name), query)}</div>
-              <span class="lookup-item-code">${esc(item.itemCode)}</span>
-              <span style="font-size:10.5px;color:#64748b;margin-left:6px">${esc(item.itemGroup || '')} · UoM: ${esc(item.uom || 'pcs')}</span>
-            </div>
-            <div class="lookup-item-price">${Number(item.lastPurchasePrice || 0).toLocaleString()} TZS</div>
-          </div>
-        `).join("")}
-      `;
-      popup.classList.add("active");
+      // Filter out selected
+      AppState.salesOrders[0].lines = AppState.salesOrders[0].lines.filter((_, i) => !selectedIndexes.includes(i));
+      saveState();
+      renderTableRows(AppState.salesOrders[0].lines);
+      recalcTotals();
+      toast(`Deleted ${selectedIndexes.length} selected row(s)`);
     }
 
-    function highlightMatch(text, query) {
-      if (!query) return text;
-      const cleanQ = query.replace(/\*/g, "").trim();
-      if (!cleanQ) return text;
-      try {
-        const regex = new RegExp(`(${cleanQ.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
-        return text.replace(regex, `<mark style="background:#fef08a;padding:0 2px">$1</mark>`);
-      } catch (e) {
-        return text;
+    function toggleSelectAllRows(masterCheckbox) {
+      document.querySelectorAll(".row-select").forEach(cb => { cb.checked = masterCheckbox.checked; });
+    }
+
+    function recalcTotals() {
+      const lines = AppState.salesOrders[0].lines;
+      let subtotal = 0;
+      let totalDiscount = 0;
+
+      lines.forEach(l => {
+        const gross = l.qty * l.price;
+        const d = gross * ((l.disc || 0) / 100);
+        subtotal += gross;
+        totalDiscount += d;
+      });
+
+      const netSub = subtotal - totalDiscount;
+      const vat = netSub * 0.18;
+      const grand = netSub + vat;
+
+      const fmt = n => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " TZS";
+      document.getElementById("tot-subtotal").textContent = fmt(subtotal);
+      document.getElementById("tot-disc").textContent = "- " + fmt(totalDiscount);
+      document.getElementById("tot-tax").textContent = fmt(vat);
+      document.getElementById("tot-grand").textContent = fmt(grand);
+    }
+
+    // ==========================================
+    // WILDCARD SEARCH (*) & STRICT A-Z SORTING
+    // ==========================================
+    function applyWildcardFilter(pattern) {
+      const lines = AppState.salesOrders[0].lines;
+      if (!pattern.trim()) {
+        renderTableRows(lines);
+        return;
       }
+
+      // Convert wildcard pattern like *Steel or *Tile to RegExp
+      const cleanPat = pattern.trim().replace(/^\*/, "").toLowerCase();
+      const filtered = lines.filter(l => 
+        l.name.toLowerCase().includes(cleanPat) || 
+        l.itemCode.toLowerCase().includes(cleanPat)
+      );
+
+      // Natural A-Z Sorting
+      filtered.sort((a, b) => a.name.localeCompare(b.name));
+      renderTableRows(filtered);
     }
 
-    function onWildcardLineKeyDown(e, lineIdx) {
-      const popup = document.getElementById("popup-" + lineIdx);
-      if (e.key === "Enter") {
-        e.preventDefault();
-        if (popup && popup.classList.contains("active")) {
-          const firstMatch = popup.querySelector(".lookup-item-row");
-          if (firstMatch) {
-            firstMatch.click();
+    // ==========================================
+    // REAL EXCEL IMPORT / EXPORT (SHEETJS)
+    // ==========================================
+    function downloadTemplate() {
+      const templateData = [
+        ["Item Code", "Item Description", "Quantity", "UoM", "Unit Price", "Discount %", "Warehouse"],
+        ["STL-REB-012", "Deformed High-Tensile Steel Rebars 12mm x 12m", 100, "PCS", 27500, 0, "01 - Yard Main"],
+        ["CMT-POR-425", "Portland Cement Grade 42.5R (50kg Bag - Twiga)", 200, "BAG", 21500, 0, "02 - Raw Depot"]
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(templateData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "MarketingDocument");
+      XLSX.writeFile(wb, "KESHASHA_Document_Template.xlsx");
+      toast("Template downloaded successfully");
+    }
+
+    function exportCurrentTable() {
+      const lines = AppState.salesOrders[0].lines;
+      const exportData = [
+        ["Item Code", "Item Description", "Quantity", "UoM", "Unit Price (TZS)", "Discount %", "Net Total (TZS)", "Warehouse"],
+        ...lines.map(l => [
+          l.itemCode,
+          l.name,
+          l.qty,
+          l.uom,
+          l.price,
+          l.disc || 0,
+          (l.qty * l.price) * (1 - (l.disc || 0) / 100),
+          l.wh
+        ])
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "SalesOrder");
+      XLSX.writeFile(wb, `KESHASHA_Export_${AppState.salesOrders[0].docNo}.xlsx`);
+      toast("Exported to Excel successfully!");
+    }
+
+    function triggerExcelImport() {
+      document.getElementById("excel-file-input").click();
+    }
+
+    function handleExcelFile(input) {
+      const file = input.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: "array" });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+
+          if (!rows.length) {
+            toast("Selected Excel file has no records", false);
             return;
           }
+
+          // Map incoming rows into line items
+          const newLines = rows.map(r => ({
+            itemCode: String(r["Item Code"] || r.itemCode || r.Code || "ITM").trim(),
+            name: String(r["Item Description"] || r.name || r.Description || "Excel Imported Item").trim(),
+            qty: parseFloat(r["Quantity"] || r.qty || 1) || 1,
+            uom: String(r["UoM"] || r.uom || "PCS").trim(),
+            price: parseFloat(r["Unit Price"] || r.price || 0) || 0,
+            disc: parseFloat(r["Discount %"] || r.disc || 0) || 0,
+            taxRate: 18,
+            wh: String(r["Warehouse"] || r.wh || "01 - Yard Main").trim()
+          }));
+
+          // Strict A-Z Sorting on Imported Lines
+          newLines.sort((a, b) => a.name.localeCompare(b.name));
+
+          AppState.salesOrders[0].lines = newLines;
+          saveState();
+          renderTableRows(newLines);
+          recalcTotals();
+          toast(`Successfully imported ${newLines.length} lines from Excel!`);
+        } catch (err) {
+          toast("Excel parse error: " + err.message, false);
         }
-      }
-      if (e.key === "Escape") {
-        closeAllPopups();
-      }
+      };
+      reader.readAsArrayBuffer(file);
+      input.value = "";
     }
 
-    function selectItemForLine(lineIdx, itemCode) {
-      const it = items.find(x => x.itemCode === itemCode);
-      if (it && activeLinesDraft[lineIdx]) {
-        activeLinesDraft[lineIdx].itemCode = it.itemCode;
-        activeLinesDraft[lineIdx].name = it.name;
-        activeLinesDraft[lineIdx].uom = it.uom || "pcs";
-        activeLinesDraft[lineIdx].price = Number(it.lastPurchasePrice || 0);
-        if (!activeLinesDraft[lineIdx].qty || activeLinesDraft[lineIdx].qty <= 0) {
-          activeLinesDraft[lineIdx].qty = 1;
-        }
-        activeLinesDraft[lineIdx].lineTotal = activeLinesDraft[lineIdx].qty * activeLinesDraft[lineIdx].price;
+    // ==========================================
+    // TOP-TO-BOTTOM PRINT LAYOUT ENGINE
+    // ==========================================
+    function printActiveDocument() {
+      const so = AppState.salesOrders[0];
+      const settings = AppState.settings;
+      const comp = AppState.companies.find(c => c.code === AppState.activeCompanyId) || AppState.companies[0];
+
+      let subtotal = 0;
+      let totalDiscount = 0;
+      so.lines.forEach(l => {
+        const gross = l.qty * l.price;
+        subtotal += gross;
+        totalDiscount += gross * ((l.disc || 0) / 100);
+      });
+      const netSub = subtotal - totalDiscount;
+      const vat = netSub * 0.18;
+      const grand = netSub + vat;
+      const fmt = n => n.toLocaleString(undefined, { minimumFractionDigits: 2 }) + " TZS";
+
+      const printHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>${so.docNo} — Print Preview</title>
+          <style>
+            body { font-family: 'Segoe UI', Arial, sans-serif; margin: 30px; color: #111; font-size: 13px; line-height: 1.4; }
+            .header-layout { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0b3d91; padding-bottom: 16px; margin-bottom: 20px; }
+            .logo-img { max-height: 70px; max-width: 220px; }
+            .company-info { text-align: right; }
+            .company-info h2 { margin: 0; color: #0b3d91; font-size: 20px; font-weight: 800; }
+            .doc-title { font-size: 18px; font-weight: 800; color: #0b3d91; margin: 10px 0; text-transform: uppercase; }
+            .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+            .meta-box { background: #f8fafc; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 4px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+            th { background: #0b3d91; color: #fff; padding: 8px; text-align: left; }
+            td { border: 1px solid #cbd5e1; padding: 6px 8px; }
+            .totals-table { width: 340px; margin-left: auto; margin-top: 16px; font-size: 12.5px; }
+            .totals-table td { border: none; padding: 4px 6px; }
+            .grand-row { font-weight: 800; font-size: 14px; border-top: 2px solid #0b3d91 !important; color: #0b3d91; }
+            .footer-info { margin-top: 40px; border-top: 1px dashed #94a3b8; padding-top: 12px; font-size: 11px; color: #64748b; }
+            @media print { body { margin: 10mm; } }
+          </style>
+        </head>
+        <body>
+          <div class="header-layout">
+            <div>
+              ${settings.logoData ? `<img src="${settings.logoData}" class="logo-img" />` : `<div style="font-size:24px; font-weight:900; color:#0b3d91">KESHASHA</div>`}
+            </div>
+            <div class="company-info">
+              <h2>${comp.name}</h2>
+              <div>${settings.headerInfo}</div>
+              <div><b>TIN:</b> ${comp.tin} • <b>Contact:</b> ${comp.phone}</div>
+            </div>
+          </div>
+
+          <div class="doc-title">Sales Order / Tax Confirmation</div>
+
+          <div class="meta-grid">
+            <div class="meta-box">
+              <strong>BILL TO & RECIPIENT:</strong><br/>
+              <b>Customer Code:</b> ${so.bpCode}<br/>
+              <b>Company Name:</b> ${so.bpName}<br/>
+              <b>Delivery Yard:</b> ${so.branch}<br/>
+            </div>
+            <div class="meta-box">
+              <b>Document No:</b> ${so.docNo}<br/>
+              <b>Posting Date:</b> ${so.docDate}<br/>
+              <b>Delivery Date:</b> ${so.dueDate}<br/>
+              <b>Status:</b> Approved / Active Order<br/>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width:30px">#</th>
+                <th>Item Code</th>
+                <th>Description</th>
+                <th style="text-align:right">Qty</th>
+                <th>UoM</th>
+                <th style="text-align:right">Price (TZS)</th>
+                <th style="text-align:right">Net Total (TZS)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${so.lines.map((l, i) => `
+                <tr>
+                  <td>${i + 1}</td>
+                  <td>${l.itemCode}</td>
+                  <td>${l.name}</td>
+                  <td style="text-align:right">${l.qty}</td>
+                  <td>${l.uom}</td>
+                  <td style="text-align:right">${l.price.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                  <td style="text-align:right; font-weight:600">${((l.qty * l.price) * (1 - (l.disc||0)/100)).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+
+          <table class="totals-table">
+            <tr><td>Subtotal Before Discount:</td><td style="text-align:right">${fmt(subtotal)}</td></tr>
+            <tr><td>Total Discount:</td><td style="text-align:right">- ${fmt(totalDiscount)}</td></tr>
+            <tr><td>Value Added Tax (18%):</td><td style="text-align:right">${fmt(vat)}</td></tr>
+            <tr class="grand-row"><td>TOTAL AMOUNT DUE:</td><td style="text-align:right">${fmt(grand)}</td></tr>
+          </table>
+
+          <div class="footer-info">
+            <strong>Commercial Terms:</strong> ${settings.footerInfo}
+          </div>
+        </body>
+        </html>
+      `;
+
+      const w = window.open("", "_blank");
+      w.document.write(printHtml);
+      w.document.close();
+      setTimeout(() => { w.print(); }, 400);
+    }
+
+    // ==========================================
+    // DOCUMENT SETTINGS & LOGO
+    // ==========================================
+    function openDocSettingsModal() {
+      document.getElementById("setting-header-info").value = AppState.settings.headerInfo || "";
+      document.getElementById("setting-footer-info").value = AppState.settings.footerInfo || "";
+      const preview = document.getElementById("logo-preview-area");
+      if (AppState.settings.logoData) {
+        preview.innerHTML = `<img src="${AppState.settings.logoData}" style="max-height:60px" />`;
       }
-      closeAllPopups();
-      renderMarketingLines();
-      toast(`Added ${it.name} (${it.itemCode})`, true);
+      document.getElementById("settings-modal").classList.add("open");
     }
 
-    function closeAllPopups() {
-      document.querySelectorAll(".wildcard-lookup-popup").forEach(p => p.classList.remove("active"));
+    function closeDocSettingsModal() {
+      document.getElementById("settings-modal").classList.remove("open");
     }
 
-    // Close lookup popups on outside click
-    document.addEventListener("click", (e) => {
-      if (!e.target.closest(".line-search-cell")) {
-        closeAllPopups();
+    function previewLogoFile(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        AppState.settings.logoData = e.target.result;
+        document.getElementById("logo-preview-area").innerHTML = `<img src="${e.target.result}" style="max-height:60px" />`;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function saveDocSettings() {
+      AppState.settings.headerInfo = document.getElementById("setting-header-info").value.trim();
+      AppState.settings.footerInfo = document.getElementById("setting-footer-info").value.trim();
+      saveState();
+      closeDocSettingsModal();
+      toast("Document Settings and Logo saved!");
+    }
+
+    // ==========================================
+    // ONE-CLICK SELF EXPORTER (STANDALONE HTML)
+    // ==========================================
+    function downloadSelfSource() {
+      const fullHtml = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+      const blob = new Blob([fullHtml], { type: "text/html" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "index.html";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      toast("Full 'index.html' downloaded! Ready to drag & drop into Netlify or run locally.");
+    }
+
+    // Auto-login on reload if already configured
+    window.addEventListener("DOMContentLoaded", () => {
+      if (AppState.activeCompanyId) {
+        doLogin();
       }
     });
-
-    // ============================================================
-    // LIVE TESTER BAR QUERIES
-    // ============================================================
-    function onLiveTesterQuery(query) {
-      const countEl = document.getElementById("tester-results-count");
-      const matched = items.filter(i =>
-        matchWildcard(i.name, query) ||
-        matchWildcard(i.itemCode, query) ||
-        matchWildcard(i.itemGroup, query)
-      );
-      if (countEl) {
-        countEl.textContent = `${matched.length} matched (A-Z)`;
-      }
-
-      // If document form is currently open, apply to the first empty line or inject immediately
-      if (activeLinesDraft && activeLinesDraft.length > 0) {
-        const targetIdx = activeLinesDraft.findIndex(l => !l.itemCode) !== -1 ?
-          activeLinesDraft.findIndex(l => !l.itemCode) : activeLinesDraft.length - 1;
-        const inputEl = document.getElementById("line-search-input-" + targetIdx);
-        if (inputEl) {
-          inputEl.value = query;
-          onWildcardLineInput(targetIdx, query);
-        }
-      }
-    }
-
-    function applyTesterQuery(pattern) {
-      const testInp = document.getElementById("quick-test-input");
-      if (testInp) testInp.value = pattern;
-      onLiveTesterQuery(pattern);
-
-      // Open document form if closed
-      const salesForm = document.getElementById("sales-form");
-      const purchForm = document.getElementById("purch-form");
-      if (salesForm && salesForm.style.display === "none" && (!purchForm || purchForm.style.display === "none")) {
-        startSalesForm("SO");
-      }
-
-      // Direct inject to current line
-      const emptyIdx = activeLinesDraft.findIndex(l => !l.itemCode);
-      const targetIdx = emptyIdx >= 0 ? emptyIdx : 0;
-      const inp = document.getElementById("line-search-input-" + targetIdx);
-      if (inp) {
-        inp.value = pattern;
-        onWildcardLineInput(targetIdx, pattern);
-        inp.focus();
-      }
-    }
-
-    function recalcDocTotals() {
-      let total = 0;
-      activeLinesDraft.forEach(l => {
-        l.lineTotal = (parseFloat(l.qty) || 0) * (parseFloat(l.price) || 0);
-        total += l.lineTotal;
-      });
-      const totSales = document.getElementById("s-total");
-      if (totSales) totSales.textContent = total.toLocaleString(undefined, { minimumFractionDigits: 2 }) + " TZS";
-      const totPurch = document.getElementById("p-total");
-      if (totPurch) totPurch.textContent = total.toLocaleString(undefined, { minimumFractionDigits: 2 }) + " TZS";
-    }
-
-    function onSalesCustomerChange() {
-      const bpCode = document.getElementById("s-bp").value;
-      const inp = document.getElementById("s-bp-code");
-      if (inp) inp.value = bpCode;
-    }
-
-    async function postSalesDoc(docType) {
-      const cid = companyFilterId();
-      const bpCode = document.getElementById("s-bp").value;
-      const docDate = document.getElementById("s-date").value;
-      const remarks = document.getElementById("s-remarks").value.trim() || null;
-      if (!bpCode || !docDate) return toast("Select Customer and Posting Date");
-
-      const validLines = activeLinesDraft.filter(l => l.itemCode && l.qty > 0);
-      if (!validLines.length) return toast("Add at least one item row with valid code and quantity");
-
-      const grandTotal = validLines.reduce((s, l) => s + l.lineTotal, 0);
-      const bp = partners.find(p => p.bpCode === bpCode);
-      const docNo = docType + "-" + Date.now().toString().slice(-6);
-
-      const data = {
-        companyId: cid, docType, docNo, docDate, bpCode,
-        bpName: bp ? bp.name : "", remarks, lines: validLines, grandTotal,
-        status: "Open", createdAt: new Date().toISOString()
-      };
-
-      salesDocs.unshift({ id: "doc-" + Date.now(), ...data });
-      if (db) {
-        try { await db.collection("sales_docs").add(data); } catch(e){}
-      }
-      toast(`Document ${docNo} posted successfully! Total: ${grandTotal.toLocaleString()} TZS`, true);
-      document.getElementById("sales-form").style.display = "none";
-      renderSalesDoc(document.getElementById("main"), docType);
-    }
-
-    async function postPurchaseDoc(docType) {
-      const cid = companyFilterId();
-      const bpCode = document.getElementById("p-bp").value;
-      const docDate = document.getElementById("p-date").value;
-      const remarks = document.getElementById("p-remarks").value.trim() || null;
-      if (!bpCode || !docDate) return toast("Select Vendor and Posting Date");
-
-      const validLines = activeLinesDraft.filter(l => l.itemCode && l.qty > 0);
-      if (!validLines.length) return toast("Add at least one item row with valid code and quantity");
-
-      const grandTotal = validLines.reduce((s, l) => s + l.lineTotal, 0);
-      const bp = partners.find(p => p.bpCode === bpCode);
-      const docNo = docType + "-" + Date.now().toString().slice(-6);
-
-      const data = {
-        companyId: cid, docType, docNo, docDate, bpCode,
-        bpName: bp ? bp.name : "", remarks, lines: validLines, grandTotal,
-        status: "Open", createdAt: new Date().toISOString()
-      };
-
-      purchaseDocs.unshift({ id: "pdoc-" + Date.now(), ...data });
-      if (db) {
-        try { await db.collection("purchase_docs").add(data); } catch(e){}
-      }
-      toast(`Purchase Document ${docNo} posted successfully!`, true);
-      document.getElementById("purch-form").style.display = "none";
-      renderPurchaseDoc(document.getElementById("main"), docType);
-    }
-
-    // ============================================================
-    // ITEM MASTER WITH WILDCARD SEARCH & NATURAL A-Z SORT
-    // ============================================================
-    function renderItems(el) {
-      const cid = companyFilterId();
-      let list = scoped(items, cid).slice().sort(sortAlphaNum(x => x.itemCode || x.name));
-
-      el.innerHTML = `
-        <div class="toolbar">
-          <h2>Item Master Data</h2>
-          <div class="search-filter-box">
-            <span style="color:#64748b;font-size:11px">🔍</span>
-            <input id="item-q" placeholder="Type or *pattern (e.g. *12mm)..." oninput="filterItems()">
-            <span class="wildcard-hint">*Wildcard</span>
-          </div>
-          <button class="btn btn-sm btn-primary" onclick="openItemForm()">+ Item</button>
-          <label class="btn btn-sm" style="cursor:pointer;margin:0">📥 Import Excel
-            <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importItemsExcel(this)">
-          </label>
-        </div>
-        <div id="item-form" style="display:none;background:var(--panel);border:1px solid var(--border);padding:10px;margin-bottom:8px">
-          <div style="font-weight:700;color:var(--primary);margin-bottom:8px">Item details <span id="item-edit-label" style="font-weight:500;color:var(--muted)"></span></div>
-          <div class="form-bar">
-            <div class="fg"><label>Item Code *</label><input id="item-code"></div>
-            <div class="fg"><label>Item Name *</label><input id="item-name"></div>
-            <div class="fg"><label>Item Group</label><input id="item-group" placeholder="Steel / Roofing / Paint"></div>
-            <div class="fg"><label>Inventory UoM *</label><input id="item-uom" value="pcs"></div>
-            <div class="fg"><label>Last Purchase Price</label><input id="item-lpp" type="number" step="any" value="0"></div>
-          </div>
-          <div class="toolbar" style="margin-top:6px">
-            <button class="btn btn-sm btn-primary" onclick="saveItem()">💾 Save Item</button>
-            <button class="btn btn-sm" onclick="document.getElementById('item-form').style.display='none'">Cancel</button>
-          </div>
-        </div>
-        <div class="grid-wrap"><table class="grid">
-          <thead><tr>
-            <th>Code (A-Z)</th><th>Name</th><th>Group</th><th>UoM</th><th style="text-align:right">Last Price</th><th></th>
-          </tr></thead>
-          <tbody id="item-body">${itemRows(list)}</tbody>
-        </table></div>`;
-    }
-
-    function itemRows(list) {
-      return list.map(r => `<tr>
-        <td><b>${esc(r.itemCode)}</b></td>
-        <td>${esc(r.name)}</td>
-        <td>${esc(r.itemGroup || "")}</td>
-        <td>${esc(r.uom || "pcs")}</td>
-        <td style="text-align:right">${Number(r.lastPurchasePrice || 0).toLocaleString()} TZS</td>
-        <td style="white-space:nowrap;text-align:right">
-          <button class="btn btn-sm" onclick="openItemForm('${r.id}')">Edit</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteItem('${r.id}')">Delete</button>
-        </td>
-      </tr>`).join("") || `<tr><td colspan="6">No items found</td></tr>`;
-    }
-
-    function filterItems() {
-      const q = document.getElementById("item-q").value;
-      const cid = companyFilterId();
-      let list = scoped(items, cid).filter(i =>
-        matchWildcard(i.itemCode, q) || matchWildcard(i.name, q) || matchWildcard(i.itemGroup, q)
-      );
-      list.sort(sortAlphaNum(x => x.itemCode || x.name));
-      document.getElementById("item-body").innerHTML = itemRows(list);
-    }
-
-    let editingItemId = null;
-    function openItemForm(id) {
-      editingItemId = id || null;
-      document.getElementById("item-form").style.display = "block";
-      document.getElementById("item-edit-label").textContent = id ? "(edit)" : "(new)";
-      if (!id) {
-        document.getElementById("item-code").value = "";
-        document.getElementById("item-name").value = "";
-        document.getElementById("item-group").value = "";
-        document.getElementById("item-uom").value = "pcs";
-        document.getElementById("item-lpp").value = "0";
-        return;
-      }
-      const it = items.find(x => x.id === id); if (!it) return;
-      document.getElementById("item-code").value = it.itemCode || "";
-      document.getElementById("item-name").value = it.name || "";
-      document.getElementById("item-group").value = it.itemGroup || "";
-      document.getElementById("item-uom").value = it.uom || "pcs";
-      document.getElementById("item-lpp").value = it.lastPurchasePrice || 0;
-    }
-
-    async function saveItem() {
-      const cid = companyFilterId();
-      const itemCode = document.getElementById("item-code").value.trim().toUpperCase();
-      const name = document.getElementById("item-name").value.trim();
-      const itemGroup = document.getElementById("item-group").value.trim() || null;
-      const uom = document.getElementById("item-uom").value.trim() || "pcs";
-      const lastPurchasePrice = parseFloat(document.getElementById("item-lpp").value) || 0;
-
-      if (!itemCode || !name) return toast("Code and Name are required");
-      const data = { companyId: cid, itemCode, name, itemGroup, uom, lastPurchasePrice, isActive: true };
-
-      if (editingItemId) {
-        const idx = items.findIndex(x => x.id === editingItemId);
-        if (idx >= 0) items[idx] = { ...items[idx], ...data };
-        if (db) try { await db.collection("items").doc(editingItemId).update(data); } catch(e){}
-        toast("Item updated", true);
-      } else {
-        data.id = "it-" + Date.now();
-        data.createdAt = new Date().toISOString();
-        items.push(data);
-        if (db) try { await db.collection("items").add(data); } catch(e){}
-        toast("Item saved", true);
-      }
-      enforceMasterSort();
-      editingItemId = null;
-      renderItems(document.getElementById("main"));
-    }
-
-    async function deleteItem(id) {
-      if (!confirm("Delete this item?")) return;
-      items = items.filter(x => x.id !== id);
-      if (db) try { await db.collection("items").doc(id).delete(); } catch(e){}
-      enforceMasterSort();
-      toast("Deleted", true);
-      renderItems(document.getElementById("main"));
-    }
-
-    // ============================================================
-    // PARTNER MASTER DATA WITH WILDCARD FILTER
-    // ============================================================
-    function renderPartners(el) {
-      const cid = companyFilterId();
-      let list = scoped(partners, cid).slice().sort(sortAlphaNum(x => x.name || x.bpCode));
-
-      el.innerHTML = `
-        <div class="toolbar">
-          <h2>Business Partner Master Data</h2>
-          <div class="search-filter-box">
-            <span style="color:#64748b;font-size:11px">🔍</span>
-            <input id="bp-q" placeholder="Type or *pattern..." oninput="filterPartners()">
-            <span class="wildcard-hint">*Wildcard</span>
-          </div>
-          <button class="btn btn-sm btn-primary" onclick="openPartnerForm()">+ BP</button>
-        </div>
-        <div id="bp-form" style="display:none;background:var(--panel);border:1px solid var(--border);padding:10px;margin-bottom:8px">
-          <div class="form-bar">
-            <div class="fg"><label>Type *</label>
-              <select id="bp-type">
-                <option value="C">Customer</option>
-                <option value="S">Vendor / Supplier</option>
-              </select>
-            </div>
-            <div class="fg"><label>BP Code *</label><input id="bp-code"></div>
-            <div class="fg"><label>Name *</label><input id="bp-name"></div>
-            <div class="fg"><label>Phone</label><input id="bp-phone"></div>
-            <div class="fg"><label>Currency</label><input id="bp-cur" value="TZS"></div>
-          </div>
-          <div class="toolbar" style="margin-top:6px">
-            <button class="btn btn-sm btn-primary" onclick="savePartner()">Save BP</button>
-            <button class="btn btn-sm" onclick="document.getElementById('bp-form').style.display='none'">Cancel</button>
-          </div>
-        </div>
-        <div class="grid-wrap"><table class="grid">
-          <thead><tr>
-            <th>Code</th><th>Name (A-Z)</th><th>Type</th><th>Phone</th><th>Currency</th><th></th>
-          </tr></thead>
-          <tbody id="bp-body">${partnerRows(list)}</tbody>
-        </table></div>`;
-    }
-
-    function partnerRows(list) {
-      return list.map(r => `<tr>
-        <td><b>${esc(r.bpCode)}</b></td>
-        <td>${esc(r.name)}</td>
-        <td>${r.bpType === "S" ? "Vendor" : "Customer"}</td>
-        <td>${esc(r.phone || "")}</td>
-        <td>${esc(r.currencyCode || "TZS")}</td>
-        <td style="white-space:nowrap;text-align:right">
-          <button class="btn btn-sm btn-danger" onclick="deletePartner('${r.id}')">Delete</button>
-        </td>
-      </tr>`).join("") || `<tr><td colspan="6">No business partners found</td></tr>`;
-    }
-
-    function filterPartners() {
-      const q = document.getElementById("bp-q").value;
-      const cid = companyFilterId();
-      let list = scoped(partners, cid).filter(p =>
-        matchWildcard(p.bpCode, q) || matchWildcard(p.name, q) || matchWildcard(p.phone, q)
-      ).sort(sortAlphaNum(x => x.name || x.bpCode));
-      document.getElementById("bp-body").innerHTML = partnerRows(list);
-    }
-
-    function openPartnerForm() {
-      document.getElementById("bp-form").style.display = "block";
-      document.getElementById("bp-code").value = "BP-" + (partners.length + 1);
-      document.getElementById("bp-name").value = "";
-    }
-
-    async function savePartner() {
-      const cid = companyFilterId();
-      const bpCode = document.getElementById("bp-code").value.trim().toUpperCase();
-      const name = document.getElementById("bp-name").value.trim();
-      const bpType = document.getElementById("bp-type").value;
-      const phone = document.getElementById("bp-phone").value.trim() || null;
-      const currencyCode = document.getElementById("bp-cur").value.trim() || "TZS";
-      if (!bpCode || !name) return toast("BP Code and Name required");
-
-      const data = { id: "bp-" + Date.now(), companyId: cid, bpCode, name, bpType, phone, currencyCode, isActive: true };
-      partners.push(data);
-      if (db) try { await db.collection("partners").add(data); } catch(e){}
-      enforceMasterSort();
-      toast("Partner saved", true);
-      renderPartners(document.getElementById("main"));
-    }
-
-    async function deletePartner(id) {
-      if (!confirm("Delete partner?")) return;
-      partners = partners.filter(x => x.id !== id);
-      if (db) try { await db.collection("partners").doc(id).delete(); } catch(e){}
-      enforceMasterSort();
-      renderPartners(document.getElementById("main"));
-    }
-
-    // ============================================================
-    // OTHER STANDARD MODULES
-    // ============================================================
-    function renderCOA(el) {
-      const cid = companyFilterId();
-      let list = scoped(accounts, cid).slice().sort(sortAlphaNum(x => x.acctCode));
-      el.innerHTML = `
-        <div class="toolbar">
-          <h2>Chart of Accounts</h2>
-          <div class="search-filter-box">
-            <span style="color:#64748b;font-size:11px">🔍</span>
-            <input placeholder="Type or *wildcard..." oninput="const q=this.value; const b=document.getElementById('coa-b'); b.innerHTML=accounts.filter(a=>matchWildcard(a.acctName,q)||matchWildcard(a.acctCode,q)).map(a=>'<tr><td><b>'+esc(a.acctCode)+'</b></td><td>'+esc(a.acctName)+'</td><td>'+esc(a.category)+'</td></tr>').join('')">
-            <span class="wildcard-hint">*Wildcard</span>
-          </div>
-        </div>
-        <div class="grid-wrap"><table class="grid">
-          <thead><tr><th>Account Code (A-Z)</th><th>Account Name</th><th>Category</th></tr></thead>
-          <tbody id="coa-b">${list.map(a => `<tr><td><b>${esc(a.acctCode)}</b></td><td>${esc(a.acctName)}</td><td>${esc(a.category || "")}</td></tr>`).join("")}</tbody>
-        </table></div>`;
-    }
-
-    function renderWarehouses(el) {
-      const list = scoped(warehouses, companyFilterId());
-      el.innerHTML = `
-        <div class="toolbar"><h2>Warehouses</h2></div>
-        <div class="grid-wrap"><table class="grid">
-          <thead><tr><th>Code (A-Z)</th><th>Name</th></tr></thead>
-          <tbody>${list.map(w => `<tr><td><b>${esc(w.code)}</b></td><td>${esc(w.name)}</td></tr>`).join("")}</tbody>
-        </table></div>`;
-    }
-
-    function renderEmployees(el) {
-      el.innerHTML = `<div class="toolbar"><h2>Employees</h2></div><p style="padding:10px;color:#64748b">Employee management active.</p>`;
-    }
-    function renderSalesEmployees(el) {
-      el.innerHTML = `<div class="toolbar"><h2>Sales Employees</h2></div><p style="padding:10px;color:#64748b">Sales employee assignments active.</p>`;
-    }
-    function renderStock(el) {
-      el.innerHTML = `<div class="toolbar"><h2>Goods Receipt / Issue</h2></div><p style="padding:10px;color:#64748b">Inventory transactions active.</p>`;
-    }
-    function renderStockBalance(el) {
-      const cid = companyFilterId();
-      el.innerHTML = `
-        <div class="toolbar"><h2>Stock Balance per Item</h2></div>
-        <div class="grid-wrap"><table class="grid">
-          <thead><tr><th>Item Code</th><th>Item Name</th><th>UoM</th><th>On Hand</th></tr></thead>
-          <tbody>${scoped(items, cid).map(i => `<tr><td><b>${esc(i.itemCode)}</b></td><td>${esc(i.name)}</td><td>${esc(i.uom)}</td><td style="text-align:right">100.00</td></tr>`).join("")}</tbody>
-        </table></div>`;
-    }
-    function renderTrialBalance(el) {
-      el.innerHTML = `<div class="toolbar"><h2>Trial Balance</h2></div><p style="padding:10px;color:#64748b">Double-entry ledger balances aligned.</p>`;
-    }
-    function renderCompanies(el) {
-      el.innerHTML = `<div class="toolbar"><h2>Companies</h2></div>
-        <div class="grid-wrap"><table class="grid">
-          <thead><tr><th>Code</th><th>Name</th></tr></thead>
-          <tbody>${companies.map(c => `<tr><td><b>${esc(c.code)}</b></td><td>${esc(c.name)}</td></tr>`).join("")}</tbody>
-        </table></div>`;
-    }
-    function renderPayments(el) {
-      el.innerHTML = `<div class="toolbar"><h2>Incoming Payment</h2></div><p style="padding:10px;color:#64748b">Customer incoming payments.</p>`;
-    }
-
-    // Startup initialization
-    (async () => {
-      await loadAll();
-      refreshLoginCompanies();
-    })();
   </script>
-</body></html>
+</body>
+</html>
