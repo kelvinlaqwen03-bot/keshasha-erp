@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>KESHASHA ERP — Enterprise Production Suite</title>
+  <title>KESHASHA ERP</title>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -13,1211 +13,251 @@
       --primary-d: #072a66; --text: #1a1a2e; --muted: #667085; --hover: #eef3fb;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); font-size: 13px; overflow-x: hidden; }
-    
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 13px; }
     #login-view {
       min-height: 100vh; display: flex; align-items: center; justify-content: center;
-      background: linear-gradient(135deg, #1e3a8a, #0b3d91, #0284c7);
+      background: linear-gradient(135deg, #dbeafe, #f8fafc);
     }
     .login-box {
-      background: var(--panel); border: 1px solid var(--border); width: 420px; padding: 28px 24px;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.25); border-radius: 6px;
+      background: var(--panel); border: 1px solid var(--border); width: 380px; padding: 28px 24px;
+      box-shadow: 0 8px 30px rgba(11,61,145,.12);
     }
-    .login-box h1 { color: var(--primary); font-size: 1.5rem; letter-spacing: 0.5px; font-weight: 800; }
-    .login-box .sub { color: var(--muted); font-size: 12px; margin: 4px 0 16px; }
+    .login-box h1 { color: var(--primary); font-size: 1.5rem; letter-spacing: 1px; }
+    .login-box .sub { color: var(--muted); font-size: 12px; margin: 4px 0 18px; }
     label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
-    input, select, textarea {
-      width: 100%; padding: 7px 10px; border: 1px solid var(--border); margin-bottom: 10px; font-size: 12.5px;
-      border-radius: 3px; background: #fff;
+    input, select {
+      width: 100%; padding: 8px 10px; border: 1px solid var(--border); margin-bottom: 10px; font-size: 13px;
     }
-    input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
+    input:focus, select:focus { outline: 2px solid var(--primary); border-color: transparent; }
     .btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
-      padding: 6px 12px; border: 1px solid var(--border); background: #fff; cursor: pointer;
-      font-size: 12px; font-weight: 600; border-radius: 3px;
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 7px 12px; border: 1px solid var(--border); background: #fff; cursor: pointer;
+      font-size: 12.5px; font-weight: 600;
     }
     .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
     .btn-primary:hover { background: var(--primary-d); }
-    .btn-sm { padding: 4px 9px; font-size: 11.5px; }
+    .btn-sm { padding: 4px 9px; font-size: 12px; }
     .btn-danger { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+    .err { color: #b91c1c; font-size: 12px; margin-top: 6px; }
 
-    #app-view { display: none; min-height: 100vh; flex-direction: column; }
+    #app-view { display: none; min-height: 100vh; }
     .topbar {
-      background: var(--primary); color: #fff; padding: 7px 14px;
-      display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 42px; flex-shrink: 0;
+      background: var(--primary); color: #fff; padding: 8px 14px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
     }
     .topbar strong { font-size: 15px; letter-spacing: .6px; }
-    .badge { background: #f59e0b; color: #111; font-weight: 800; padding: 2px 7px; font-size: 10.5px; border-radius: 3px; margin-left: 6px; }
-
-    .menubar {
-      background: #f1f5f9; border-bottom: 1px solid var(--border);
-      display: flex; gap: 0; padding: 0 6px; font-size: 12px; user-select: none; height: 32px; align-items: center; flex-shrink: 0;
-    }
-    .menubar .menu { position: relative; padding: 6px 12px; cursor: pointer; color: #334155; }
-    .menubar .menu:hover { background: #e2e8f0; border-radius: 3px; }
-    .menubar .menu .dropdown {
-      display: none; position: absolute; top: 100%; left: 0; min-width: 220px;
-      background: #fff; border: 1px solid var(--border); box-shadow: 0 8px 24px rgba(0,0,0,.15); z-index: 50; border-radius: 4px;
-    }
-    .menubar .menu:hover .dropdown { display: block; }
-    .menubar .dropdown button {
+    .badge { background: rgba(255,255,255,.2); padding: 2px 7px; font-size: 11px; margin-left: 6px; }
+    .layout { display: flex; min-height: calc(100vh - 42px); }
+    .sidebar { width: 168px; background: #1e293b; flex-shrink: 0; padding: 6px 0; }
+    .sidebar button {
       display: block; width: 100%; text-align: left; border: 0; background: none;
-      padding: 7px 12px; font-size: 12px; cursor: pointer; color: #1e293b;
+      color: #cbd5e1; padding: 9px 14px; cursor: pointer; font-size: 13px;
     }
-    .menubar .dropdown button:hover { background: var(--hover); color: var(--primary); }
+    .sidebar button:hover, .sidebar button.active { background: var(--primary); color: #fff; }
+    .main { flex: 1; padding: 10px 14px; overflow: auto; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .toolbar h2 { font-size: 15px; color: var(--primary); margin-right: auto; }
 
-    .layout { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 74px); }
-    .sidebar { width: 220px; background: #0f172a; flex-shrink: 0; overflow-y: auto; color: #cbd5e1; border-right: 1px solid #1e293b; }
-    .sidebar .mod-title {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 9px 12px; color: #94a3b8; font-size: 11px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: .5px; cursor: pointer; user-select: none; border-bottom: 1px solid #1e293b;
-    }
-    .sidebar .mod-title:hover { color: #fff; background: rgba(255,255,255,.03); }
-    .sidebar .mod-children { display: none; background: #090d16; }
-    .sidebar .mod-children.open { display: block; }
-    .sidebar .mod-children button {
-      display: block; width: 100%; text-align: left; border: 0; background: none;
-      color: #cbd5e1; padding: 7px 12px 7px 22px; cursor: pointer; font-size: 12px;
-    }
-    .sidebar .mod-children button:hover { background: rgba(11,61,145,.4); color: #fff; }
-    .sidebar .mod-children button.active { background: var(--primary); color: #fff; font-weight: 600; }
-
-    .main { flex: 1; padding: 12px 14px; overflow: auto; background: #f8fafc; }
-    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
-    .toolbar h2 { font-size: 15px; color: var(--primary); margin-right: auto; font-weight: 700; }
-
-    /* Dense SAP B1 Grid */
-    .grid-wrap { border: 1px solid var(--border); background: #fff; overflow: auto; max-height: calc(100vh - 220px); border-radius: 3px; }
-    table.grid { width: 100%; border-collapse: collapse; font-size: 12px; }
+    /* Dense SAP/Excel-style grid */
+    .grid-wrap { border: 1px solid var(--border); background: var(--panel); overflow: auto; max-height: calc(100vh - 160px); }
+    table.grid { width: 100%; border-collapse: collapse; font-size: 12.5px; }
     table.grid th {
-      background: #e2e8f0; border: 1px solid var(--border); padding: 6px 8px;
-      text-align: left; font-weight: 700; position: sticky; top: 0; z-index: 10; white-space: nowrap; color: #1e293b;
+      background: #e8eef7; border: 1px solid var(--border); padding: 5px 8px;
+      text-align: left; font-weight: 700; position: sticky; top: 0; z-index: 1; white-space: nowrap;
     }
-    table.grid td { border: 1px solid var(--border); padding: 4px 8px; white-space: nowrap; }
+    table.grid td { border: 1px solid var(--border); padding: 3px 8px; }
     table.grid tr:hover td { background: var(--hover); }
-
-    /* Smart Search Wrapper inside Inputs */
-    .smart-search-box {
-      display: flex; align-items: center; position: relative; width: 100%;
-    }
-    .smart-search-box input {
-      padding-left: 20px; font-weight: 600; color: #0b3d91;
-    }
-    .smart-search-icon {
-      position: absolute; left: 6px; top: 7px; font-size: 11px; color: #64748b; pointer-events: none;
-    }
-
-    /* SAP B1 Dense Marketing Document */
-    .mkt-box { background: #fff; border: 1px solid #cbd5e1; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); margin-bottom: 14px; }
-    .mkt-hd {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 14px 30px;
-      padding: 12px 16px; background: #f1f5f9; border-bottom: 1px solid #cbd5e1;
-    }
-    .mkt-hd .mkt-col { display: grid; grid-template-columns: 120px 1fr; gap: 6px 10px; align-items: center; }
-    .mkt-hd .mkt-col label { font-size: 11.5px; font-weight: 600; color: #334155; text-transform: none; margin: 0; }
-    .mkt-hd .mkt-col input, .mkt-hd .mkt-col select {
-      margin: 0; padding: 4px 8px; font-size: 12px; border: 1px solid #94a3b8; background: #fffef0; border-radius: 3px;
-    }
-    .mkt-hd .mkt-col input[readonly] { background: #e2e8f0; color: #475569; }
-
-    .doc-tabs { display: flex; background: #e2e8f0; border-bottom: 1px solid var(--border); padding: 0 8px; }
-    .doc-tab-btn {
-      padding: 7px 16px; border: 0; background: none; font-size: 12px; font-weight: 600;
-      color: #475569; cursor: pointer; border-bottom: 2px solid transparent;
-    }
-    .doc-tab-btn.active { color: #0b3d91; border-bottom: 2px solid #0b3d91; background: #fff; }
-    .doc-tab-content { display: none; padding: 12px; }
-    .doc-tab-content.active { display: block; }
-
-    .mkt-ft {
-      display: grid; grid-template-columns: 1fr 340px; gap: 20px;
-      padding: 12px 16px; background: #f8fafc; border-top: 1px solid var(--border);
-    }
-    .totals-box { display: grid; grid-template-columns: 1fr auto; gap: 5px 12px; font-size: 12px; align-items: center; }
-    .totals-box b { text-align: right; }
-    .grand-total { font-size: 14px; color: var(--primary); font-weight: 800; border-top: 2px solid var(--primary); padding-top: 5px; }
-
     .form-bar {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px 12px;
-      background: #fff; border: 1px solid var(--border); padding: 12px 14px; margin-bottom: 10px; border-radius: 4px;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px 10px;
+      background: var(--panel); border: 1px solid var(--border); padding: 8px 10px; margin-bottom: 8px;
     }
-
+    .form-bar .fg label { margin-bottom: 2px; }
+    .form-bar .fg input, .form-bar .fg select { margin-bottom: 0; padding: 6px 8px; }
     .toast {
-      position: fixed; bottom: 20px; right: 20px; background: #0f172a; color: #fff;
-      padding: 10px 16px; font-size: 12.5px; border-radius: 6px; display: none; z-index: 10000; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      position: fixed; bottom: 16px; right: 16px; background: #0f172a; color: #fff;
+      padding: 10px 14px; font-size: 13px; display: none; z-index: 99; max-width: 320px;
     }
     .toast.show { display: block; }
     .toast.ok { background: #166534; }
     .toast.err { background: #991b1b; }
+
+    .mkt-hd {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px 48px;
+      padding: 12px 14px; background: #f5f5f5; border: 1px solid #b0b0b0;
+    }
+    .mkt-hd .mkt-col { display: grid; grid-template-columns: 120px 1fr; gap: 6px 10px; align-items: center; }
+    .mkt-hd .mkt-col label { font-size: 12px; font-weight: 600; color: #333; margin: 0; }
+    .mkt-hd .mkt-col input, .mkt-hd .mkt-col select {
+      margin: 0; padding: 4px 8px; font-size: 12px; border: 1px solid #999; background: #fffef0; width: 100%;
+    }
+    .mkt-hd .mkt-col input[readonly] { background: #e8e8e8; color: #333; }
+    .mkt-lines-label { font-size: 12px; font-weight: 700; color: #0b3d91; padding: 4px 8px 6px; border-bottom: 2px solid #0b3d91; margin-bottom: 4px; }
+    .mkt-ft {
+      display: grid; grid-template-columns: 1fr 260px; gap: 16px;
+      padding: 10px 14px; background: #f5f5f5; border-top: 1px solid #ccc;
+    }
+    .mkt-ft .totals { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: 12px; align-items: center; }
+    .mkt-ft .totals b { text-align: right; min-width: 100px; }
+
+    /* Smart Search Engine Wrapper */
+    .smart-search-wrapper { position: relative; display: flex; flex-direction: column; gap: 2px; width: 100%; }
+    .smart-search-input {
+      font-size: 11px; padding: 2px 6px; margin: 0; border: 1px solid #94a3b8; border-radius: 2px; background: #fff;
+    }
   </style>
 </head>
 <body>
-<div id="login-view">
-  <div class="login-box">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-      <div style="width:40px;height:40px;background:#0b3d91;color:#f59e0b;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;border-radius:6px">K</div>
-      <div><h1>KESHASHA ERP</h1><div class="sub">SAP Business One Enterprise Suite</div></div>
-    </div>
-    <label>Company *</label>
-    <select id="login-company">
-      <option value="KESH-01">KESH-01 — Keshasha Steel & Building Supplies Ltd</option>
-      <option value="ANDO-02">ANDO-02 — Ando Construction & Yard Ltd</option>
-    </select>
-    <label>Email</label>
-    <input id="login-email" type="email" value="admin@keshasha.co.tz" />
-    <label>Password</label>
-    <input id="login-password" type="password" value="admin123" />
-    <button class="btn btn-primary" onclick="doLogin()" style="width:100%;padding:9px">Sign In to Enterprise Workspace</button>
-    <div style="margin-top:14px;padding-top:12px;border-top:1px solid #e5e7eb;display:flex;flex-direction:column;gap:6px">
-      <button class="btn btn-sm" onclick="loginCreateCompany()">+ Create Company</button>
-      <button class="btn btn-sm" onclick="loginCreateUser()">+ Create Company User</button>
-    </div>
-  </div>
-</div>
-
-<div id="app-view">
-  <div class="topbar">
-    <div style="display:flex;align-items:center;gap:10px">
-      <div style="width:26px;height:26px;background:#fff;color:#0b3d91;display:flex;align-items:center;justify-content:center;font-weight:900;border-radius:4px">K</div>
-      <strong>KESHASHA ERP</strong><span class="badge">Enterprise Suite</span>
-      <span id="active-company-display" style="margin-left:10px;font-size:12px;opacity:.9;font-weight:600"></span>
-    </div>
-    <div style="font-size:12px">
-      <span id="user-display">Super Admin (kelvinlaqwen01)</span>
-      <button class="btn btn-sm" onclick="doLogout()" style="margin-left:8px">Logout</button>
+  <div id="login-view">
+    <div class="login-box">
+      <div style="text-align:center;margin-bottom:12px">
+        <h1 style="color:var(--primary)">KESHASHA ERP</h1>
+      </div>
+      <div class="sub" style="text-align:center">Sign in to your company</div>
+      <label>Company *</label>
+      <select id="login-company">
+        <option value="">— Select company —</option>
+      </select>
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="user@company.com" />
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="••••••••" />
+      <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Sign in</button>
+      <div class="err" id="login-err"></div>
     </div>
   </div>
 
-  <div class="menubar">
-    <div class="menu">File
-      <div class="dropdown">
-        <button onclick="nav('companies')">Company Setup</button>
-        <button onclick="doLogout()">Sign Out</button>
+  <div id="app-view">
+    <div class="topbar">
+      <div>
+        <strong>KESHASHA</strong><span class="badge">Phase 1</span>
+        <span id="company-label" style="margin-left:10px;font-size:12px;opacity:.9"></span>
+      </div>
+      <div style="font-size:12px">
+        <span id="user-label"></span>
+        <button class="btn btn-sm" style="margin-left:8px" onclick="doLogout()">Logout</button>
       </div>
     </div>
-    <div class="menu">Modules
-      <div class="dropdown">
-        <button onclick="nav('so')">Sales Order</button>
-        <button onclick="nav('po')">Purchase Order</button>
-        <button onclick="nav('pr')">Purchase Request</button>
-        <button onclick="nav('items')">Item Master</button>
-        <button onclick="nav('employees')">Employee Master</button>
-        <button onclick="nav('pay')">Incoming Payments</button>
-        <button onclick="nav('outgoing')">Outgoing Payments</button>
-        <button onclick="nav('users')">Users Management</button>
-        <button onclick="nav('authz')">Authorizations</button>
-        <button onclick="nav('coa')">Chart of Accounts</button>
-      </div>
-    </div>
-    <div class="menu">Excel Tools
-      <div class="dropdown">
-        <button onclick="exportCurrentTable()">Export Active Table to Excel (.xlsx)</button>
-        <button onclick="triggerExcelImport()">Import Excel into Current Module</button>
-        <button onclick="downloadTemplate()">Download Standard Template</button>
-      </div>
+    <div class="layout">
+      <nav class="sidebar" id="sidebar"></nav>
+      <div class="main" id="main"></div>
     </div>
   </div>
 
-  <div class="layout">
-    <nav class="sidebar" id="sidebar">
-      <!-- Sales A/R -->
-      <div class="mod-title" onclick="toggleGrp('sales')">Sales — A/R <span>▾</span></div>
-      <div class="mod-children open" id="grp-sales">
-        <button class="active" onclick="nav('so')">Sales Order [SO]</button>
-        <button onclick="nav('sq')">Sales Quotation [SQ]</button>
-        <button onclick="nav('dn')">Delivery Note [DN]</button>
-        <button onclick="nav('inv')">A/R Invoice [INV]</button>
-        <button onclick="nav('cm')">A/R Credit Memo [CM]</button>
-      </div>
-      <!-- Purchasing A/P -->
-      <div class="mod-title" onclick="toggleGrp('purch')">Purchasing — A/P <span>▾</span></div>
-      <div class="mod-children open" id="grp-purch">
-        <button onclick="nav('pr')">Purchase Request [PR]</button>
-        <button onclick="nav('po')">Purchase Order [PO]</button>
-        <button onclick="nav('grpo')">Goods Receipt PO [GRPO]</button>
-        <button onclick="nav('apinv')">A/P Invoice [APINV]</button>
-        <button onclick="nav('apcm')">A/P Credit Memo [APCM]</button>
-      </div>
-      <!-- Inventory -->
-      <div class="mod-title" onclick="toggleGrp('inv')">Inventory <span>▾</span></div>
-      <div class="mod-children" id="grp-inv">
-        <button onclick="nav('items')">Item Master Data</button>
-        <button onclick="nav('warehouses')">Warehouses</button>
-        <button onclick="nav('stock_in')">Goods Receipt (IN)</button>
-        <button onclick="nav('stock_out')">Goods Issue (OUT)</button>
-        <button onclick="nav('transfer')">Inventory Transfer</button>
-        <button onclick="nav('stockbal')">Stock Balance</button>
-      </div>
-      <!-- Banking -->
-      <div class="mod-title" onclick="toggleGrp('bank')">Banking & Payments <span>▾</span></div>
-      <div class="mod-children" id="grp-bank">
-        <button onclick="nav('pay')">Incoming Payments</button>
-        <button onclick="nav('outgoing')">Outgoing Payments</button>
-        <button onclick="nav('bankrep')">Banking Register</button>
-      </div>
-      <!-- Production -->
-      <div class="mod-title" onclick="toggleGrp('prod')">Production <span>▾</span></div>
-      <div class="mod-children" id="grp-prod">
-        <button onclick="nav('bom')">Bill of Materials (BOM)</button>
-        <button onclick="nav('prodorder')">Production Order</button>
-      </div>
-      <!-- Business Partners -->
-      <div class="mod-title" onclick="toggleGrp('bp')">Business Partners <span>▾</span></div>
-      <div class="mod-children" id="grp-bp">
-        <button onclick="nav('partners')">BP Master Data</button>
-        <button onclick="nav('bpgroups')">BP Groups</button>
-      </div>
-      <!-- HR / Employees -->
-      <div class="mod-title" onclick="toggleGrp('hr')">HR & Employees <span>▾</span></div>
-      <div class="mod-children" id="grp-hr">
-        <button onclick="nav('employees')">Employee Master</button>
-      </div>
-      <!-- Financials -->
-      <div class="mod-title" onclick="toggleGrp('fin')">Financials & G/L <span>▾</span></div>
-      <div class="mod-children" id="grp-fin">
-        <button onclick="nav('coa')">Chart of Accounts</button>
-        <button onclick="nav('je')">Journal Entry</button>
-        <button onclick="nav('tb')">Trial Balance</button>
-        <button onclick="nav('acctmap')">Account Determination</button>
-      </div>
-      <!-- Administration: SEPARATED USERS & AUTHORIZATIONS -->
-      <div class="mod-title" onclick="toggleGrp('admin')">Administration <span>▾</span></div>
-      <div class="mod-children open" id="grp-admin">
-        <button onclick="nav('companies')">Companies</button>
-        <button onclick="nav('branches')">Branches</button>
-        <button onclick="nav('users')">Users Management</button>
-        <button onclick="nav('authz')">Authorizations</button>
-      </div>
-    </nav>
-    <main class="main" id="main-view"></main>
-  </div>
-</div>
+  <div class="toast" id="toast"></div>
 
-<input type="file" id="excel-file-input" style="display:none" accept=".xlsx,.xls,.csv" onchange="handleExcelFile(this)" />
-<div class="toast" id="toast">Operation completed</div>
-
-<script>
-  // STRICT A-Z SORTING UTILITY
-  function sortAz(arr, key) {
-    return arr.sort((a, b) => String(a[key] || '').localeCompare(String(b[key] || ''), undefined, { numeric: true, sensitivity: 'base' }));
-  }
-
-  // SMART SEARCH ENGINE (WILDCARD * OR INCLUDES)
-  function matchSmart(text, query) {
-    if (!query) return true;
-    const t = String(text || '').toLowerCase();
-    const q = String(query || '').toLowerCase().trim();
-    if (q.startsWith('*')) {
-      const term = q.slice(1).trim();
-      return term ? t.includes(term) : true;
-    }
-    return t.includes(q);
-  }
-
-  // DEFAULT STORE WITH REAL ENTERPRISE DATA
-  const DEFAULT_STORE = {
-    activeCompanyId: "KESH-01",
-    companies: [
-      { code: "KESH-01", name: "Keshasha Steel & Building Supplies Ltd", currency: "TZS", tin: "104-982-110", phone: "+255 754 000 123" },
-      { code: "ANDO-02", name: "Ando Construction & Yard Ltd", currency: "TZS", tin: "109-442-881", phone: "+255 658 999 444" }
-    ],
-    branches: [
-      { code: "01", name: "Chanika Main Yard", isHq: true, companyId: "KESH-01" },
-      { code: "02", name: "Mbeya Depot", isHq: false, companyId: "KESH-01" }
-    ],
-    users: [
-      { email: "admin@keshasha.co.tz", name: "Super Admin", role: "Super Admin", password: "••••••••", auths: { sales: 2, purchasing: 2, inventory: 2, banking: 2, financials: 2, admin: 2 } },
-      { email: "sales@keshasha.co.tz", name: "Juma Sales", role: "Sales Rep", password: "••••••••", auths: { sales: 2, purchasing: 1, inventory: 1, banking: 0, financials: 0, admin: 0 } },
-      { email: "accountant@keshasha.co.tz", name: "Fatma Finance", role: "Accountant", password: "••••••••", auths: { sales: 1, purchasing: 1, inventory: 1, banking: 2, financials: 2, admin: 0 } }
-    ],
-    employees: [
-      { code: "EMP-001", name: "Emmanuel Machale", dept: "Engineering & Sites", role: "Lead Engineer", phone: "+255 754 112 233" },
-      { code: "EMP-002", name: "Fatma Kassim", dept: "Accounts & Finance", role: "Chief Accountant", phone: "+255 788 334 455" },
-      { code: "EMP-003", name: "Juma Ally", dept: "Procurement & Yard", role: "Purchasing Officer", phone: "+255 713 556 677" },
-      { code: "EMP-004", name: "Kelvin Laqwen", dept: "Executive Management", role: "Operations Director", phone: "+255 765 889 110" }
-    ],
-    items: [
-      { itemCode: "CMT-POR-425", name: "Dangote Portland Cement Grade 42.5R (50kg Bag)", group: "Cement", uom: "BAG", price: 21500, wh: "01 - Yard Main" },
-      { itemCode: "ROOF-MT-028", name: "Matte Metal Blue Corrugated Roofing Tiles (Gauge 28)", group: "Roofing Sheets", uom: "MTR", price: 22000, wh: "01 - Yard Main" },
-      { itemCode: "STL-REB-012", name: "Machale Deformed High-Tensile Steel Rebars 12mm x 12m", group: "Steel & Rebars", uom: "PCS", price: 27500, wh: "01 - Yard Main" },
-      { itemCode: "STL-REB-016", name: "Machale High-Tensile Heavy Steel Rebar 16mm x 12m", group: "Steel & Rebars", uom: "PCS", price: 48000, wh: "01 - Yard Main" }
-    ],
-    customers: [
-      { bpCode: "C20001", name: "Kilimanjaro Commercial Builders Ltd", phone: "+255 754 000 123", balance: "16,541,320.00" },
-      { bpCode: "C20002", name: "Machale Construction & Civil Works", phone: "+255 754 888 999", balance: "8,920,000.00" },
-      { bpCode: "C20003", name: "Mikocheni Real Estate Developers", phone: "+255 788 112 233", balance: "4,200,000.00" }
-    ],
-    vendors: [
-      { bpCode: "S10001", name: "Machale Heavy Steel Forging Mills", phone: "+255 22 286 1111", balance: "38,500,000.00" },
-      { bpCode: "S10002", name: "Tanzania Steel Mills & Heavy Forging Ltd", phone: "+255 22 286 2222", balance: "24,000,000.00" },
-      { bpCode: "S10003", name: "Twiga Cement Manufacturing Co. Ltd", phone: "+255 22 260 0330", balance: "12,900,000.00" }
-    ],
-    salesOrders: [
-      {
-        docNo: "SO-26-9243", bpCode: "C20002", bpName: "Machale Construction & Civil Works",
-        docDate: "2026-11-09", dueDate: "2026-11-26", branch: "Chanika Main Yard",
-        lines: [
-          { itemCode: "STL-REB-012", name: "Machale Deformed High-Tensile Steel Rebars 12mm x 12m", qty: 120, uom: "PCS", price: 27500, disc: 0, taxCode: "V18", wh: "01 - Yard Main" },
-          { itemCode: "STL-REB-016", name: "Machale High-Tensile Heavy Steel Rebar 16mm x 12m", qty: 80, uom: "PCS", price: 48000, disc: 2.5, taxCode: "V18", wh: "01 - Yard Main" }
-        ]
-      }
-    ],
-    purchaseOrders: [
-      {
-        docNo: "PO-26-4011", bpCode: "S10001", bpName: "Machale Heavy Steel Forging Mills",
-        docDate: "2026-11-10", dueDate: "2026-11-20", branch: "Chanika Main Yard",
-        lines: [
-          { itemCode: "STL-REB-012", name: "Machale Deformed High-Tensile Steel Rebars 12mm x 12m", qty: 300, uom: "PCS", price: 24000, disc: 0, taxCode: "V18", wh: "01 - Yard Main" }
-        ]
-      }
-    ],
-    accounts: [
-      { code: "100000", name: "ASSETS (Control Summary)", type: "Title", level: 1, balance: "245,800,000.00" },
-      { code: "121000", name: "Inventories Asset Account", type: "Active", level: 2, balance: "94,200,000.00" },
-      { code: "122000", name: "Trade Accounts Receivable (A/R Control)", type: "Active", level: 2, balance: "20,741,320.00" },
-      { code: "161000", name: "CRDB Bank PLC — Corporate Account", type: "Active", level: 2, balance: "130,858,680.00" },
-      { code: "200000", name: "LIABILITIES (Control Summary)", type: "Title", level: 1, balance: "112,400,000.00" },
-      { code: "221000", name: "Trade Accounts Payable (A/P Control)", type: "Active", level: 2, balance: "51,400,000.00" },
-      { code: "400000", name: "TURNOVER / SALES REVENUE", type: "Active", level: 2, balance: "318,500,000.00" },
-      { code: "500000", name: "COST OF GOODS SOLD (COGS)", type: "Active", level: 2, balance: "185,200,000.00" },
-      { code: "611000", name: "Staff Welfare & Meal Expenses", type: "Active", level: 2, balance: "4,600,000.00" },
-      { code: "612000", name: "Transport & Logistics Direct Expenses", type: "Active", level: 2, balance: "12,800,000.00" }
-    ]
-  };
-
-  // Natural A-Z Sort everything initially
-  sortAz(DEFAULT_STORE.customers, 'name');
-  sortAz(DEFAULT_STORE.vendors, 'name');
-  sortAz(DEFAULT_STORE.items, 'name');
-  sortAz(DEFAULT_STORE.employees, 'name');
-  sortAz(DEFAULT_STORE.accounts, 'name');
-
-  let AppState = JSON.parse(localStorage.getItem("KESHASHA_ERP_STORE")) || DEFAULT_STORE;
-  function saveState() { localStorage.setItem("KESHASHA_ERP_STORE", JSON.stringify(AppState)); }
-  function toast(msg, ok = true) {
-    const t = document.getElementById("toast"); t.textContent = msg;
-    t.className = "toast show " + (ok ? "ok" : "err"); setTimeout(() => t.className = "toast", 2500);
-  }
-
-  function doLogin() {
-    const co = document.getElementById("login-company").value;
-    AppState.activeCompanyId = co;
-    saveState();
-    document.getElementById("login-view").style.display = "none";
-    document.getElementById("app-view").style.display = "flex";
-    const comp = AppState.companies.find(c => c.code === co) || AppState.companies[0];
-    document.getElementById("active-company-display").textContent = "Entity: " + comp.name + " (" + comp.code + ")";
-    nav("so");
-  }
-
-  function doLogout() {
-    document.getElementById("app-view").style.display = "none";
-    document.getElementById("login-view").style.display = "flex";
-  }
-
-  function toggleGrp(id) {
-    const el = document.getElementById("grp-" + id);
-    if (el) el.classList.toggle("open");
-  }
-
-  let activeModule = 'so';
-  function nav(page) {
-    activeModule = page;
-    document.querySelectorAll(".sidebar button").forEach(b => b.classList.remove("active"));
-    event?.target?.classList?.add("active");
-    const main = document.getElementById("main-view");
-
-    if (["so", "sq", "dn", "inv", "cm"].includes(page)) {
-      renderSalesDocView(main, page.toUpperCase());
-    } else if (["po", "pr", "grpo", "apinv", "apcm"].includes(page)) {
-      renderPurchasingDocView(main, page.toUpperCase());
-    } else if (page === "items") {
-      renderItemMasterView(main);
-    } else if (page === "employees") {
-      renderEmployeeMasterView(main);
-    } else if (page === "pay") {
-      renderPaymentsView(main, "INCOMING");
-    } else if (page === "outgoing") {
-      renderPaymentsView(main, "OUTGOING");
-    } else if (page === "coa") {
-      renderCOAView(main);
-    } else if (page === "users") {
-      renderUsersManagementView(main);
-    } else if (page === "authz") {
-      renderAuthorizationsView(main);
-    } else {
-      renderGenericStandardModule(main, page);
-    }
-  }
-
-  // 1. SALES MARKETING DOCUMENTS WITH SMART SEARCH & TAX CODE CALCULATION
-  function renderSalesDocView(container, docType) {
-    const doc = AppState.salesOrders[0];
-    container.innerHTML = `
-      <div class="toolbar">
-        <h2>Sales — ${docType} (Customer Commercial Document)</h2>
-        <button class="btn btn-sm btn-primary" onclick="addSalesLine()">+ Add Row</button>
-        <button class="btn btn-sm" onclick="exportCurrentTable()">📤 Export Excel</button>
-        <button class="btn btn-sm" onclick="triggerExcelImport()">📥 Import Excel</button>
-        <button class="btn btn-sm" onclick="printDoc('${docType}')">🖨 Print Layout</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteSelectedRows()">✕ Delete Selected</button>
-      </div>
-      <div class="mkt-box">
-        <div class="mkt-hd">
-          <div class="mkt-col">
-            <label>Customer Search (*):</label>
-            <div class="smart-search-box">
-              <span class="smart-search-icon">🔍</span>
-              <input type="text" placeholder="Type *term to search (e.g. *Machale)..." oninput="filterSalesCustomerSelect(this.value)" />
-            </div>
-            <label>Customer Code & Name:</label>
-            <select id="so-bp-select" onchange="onSalesCustomerChange(this.value)">
-              ${AppState.customers.map(c => `<option value="${c.bpCode}" ${c.bpCode===doc.bpCode?'selected':''}>${c.bpCode} — ${c.name}</option>`).join("")}
-            </select>
-            <label>Branch / Yard:</label>
-            <select><option>${doc.branch}</option><option>Mbeya Depot</option></select>
-          </div>
-          <div class="mkt-col">
-            <label>Document No:</label>
-            <input type="text" readonly value="${doc.docNo}" />
-            <label>Posting Date:</label>
-            <input type="date" value="${doc.docDate}" />
-            <label>Delivery Due Date:</label>
-            <input type="date" value="${doc.dueDate}" />
-          </div>
-        </div>
-        <div class="doc-tabs">
-          <button class="doc-tab-btn active" onclick="switchDocTab(this, 's-contents')">Contents</button>
-          <button class="doc-tab-btn" onclick="switchDocTab(this, 's-logistics')">Logistics</button>
-          <button class="doc-tab-btn" onclick="switchDocTab(this, 's-accounting')">Accounting</button>
-        </div>
-        <div class="doc-tab-content active" id="s-contents" style="padding:0">
-          <div style="padding:6px 10px;background:#f8fafc;border-bottom:1px solid #cbd5e1;display:flex;align-items:center;justify-content:space-between">
-            <span style="font-weight:700;color:#0b3d91;font-size:11.5px">Line Items (Natural A-Z & Smart Search Enabled)</span>
-            <div style="display:flex;align-items:center;gap:6px">
-              <span style="font-size:11px;color:#64748b">Filter Rows:</span>
-              <input type="text" placeholder="Wildcard *Steel, *Rebar..." style="width:200px;margin:0;padding:3px 6px;font-size:11.5px" oninput="filterSalesLineItems(this.value)" />
-            </div>
-          </div>
-          <div class="grid-wrap">
-            <table class="grid" id="sales-lines-table">
-              <thead>
-                <tr>
-                  <th style="width:28px"><input type="checkbox" onchange="toggleSelectAllRows(this)" /></th>
-                  <th style="width:36px">#</th>
-                  <th>Item No.</th>
-                  <th style="min-width:280px">Item Description (Smart Search)</th>
-                  <th style="width:80px">Quantity</th>
-                  <th style="width:60px">UoM</th>
-                  <th style="width:100px">Unit Price</th>
-                  <th style="width:60px">Disc %</th>
-                  <th style="width:140px">Tax Code (Dropdown)</th>
-                  <th style="width:120px;text-align:right">Net Total (TZS)</th>
-                  <th>Warehouse</th>
-                  <th style="width:36px">Action</th>
-                </tr>
-              </thead>
-              <tbody id="sales-lines-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-        <div class="doc-tab-content" id="s-logistics">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-            <div><label>Offloading Site:</label><textarea rows="3">Plot 14, Kibamba Industrial Area, Dar es Salaam</textarea></div>
-            <div><label>Carrier Transport:</label><input type="text" value="Direct Road Haulage (Scania T420 - T 482 DWX)" /></div>
-          </div>
-        </div>
-        <div class="doc-tab-content" id="s-accounting">
-          <div><label>A/R Control Account:</label><input type="text" readonly value="122000 — Trade Accounts Receivable (A/R Control)" /></div>
-        </div>
-        <div class="mkt-ft">
-          <div>
-            <span style="font-size:11px;font-weight:700;color:#64748b">DOCUMENT CONTROLS:</span>
-            <p style="font-size:11.5px;color:#475569">Strict company isolation active. Tax codes dynamically calculate total due.</p>
-          </div>
-          <div class="totals-box">
-            <span>Subtotal:</span><b id="so-subtotal">0.00 TZS</b>
-            <span>Discount:</span><b id="so-disc" style="color:#b91c1c">- 0.00 TZS</b>
-            <span>Tax (VAT 18% / Exempt):</span><b id="so-tax">0.00 TZS</b>
-            <span class="grand-total">TOTAL DUE:</span><b class="grand-total" id="so-grand">0.00 TZS</b>
-          </div>
-        </div>
-      </div>
-    `;
-    renderSalesLinesRows();
-  }
-
-  function filterSalesCustomerSelect(query) {
-    const sel = document.getElementById("so-bp-select");
-    if (!sel) return;
-    const filtered = AppState.customers.filter(c => matchSmart(c.name, query) || matchSmart(c.bpCode, query));
-    sel.innerHTML = filtered.map(c => `<option value="${c.bpCode}">${c.bpCode} — ${c.name}</option>`).join("");
-    if (filtered.length) {
-      sel.selectedIndex = 0;
-      onSalesCustomerChange(sel.value);
-    }
-  }
-
-  function onSalesCustomerChange(val) {
-    const c = AppState.customers.find(x => x.bpCode === val);
-    if (c) {
-      AppState.salesOrders[0].bpCode = c.bpCode;
-      AppState.salesOrders[0].bpName = c.name;
-      saveState();
-    }
-  }
-
-  function renderSalesLinesRows(linesToRender = null) {
-    const tbody = document.getElementById("sales-lines-tbody");
-    if (!tbody) return;
-    const lines = linesToRender || AppState.salesOrders[0].lines;
-    tbody.innerHTML = lines.map((l, i) => {
-      const net = (l.qty * l.price) * (1 - (l.disc || 0) / 100);
-      return `
-        <tr>
-          <td><input type="checkbox" class="row-select" /></td>
-          <td>${i+1}</td>
-          <td><b>${l.itemCode}</b></td>
-          <td>
-            <select onchange="onSalesItemSelectChange(${i}, this.value)" style="margin:0;width:100%;font-weight:600">
-              ${AppState.items.map(it => `<option value="${it.itemCode}" ${it.itemCode===l.itemCode?'selected':''}>${it.name} (${it.itemCode})</option>`).join("")}
-            </select>
-          </td>
-          <td><input type="number" value="${l.qty}" style="width:75px;margin:0;text-align:right" onchange="updateSalesLine(${i}, 'qty', this.value)" /></td>
-          <td><input type="text" value="${l.uom}" style="width:55px;margin:0" onchange="updateSalesLine(${i}, 'uom', this.value)" /></td>
-          <td><input type="number" value="${l.price}" style="width:95px;margin:0;text-align:right" onchange="updateSalesLine(${i}, 'price', this.value)" /></td>
-          <td><input type="number" value="${l.disc||0}" style="width:55px;margin:0;text-align:right" onchange="updateSalesLine(${i}, 'disc', this.value)" /></td>
-          <td>
-            <select style="margin:0;padding:3px;font-weight:600" onchange="updateSalesLine(${i}, 'taxCode', this.value)">
-              <option value="V18" ${l.taxCode==='V18'?'selected':''}>V18 — Standard VAT (18%)</option>
-              <option value="EXEMPT" ${l.taxCode==='EXEMPT'?'selected':''}>EXEMPT — Zero Rated (0%)</option>
-            </select>
-          </td>
-          <td style="text-align:right;font-weight:700">${net.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-          <td>${l.wh || '01 - Yard Main'}</td>
-          <td style="text-align:center"><button class="btn btn-sm btn-danger" style="padding:2px 6px" onclick="removeSalesLine(${i})">🗑</button></td>
-        </tr>
-      `;
-    }).join("");
-    recalcSalesTotals();
-  }
-
-  function filterSalesLineItems(query) {
-    const lines = AppState.salesOrders[0].lines;
-    if (!query) return renderSalesLinesRows(lines);
-    const filtered = lines.filter(l => matchSmart(l.name, query) || matchSmart(l.itemCode, query));
-    renderSalesLinesRows(filtered);
-  }
-
-  function onSalesItemSelectChange(i, code) {
-    const it = AppState.items.find(x => x.itemCode === code);
-    if (!it) return;
-    const line = AppState.salesOrders[0].lines[i];
-    line.itemCode = it.itemCode;
-    line.name = it.name;
-    line.price = it.price;
-    line.uom = it.uom;
-    line.wh = it.wh;
-    saveState();
-    renderSalesLinesRows();
-  }
-
-  function updateSalesLine(i, field, val) {
-    const line = AppState.salesOrders[0].lines[i];
-    line[field] = (field === 'qty' || field === 'price' || field === 'disc') ? (parseFloat(val) || 0) : val;
-    saveState();
-    renderSalesLinesRows();
-  }
-
-  function addSalesLine() {
-    const defaultItem = AppState.items[0] || { itemCode: "STL-REB-012", name: "Machale Deformed High-Tensile Steel Rebars 12mm x 12m", uom: "PCS", price: 27500, wh: "01 - Yard Main" };
-    AppState.salesOrders[0].lines.push({
-      itemCode: defaultItem.itemCode, name: defaultItem.name,
-      qty: 10, uom: defaultItem.uom, price: defaultItem.price, disc: 0, taxCode: "V18", wh: defaultItem.wh
-    });
-    saveState();
-    renderSalesLinesRows();
-  }
-
-  function removeSalesLine(i) {
-    AppState.salesOrders[0].lines.splice(i, 1);
-    saveState();
-    renderSalesLinesRows();
-  }
-
-  function recalcSalesTotals() {
-    const lines = AppState.salesOrders[0].lines;
-    let subtotal = 0, disc = 0, vat = 0;
-    lines.forEach(l => {
-      const gross = l.qty * l.price;
-      const d = gross * ((l.disc || 0) / 100);
-      const net = gross - d;
-      subtotal += gross;
-      disc += d;
-      if (l.taxCode === "V18" || !l.taxCode) vat += net * 0.18;
-    });
-    const grand = (subtotal - disc) + vat;
-    const fmt = n => n.toLocaleString(undefined, { minimumFractionDigits: 2 }) + " TZS";
-    if (document.getElementById("so-subtotal")) document.getElementById("so-subtotal").textContent = fmt(subtotal);
-    if (document.getElementById("so-disc")) document.getElementById("so-disc").textContent = "- " + fmt(disc);
-    if (document.getElementById("so-tax")) document.getElementById("so-tax").textContent = fmt(vat);
-    if (document.getElementById("so-grand")) document.getElementById("so-grand").textContent = fmt(grand);
-  }
-
-  // 2. PURCHASING MARKETING DOCUMENTS (PR, PO, GRPO, APINV, APCM) WITH VENDOR & G/L SMART SEARCH
-  function renderPurchasingDocView(container, docType) {
-    const isPR = docType === 'PR';
-    const doc = AppState.purchaseOrders[0];
-    container.innerHTML = `
-      <div class="toolbar">
-        <h2>Purchasing — ${docType} (Vendor Commercial Document)</h2>
-        <button class="btn btn-sm btn-primary" onclick="addPurchLine()">+ Add Row</button>
-        <button class="btn btn-sm" onclick="exportCurrentTable()">📤 Export Excel</button>
-        <button class="btn btn-sm" onclick="triggerExcelImport()">📥 Import Excel</button>
-        <button class="btn btn-sm" onclick="printDoc('${docType}')">🖨 Print Layout</button>
-      </div>
-      <div class="mkt-box">
-        <div class="mkt-hd">
-          <div class="mkt-col">
-            ${isPR ? `
-              <label>Requester Search (*):</label>
-              <div class="smart-search-box">
-                <span class="smart-search-icon">🔍</span>
-                <input type="text" placeholder="Search employee (*Machale)..." oninput="filterRequesterSelect(this.value)" />
-              </div>
-              <label>Requester Name & Code:</label>
-              <select id="pr-requester-select" onchange="onRequesterChange(this.value)">
-                ${AppState.employees.map(e => `<option value="${e.code}">${e.name} (${e.code} — ${e.dept})</option>`).join("")}
-              </select>
-            ` : ''}
-            <label>Vendor Search (*):</label>
-            <div class="smart-search-box">
-              <span class="smart-search-icon">🔍</span>
-              <input type="text" placeholder="Type *term (e.g. *Machale, *Steel)..." oninput="filterVendorSelect(this.value)" />
-            </div>
-            <label>Vendor Code & Name:</label>
-            <select id="po-vendor-select" onchange="onVendorChange(this.value)">
-              ${AppState.vendors.map(v => `<option value="${v.bpCode}" ${v.bpCode===doc.bpCode?'selected':''}>${v.bpCode} — ${v.name}</option>`).join("")}
-            </select>
-            <label>Branch / Yard:</label>
-            <select><option>${doc.branch}</option><option>Mbeya Depot</option></select>
-          </div>
-          <div class="mkt-col">
-            <label>Document No:</label><input type="text" readonly value="${doc.docNo}" />
-            <label>Posting Date:</label><input type="date" value="${doc.docDate}" />
-            <label>Delivery Due Date:</label><input type="date" value="${doc.dueDate}" />
-          </div>
-        </div>
-        <div style="padding:6px 10px;background:#f8fafc;border-bottom:1px solid #cbd5e1;display:flex;align-items:center;justify-content:space-between">
-          <span style="font-weight:700;color:#0b3d91;font-size:11.5px">Purchasing Contents (G/L Accounts, Items & Tax Calculated)</span>
-          <span style="font-size:11px;color:#64748b">Type in G/L or Item to Smart Search A-Z</span>
-        </div>
-        <div class="grid-wrap">
-          <table class="grid">
-            <thead>
-              <tr>
-                <th style="width:36px">#</th>
-                <th>Item / G/L Account Code</th>
-                <th>Item / Service Description (Smart Search)</th>
-                <th style="width:80px">Quantity</th>
-                <th style="width:60px">UoM</th>
-                <th style="width:100px">Unit Price</th>
-                <th style="width:140px">Tax Code (Dropdown)</th>
-                <th style="width:120px;text-align:right">Net Total (TZS)</th>
-                <th>Warehouse</th>
-              </tr>
-            </thead>
-            <tbody id="po-lines-tbody">
-              ${doc.lines.map((l, i) => `
-                <tr>
-                  <td>${i+1}</td>
-                  <td><b>${l.itemCode}</b></td>
-                  <td>
-                    <select onchange="onPurchItemChange(${i}, this.value)" style="margin:0;width:100%;font-weight:600">
-                      <optgroup label="Inventory Items (A-Z)">
-                        ${AppState.items.map(it => `<option value="${it.itemCode}" ${it.itemCode===l.itemCode?'selected':''}>${it.name} (${it.itemCode})</option>`).join("")}
-                      </optgroup>
-                      <optgroup label="G/L Accounts & Services (A-Z)">
-                        ${AppState.accounts.filter(a=>a.type==='Active').map(a => `<option value="${a.code}">${a.name} (${a.code})</option>`).join("")}
-                      </optgroup>
-                    </select>
-                  </td>
-                  <td><input type="number" value="${l.qty}" style="width:75px;margin:0;text-align:right" onchange="updatePurchLine(${i}, 'qty', this.value)" /></td>
-                  <td>${l.uom}</td>
-                  <td><input type="number" value="${l.price}" style="width:95px;margin:0;text-align:right" onchange="updatePurchLine(${i}, 'price', this.value)" /></td>
-                  <td>
-                    <select style="margin:0;padding:3px;font-weight:600" onchange="updatePurchLine(${i}, 'taxCode', this.value)">
-                      <option value="V18" ${l.taxCode==='V18'?'selected':''}>V18 — Input VAT (18%)</option>
-                      <option value="EXEMPT" ${l.taxCode==='EXEMPT'?'selected':''}>EXEMPT — Zero Rated (0%)</option>
-                    </select>
-                  </td>
-                  <td style="text-align:right;font-weight:700">${(l.qty*l.price).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                  <td>${l.wh}</td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  }
-
-  function filterVendorSelect(query) {
-    const sel = document.getElementById("po-vendor-select");
-    if (!sel) return;
-    const filtered = AppState.vendors.filter(v => matchSmart(v.name, query) || matchSmart(v.bpCode, query));
-    sel.innerHTML = filtered.map(v => `<option value="${v.bpCode}">${v.bpCode} — ${v.name}</option>`).join("");
-    if (filtered.length) {
-      sel.selectedIndex = 0;
-      onVendorChange(sel.value);
-    }
-  }
-
-  function onVendorChange(val) {
-    const v = AppState.vendors.find(x => x.bpCode === val);
-    if (v) {
-      AppState.purchaseOrders[0].bpCode = v.bpCode;
-      AppState.purchaseOrders[0].bpName = v.name;
-      saveState();
-    }
-  }
-
-  function filterRequesterSelect(query) {
-    const sel = document.getElementById("pr-requester-select");
-    if (!sel) return;
-    const filtered = AppState.employees.filter(e => matchSmart(e.name, query) || matchSmart(e.code, query) || matchSmart(e.dept, query));
-    sel.innerHTML = filtered.map(e => `<option value="${e.code}">${e.name} (${e.code} — ${e.dept})</option>`).join("");
-  }
-
-  function onPurchItemChange(i, code) {
-    const it = AppState.items.find(x => x.itemCode === code) || AppState.accounts.find(x => x.code === code);
-    if (!it) return;
-    const l = AppState.purchaseOrders[0].lines[i];
-    l.itemCode = it.itemCode || it.code;
-    l.name = it.name;
-    if (it.price) l.price = it.price;
-    saveState();
-    renderPurchasingDocView(document.getElementById("main-view"), activeModule.toUpperCase());
-  }
-
-  function updatePurchLine(i, field, val) {
-    const l = AppState.purchaseOrders[0].lines[i];
-    l[field] = (field === 'qty' || field === 'price') ? (parseFloat(val) || 0) : val;
-    saveState();
-    renderPurchasingDocView(document.getElementById("main-view"), activeModule.toUpperCase());
-  }
-
-  function addPurchLine() {
-    const defaultItem = AppState.items[0];
-    AppState.purchaseOrders[0].lines.push({
-      itemCode: defaultItem.itemCode, name: defaultItem.name,
-      qty: 50, uom: defaultItem.uom, price: defaultItem.price, taxCode: "V18", wh: defaultItem.wh
-    });
-    saveState();
-    renderPurchasingDocView(document.getElementById("main-view"), activeModule.toUpperCase());
-  }
-
-  // 3. INVENTORY — ITEM MASTER WITH SMART SEARCH
-  function renderItemMasterView(container) {
-    container.innerHTML = `
-      <div class="toolbar">
-        <h2>Inventory — Item Master Data (A-Z Strict)</h2>
-        <div class="smart-search-box" style="width:260px">
-          <span class="smart-search-icon">🔍</span>
-          <input type="text" id="item-search-input" placeholder="Smart Search (*Steel, *Cement)..." oninput="filterItemsTable(this.value)" />
-        </div>
-        <button class="btn btn-sm btn-primary" onclick="promptAddItem()">+ Add Item</button>
-        <button class="btn btn-sm" onclick="exportCurrentTable()">📤 Export Excel</button>
-      </div>
-      <div class="grid-wrap">
-        <table class="grid" id="items-grid">
-          <thead>
-            <tr><th>Item Code</th><th>Item Description</th><th>Group</th><th>UoM</th><th style="text-align:right">Selling Price (TZS)</th><th>Warehouse</th></tr>
-          </thead>
-          <tbody id="items-tbody"></tbody>
-        </table>
-      </div>
-    `;
-    renderItemRows();
-  }
-
-  function renderItemRows(list = null) {
-    const tbody = document.getElementById("items-tbody");
-    if (!tbody) return;
-    const items = list || AppState.items;
-    tbody.innerHTML = items.map(it => `
-      <tr>
-        <td><b>${it.itemCode}</b></td><td>${it.name}</td><td>${it.group}</td><td>${it.uom}</td>
-        <td style="text-align:right;font-weight:700">${it.price.toLocaleString()}</td><td>${it.wh}</td>
-      </tr>
-    `).join("");
-  }
-
-  function filterItemsTable(q) {
-    const filtered = AppState.items.filter(it => matchSmart(it.name, q) || matchSmart(it.itemCode, q) || matchSmart(it.group, q));
-    renderItemRows(filtered);
-  }
-
-  function promptAddItem() {
-    const code = (prompt("Item Code (e.g. STL-001):") || "").trim().toUpperCase();
-    if (!code) return;
-    const name = (prompt("Item Name:") || "").trim();
-    const price = parseFloat(prompt("Price:", "25000")) || 0;
-    AppState.items.push({ itemCode: code, name, group: "General", uom: "PCS", price, wh: "01 - Yard Main" });
-    sortAz(AppState.items, 'name');
-    saveState();
-    renderItemMasterView(document.getElementById("main-view"));
-    toast("Item " + code + " added and sorted A-Z!");
-  }
-
-  // 4. EMPLOYEE MASTER WITH SMART SEARCH
-  function renderEmployeeMasterView(container) {
-    container.innerHTML = `
-      <div class="toolbar">
-        <h2>Human Resources — Employee Master (A-Z Strict)</h2>
-        <div class="smart-search-box" style="width:260px">
-          <span class="smart-search-icon">🔍</span>
-          <input type="text" placeholder="Smart Search (*Machale, *Finance)..." oninput="filterEmployeesTable(this.value)" />
-        </div>
-        <button class="btn btn-sm btn-primary" onclick="promptAddEmployee()">+ Add Employee</button>
-      </div>
-      <div class="grid-wrap">
-        <table class="grid">
-          <thead>
-            <tr><th>Emp Code</th><th>Full Name</th><th>Department</th><th>Role</th><th>Phone</th></tr>
-          </thead>
-          <tbody id="emp-tbody"></tbody>
-        </table>
-      </div>
-    `;
-    renderEmployeeRows();
-  }
-
-  function renderEmployeeRows(list = null) {
-    const tbody = document.getElementById("emp-tbody");
-    if (!tbody) return;
-    const emps = list || AppState.employees;
-    tbody.innerHTML = emps.map(e => `
-      <tr>
-        <td><b>${e.code}</b></td><td>${e.name}</td><td>${e.dept}</td><td>${e.role}</td><td>${e.phone}</td>
-      </tr>
-    `).join("");
-  }
-
-  function filterEmployeesTable(q) {
-    const filtered = AppState.employees.filter(e => matchSmart(e.name, q) || matchSmart(e.code, q) || matchSmart(e.dept, q));
-    renderEmployeeRows(filtered);
-  }
-
-  function promptAddEmployee() {
-    const code = (prompt("Employee ID (e.g. EMP-005):") || "").trim().toUpperCase();
-    if (!code) return;
-    const name = (prompt("Full Name:") || "").trim();
-    const dept = (prompt("Department:", "Engineering") || "").trim();
-    AppState.employees.push({ code, name, dept, role: "Staff", phone: "+255 700 000 000" });
-    sortAz(AppState.employees, 'name');
-    saveState();
-    renderEmployeeMasterView(document.getElementById("main-view"));
-    toast("Employee " + name + " added and sorted A-Z!");
-  }
-
-  // 5. BANKING — INCOMING & OUTGOING PAYMENTS
-  function renderPaymentsView(container, type) {
-    const isInc = type === "INCOMING";
-    const list = isInc ? AppState.customers : AppState.vendors;
-    container.innerHTML = `
-      <div class="toolbar">
-        <h2>Banking — ${isInc ? 'Incoming Payment' : 'Outgoing Payment'} (Cash & Bank Settlement)</h2>
-        <button class="btn btn-sm btn-primary" onclick="toast('Payment posted successfully!')">+ Post Payment</button>
-        <button class="btn btn-sm" onclick="printDoc('Payment')">🖨 Print Receipt</button>
-      </div>
-      <div class="mkt-box">
-        <div class="mkt-hd">
-          <div class="mkt-col">
-            <label>${isInc ? 'Customer Smart Search (*):' : 'Vendor Smart Search (*):'}</label>
-            <div class="smart-search-box">
-              <span class="smart-search-icon">🔍</span>
-              <input type="text" placeholder="Search (*term)..." oninput="filterPaymentBpSelect(this.value, ${isInc})" />
-            </div>
-            <label>${isInc ? 'Customer Code & Name:' : 'Vendor Code & Name:'}</label>
-            <select id="pay-bp-select">
-              ${list.map(b => `<option>${b.bpCode} — ${b.name}</option>`).join("")}
-            </select>
-            <label>Payment Means:</label>
-            <select><option>Cash on Hand</option><option>CRDB Corporate Account</option><option>Cheque</option></select>
-          </div>
-          <div class="mkt-col">
-            <label>Document No:</label><input type="text" readonly value="${isInc?'RC-26-0041':'PS-26-0082'}" />
-            <label>Posting Date:</label><input type="date" value="2026-11-09" />
-            <label>Total Payment (TZS):</label><input type="text" value="16,541,320.00" style="font-weight:700;color:#0b3d91" />
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  function filterPaymentBpSelect(query, isInc) {
-    const sel = document.getElementById("pay-bp-select");
-    if (!sel) return;
-    const list = isInc ? AppState.customers : AppState.vendors;
-    const filtered = list.filter(b => matchSmart(b.name, query) || matchSmart(b.bpCode, query));
-    sel.innerHTML = filtered.map(b => `<option>${b.bpCode} — ${b.name}</option>`).join("");
-  }
-
-  // 6. CHART OF ACCOUNTS (COA) WITH SMART SEARCH
-  function renderCOAView(container) {
-    container.innerHTML = `
-      <div class="toolbar">
-        <h2>Financials — Chart of Accounts (IAS / IFRS Standard)</h2>
-        <div class="smart-search-box" style="width:260px">
-          <span class="smart-search-icon">🔍</span>
-          <input type="text" placeholder="Smart Search G/L (*Meal, *Asset)..." oninput="filterCoaTable(this.value)" />
-        </div>
-        <button class="btn btn-sm btn-primary" onclick="nav('acctmap')">Account Determination</button>
-      </div>
-      <div class="grid-wrap">
-        <table class="grid">
-          <thead><tr><th>Account Code</th><th>Account Name</th><th>Type</th><th>Level</th><th style="text-align:right">Balance (TZS)</th></tr></thead>
-          <tbody id="coa-tbody"></tbody>
-        </table>
-      </div>
-    `;
-    renderCoaRows();
-  }
-
-  function renderCoaRows(list = null) {
-    const tbody = document.getElementById("coa-tbody");
-    if (!tbody) return;
-    const accts = list || AppState.accounts;
-    tbody.innerHTML = accts.map(a => `
-      <tr style="${a.type==='Title'?'font-weight:700;background:#f1f5f9':''}">
-        <td>${a.code}</td><td style="${a.level===2?'padding-left:20px':''}">${a.name}</td><td>${a.type}</td><td>${a.level}</td><td style="text-align:right;font-weight:700">${a.balance}</td>
-      </tr>
-    `).join("");
-  }
-
-  function filterCoaTable(q) {
-    const filtered = AppState.accounts.filter(a => matchSmart(a.name, q) || matchSmart(a.code, q));
-    renderCoaRows(filtered);
-  }
-
-  // 7. ADMINISTRATION: SEPARATED USERS MANAGEMENT
-  function renderUsersManagementView(container) {
-    container.innerHTML = `
-      <div class="toolbar">
-        <h2>Administration — System Users Management</h2>
-        <button class="btn btn-sm btn-primary" onclick="document.getElementById('add-user-bar').style.display='grid'">+ Add New User</button>
-      </div>
-      <div id="add-user-bar" class="form-bar" style="display:none">
-        <div><label>User Email *</label><input id="nu-email" placeholder="user@keshasha.co.tz" /></div>
-        <div><label>Full Name *</label><input id="nu-name" placeholder="E.g. Baraka Petro" /></div>
-        <div><label>Assigned Role</label><input id="nu-role" placeholder="E.g. Operations Clerk" /></div>
-        <div><label>Initial Password</label><input id="nu-pwd" value="123456" /></div>
-        <div style="align-self:end"><button class="btn btn-sm btn-primary" onclick="saveUserRecord()">Save User</button></div>
-      </div>
-      <div class="grid-wrap">
-        <table class="grid">
-          <thead>
-            <tr><th>#</th><th>Full Name</th><th>Email Address</th><th>Role</th><th>Status</th><th>Security</th></tr>
-          </thead>
-          <tbody>
-            ${AppState.users.map((u, i) => `
-              <tr>
-                <td>${i+1}</td><td><b>${u.name}</b></td><td>${u.email}</td><td>${u.role}</td>
-                <td><span style="color:#166534;font-weight:700">Active</span></td>
-                <td><button class="btn btn-sm btn-primary" onclick="nav('authz');setTimeout(()=>selectAuthUser('${u.email}'),50);">Edit Permissions ➔</button></td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
-  }
-
-  function saveUserRecord() {
-    const email = document.getElementById("nu-email").value.trim().toLowerCase();
-    const name = document.getElementById("nu-name").value.trim();
-    const role = document.getElementById("nu-role").value.trim() || "Clerk";
-    if (!email || !name) return toast("Email and Name required", false);
-    AppState.users.push({ email, name, role, password: "••••••••", auths: { sales: 1, purchasing: 1, inventory: 1, banking: 0, financials: 0, admin: 0 } });
-    saveState();
-    renderUsersManagementView(document.getElementById("main-view"));
-    toast("User " + name + " created!");
-  }
-
-  // 8. ADMINISTRATION: SEPARATED AUTHORIZATIONS (MODULE DROPDOWNS)
-  function renderAuthorizationsView(container) {
-    container.innerHTML = `
-      <div class="toolbar">
-        <h2>Administration — Module Access Authorizations</h2>
-        <button class="btn btn-sm btn-primary" onclick="saveUserAuths()">💾 Save Authorizations</button>
-      </div>
-      <div style="display:grid;grid-template-columns:240px 1fr;gap:20px;background:#fff;border:1px solid #cbd5e1;padding:16px;border-radius:4px">
-        <div style="border-right:1px solid #e2e8f0;padding-right:14px">
-          <label>Select User to Authorize:</label>
-          <select id="auth-user-select" onchange="loadUserAuths(this.value)">
-            ${AppState.users.map(u => `<option value="${u.email}">${u.name} (${u.role})</option>`).join("")}
-          </select>
-          <div style="margin-top:14px;background:#f8fafc;padding:10px;border:1px solid #e2e8f0;border-radius:4px;font-size:11.5px">
-            <b>3-Level Standard:</b>
-            <ul style="margin:6px 0 0 16px;line-height:1.5">
-              <li><b>Full (2):</b> Unrestricted access</li>
-              <li><b>Read (1):</b> View only</li>
-              <li><b>None (0):</b> Blocked</li>
-            </ul>
-          </div>
-        </div>
-        <div>
-          <table class="grid">
-            <thead><tr><th>Subsystem / Module</th><th style="width:240px">Access Permission (Dropdown)</th><th>Status</th></tr></thead>
-            <tbody id="auth-tbody"></tbody>
-          </table>
-        </div>
-      </div>
-    `;
-    loadUserAuths(AppState.users[0].email);
-  }
-
-  const AUTH_MODULES = [
-    { key: "sales", name: "Sales — A/R (Quotations, Orders, Deliveries, Invoices)" },
-    { key: "purchasing", name: "Purchasing — A/P (Requests, Orders, Invoices)" },
-    { key: "inventory", name: "Inventory (Item Master, Stock Movements, Warehouses)" },
-    { key: "banking", name: "Banking & Payments (Incoming & Outgoing Payments)" },
-    { key: "financials", name: "Financials & G/L (Chart of Accounts, Journal Entries)" },
-    { key: "admin", name: "Administration & Settings" }
-  ];
-
-  function loadUserAuths(email) {
-    const u = AppState.users.find(x => x.email === email) || AppState.users[0];
-    const tbody = document.getElementById("auth-tbody");
-    if (!tbody) return;
-    tbody.innerHTML = AUTH_MODULES.map(m => {
-      const val = u.auths[m.key] ?? 2;
-      return `
-        <tr>
-          <td><b>${m.name}</b></td>
-          <td>
-            <select data-mod="${m.key}" class="auth-level-sel" onchange="updateAuthBadge(this)">
-              <option value="2" ${val===2?'selected':''}>Full Authorization</option>
-              <option value="1" ${val===1?'selected':''}>Read Only</option>
-              <option value="0" ${val===0?'selected':''}>No Authorization</option>
-            </select>
-          </td>
-          <td><b class="auth-badge" style="color:${val===2?'#166534':val===1?'#0284c7':'#b91c1c'}">${val===2?'✓ Full Access':val===1?'👁 Read Only':'✕ Blocked'}</b></td>
-        </tr>
-      `;
-    }).join("");
-  }
-
-  function selectAuthUser(email) {
-    const sel = document.getElementById("auth-user-select");
-    if (sel) { sel.value = email; loadUserAuths(email); }
-  }
-
-  function updateAuthBadge(sel) {
-    const val = parseInt(sel.value, 10);
-    const b = sel.closest("tr").querySelector(".auth-badge");
-    if (b) {
-      b.style.color = val===2?'#166534':val===1?'#0284c7':'#b91c1c';
-      b.textContent = val===2?'✓ Full Access':val===1?'👁 Read Only':'✕ Blocked';
-    }
-  }
-
-  function saveUserAuths() {
-    const email = document.getElementById("auth-user-select").value;
-    const u = AppState.users.find(x => x.email === email);
-    if (u) {
-      document.querySelectorAll(".auth-level-sel").forEach(s => {
-        u.auths[s.dataset.mod] = parseInt(s.value, 10);
-      });
-      saveState();
-      toast("Authorizations saved for " + u.name);
-    }
-  }
-
-  // Generic standard modules
-  function renderGenericStandardModule(container, page) {
-    container.innerHTML = `
-      <div class="toolbar">
-        <h2>${page.toUpperCase()} — Workspace</h2>
-        <button class="btn btn-sm btn-primary" onclick="toast('Record added to ${page}!')">+ Add New</button>
-        <button class="btn btn-sm" onclick="exportCurrentTable()">📤 Export Excel</button>
-      </div>
-      <div class="grid-wrap">
-        <table class="grid">
-          <thead><tr><th>#</th><th>Code</th><th>Name / Description</th><th>Status</th></tr></thead>
-          <tbody>
-            <tr><td>1</td><td><b>${page.toUpperCase()}-001</b></td><td>Standard Production Specification Record</td><td><span style="color:#166534;font-weight:700">Active</span></td></tr>
-            <tr><td>2</td><td><b>${page.toUpperCase()}-002</b></td><td>Operational Department Master Entry</td><td><span style="color:#166534;font-weight:700">Active</span></td></tr>
-          </tbody>
-        </table>
-      </div>
-    `;
-  }
-
-  function switchDocTab(btn, tabId) {
-    document.querySelectorAll(".doc-tab-btn").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".doc-tab-content").forEach(c => c.classList.remove("active"));
-    btn.classList.add("active");
-    const target = document.getElementById(tabId);
-    if (target) target.classList.add("active");
-  }
-
-  // Excel functions
-  function exportCurrentTable() {
-    const lines = AppState.salesOrders[0].lines;
-    const ws = XLSX.utils.json_to_sheet(lines);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "ActiveGrid");
-    XLSX.writeFile(wb, "KESHASHA_Export.xlsx");
-    toast("Exported to Excel successfully!");
-  }
-
-  function triggerExcelImport() { document.getElementById("excel-file-input").click(); }
-  function handleExcelFile(input) {
-    const file = input.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      try {
-        const data = new Uint8Array(e.target.result);
-        const wb = XLSX.read(data, { type: "array" });
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
-        if (rows.length) {
-          toast(`Imported ${rows.length} lines from Excel!`);
-        }
-      } catch(err) { toast("Error: " + err.message, false); }
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBiGE_B8kv8zZZQ68kYUOC9ite-pelVbLc",
+      authDomain: "keshasha-erp.firebaseapp.com",
+      projectId: "keshasha-erp",
+      storageBucket: "keshasha-erp.firebasestorage.app",
+      messagingSenderId: "967244511867",
+      appId: "1:967244511867:web:ac558966b64643156900de",
+      measurementId: "G-1TK62JQTGM"
     };
-    reader.readAsArrayBuffer(file);
-    input.value = "";
-  }
 
-  function printDoc(docType) {
-    const doc = AppState.salesOrders[0];
-    const w = window.open("", "_blank");
-    w.document.write(`
-      <html><head><title>${docType} — ${doc.docNo}</title>
-      <style>body{font-family:sans-serif;padding:30px;font-size:12px} table{width:100%;border-collapse:collapse;margin-top:15px} th,td{border:1px solid #ccc;padding:6px 8px} th{background:#eee}</style>
-      </head><body>
-      <h2>KESHASHA STEEL & BUILDING SUPPLIES LTD</h2>
-      <p>Official ${docType} — Ref: ${doc.docNo} | Date: ${doc.docDate}</p>
-      <p>Customer: <b>${doc.bpName}</b> (${doc.bpCode})</p>
-      <table>
-        <thead><tr><th>#</th><th>Item Code</th><th>Description</th><th>Qty</th><th>Price</th><th>Tax</th></tr></thead>
-        <tbody>
-          ${doc.lines.map((l, i) => `<tr><td>${i+1}</td><td>${l.itemCode}</td><td>${l.name}</td><td>${l.qty}</td><td>${l.price.toLocaleString()}</td><td>${l.taxCode}</td></tr>`).join("")}
-        </tbody>
-      </table>
-      </body></html>
-    `);
-    w.document.close();
-    w.print();
-  }
+    const CONFIG_READY = firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("PASTE");
+    let db = null;
+    if (CONFIG_READY) {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
+    }
 
-  window.addEventListener("DOMContentLoaded", () => {
-    if (AppState.activeCompanyId) doLogin();
-  });
-</script>
+    // WILDCARD SEARCH ENGINE
+    function matchSmartQuery(text, query) {
+      if (!query) return true;
+      const t = String(text || '').toLowerCase();
+      const q = String(query || '').toLowerCase().trim();
+      if (q.startsWith('*')) {
+        const term = q.slice(1).trim();
+        return term ? t.includes(term) : true;
+      }
+      return t.includes(q);
+    }
+
+    // ATTACH SMART SEARCH TO DROPDOWNS
+    function enableSmartSearchOnSelect(selectEl, placeholder = 'Type or *wildcard (e.g. *Machale)...') {
+      if (!selectEl || selectEl.dataset.smartInit) return;
+      selectEl.dataset.smartInit = 'true';
+      const originalOptions = Array.from(selectEl.options).map(opt => ({
+        value: opt.value, text: opt.text, selected: opt.selected
+      }));
+      
+      const wrapper = document.createElement('div');
+      wrapper.className = 'smart-search-wrapper';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = placeholder;
+      input.className = 'smart-search-input';
+      
+      input.addEventListener('input', () => {
+        const q = input.value;
+        const curVal = selectEl.value;
+        selectEl.innerHTML = '';
+        const filtered = originalOptions.filter(o => !o.value || matchSmartQuery(o.text, q) || matchSmartQuery(o.value, q));
+        filtered.forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = o.value;
+          opt.textContent = o.text;
+          if (o.value === curVal) opt.selected = true;
+          selectEl.appendChild(opt);
+        });
+        if (selectEl.options.length > 1 && q) {
+          selectEl.selectedIndex = 1;
+          selectEl.dispatchEvent(new Event('change'));
+        }
+      });
+
+      selectEl.parentNode.insertBefore(wrapper, selectEl);
+      wrapper.appendChild(input);
+      wrapper.appendChild(selectEl);
+    }
+
+    // DYNAMIC TAX CALCULATION
+    function calculateDocumentTotals(lines) {
+      let subtotal = 0, totalTax = 0;
+      lines.forEach(l => {
+        const qty = parseFloat(l.qty) || 0;
+        const price = parseFloat(l.price) || 0;
+        const disc = parseFloat(l.discPct) || 0;
+        const lineNet = qty * price * (1 - disc / 100);
+        subtotal += lineNet;
+        const isExempt = String(l.taxCode || '').toUpperCase().includes('EXEMPT') || String(l.taxCode || '').toUpperCase() === 'X0';
+        if (!isExempt) totalTax += lineNet * 0.18;
+      });
+      return { subtotal, totalTax, totalDue: subtotal + totalTax };
+    }
+
+    // Initialize application logic
+    let currentUser = null, activeCompanyId = null, companies = [], users = [];
+    async function loadAll() {
+      if (!db) return;
+      const snap = await db.collection("companies").get();
+      companies = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    async function doLogin() {
+      const email = document.getElementById("login-email").value.trim().toLowerCase();
+      const password = document.getElementById("login-password").value;
+      const companyId = document.getElementById("login-company").value;
+      if (!companyId) return alert("Select company first");
+      await loadAll();
+      const snap = await db.collection("users").get();
+      users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const u = users.find(x => x.email === email && x.password === password);
+      if (!u) return alert("Invalid credentials");
+      currentUser = u;
+      activeCompanyId = companyId;
+      document.getElementById("login-view").style.display = "none";
+      document.getElementById("app-view").style.display = "block";
+      document.getElementById("user-label").textContent = u.fullName;
+      document.getElementById("company-label").textContent = companyId;
+    }
+
+    function doLogout() {
+      document.getElementById("app-view").style.display = "none";
+      document.getElementById("login-view").style.display = "flex";
+    }
+  </script>
 </body>
 </html>
