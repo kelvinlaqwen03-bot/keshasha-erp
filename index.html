@@ -650,19 +650,30 @@ select.ss-hidden{display:none !important}
             if (!hasAuth(k, 2)) { toast("No Authorization for " + dataType); throw new Error("No authorization for " + dataType); }
           }
         };
+        const clean = (v) => {
+          if (v === undefined) return undefined;
+          if (v === null) return null;
+          if (typeof v === "number") return isFinite(v) ? v : 0;
+          if (typeof v === "string") return (v === "undefined" || v === "null" || v === "NaN") ? "" : v;
+          if (Array.isArray(v)) return v.map(x => { const c = clean(x); return c === undefined ? null : c; });
+          if (typeof v === "object" && Object.getPrototypeOf(v) === Object.prototype) {
+            const o = {}; Object.keys(v).forEach(k => { const c = clean(v[k]); if (c !== undefined) o[k] = c; }); return o;
+          }
+          return v;
+        };
         db.collection = function (name) {
           const col = rawCollection(name);
           const typed = (name === "sales_docs" || name === "purchase_docs");
           const origAdd = col.add.bind(col), origDoc = col.doc.bind(col);
           col.add = function (data) {
             guard(name, typed && data ? data.docType : null);
-            return origAdd(data);
+            return origAdd(clean(data));
           };
           col.doc = function () {
             const ref = origDoc.apply(null, arguments);
             ["set", "update", "delete"].forEach(m => {
               const o = ref[m].bind(ref);
-              ref[m] = function () { guard(name, null); return o.apply(null, arguments); };
+              ref[m] = function () { guard(name, null); const a = Array.prototype.slice.call(arguments); if (m !== "delete" && a[0] && typeof a[0] === "object") a[0] = clean(a[0]); return o.apply(null, a); };
             });
             return ref;
           };
@@ -1854,6 +1865,7 @@ select.ss-hidden{display:none !important}
           <label class="btn btn-sm" style="cursor:pointer;margin:0">📥 Import Excel
             <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="openImportMapper('users', this)">
           </label>
+          <button class="btn btn-sm" onclick="downloadImportTemplate('users')">📄 Template</button>
         </div>
         <div id="u-form" class="form-bar" style="display:none">
           <div class="fg"><label>Email</label><input id="u-email" type="email"></div>
@@ -2248,8 +2260,11 @@ select.ss-hidden{display:none !important}
       const list = scoped(docSeries, cid);
       const stdTypes = [
         ["SQ","Sales Quotation"],["SO","Sales Order"],["DN","Delivery"],["RET","Return"],
-        ["INV","A/R Invoice"],["CM","A/R Credit Memo"],["RC","Incoming Payment"],["OP","Outgoing Payment"],
-        ["GRPO","Goods Receipt"],["GI","Goods Issue"],["TR","Inventory Transfer"],["OB","Opening Balance"],["JE","Journal Entry"]
+        ["INV","A/R Invoice"],["CM","A/R Credit Memo"],["DPR","A/R Down Payment Request"],["DPI","A/R Down Payment Invoice"],
+        ["PR","Purchase Request"],["PQ","Purchase Quotation"],["PO","Purchase Order"],["GRPO","Goods Receipt PO"],
+        ["PDPR","A/P Down Payment Request"],["PDPI","A/P Down Payment Invoice"],["APINV","A/P Invoice"],["APCM","A/P Credit Memo"],
+        ["RC","Incoming Payment"],["OP","Outgoing Payment"],
+        ["GI","Goods Issue"],["IN","Goods Receipt (stock)"],["OUT","Goods Issue (stock)"],["TR","Inventory Transfer"],["OB","Opening Balance"],["JE","Journal Entry"]
       ];
       el.innerHTML = `
         <div class="toolbar">
@@ -2285,18 +2300,13 @@ select.ss-hidden{display:none !important}
       const cid = companyFilterId() || (companies[0]&&companies[0].id);
       if (!cid) return toast("Company required");
       const yy = String(new Date().getFullYear()).slice(-2);
-      const seeds = [
-        // Sales A/R
-        ["SQ","SQ-"+yy+"-"],["SO","SO-"+yy+"-"],["DN","DN-"+yy+"-"],["RET","RE-"+yy+"-"],
-        ["DPR","DR-"+yy+"-"],["DPI","DI-"+yy+"-"],["INV","IN-"+yy+"-"],["CM","CM-"+yy+"-"],
-        // Purchasing A/P
-        ["PR","PR-"+yy+"-"],["PQ","PQ-"+yy+"-"],["PO","PO-"+yy+"-"],["GRPO","GR-"+yy+"-"],
-        ["APINV","PI-"+yy+"-"],["APCM","PC-"+yy+"-"],
-        // Inventory
-        ["IN","IN-"+yy+"-"],["OUT","OUT-"+yy+"-"],["TR","TR-"+yy+"-"],["OB","OB-"+yy+"-"],
-        // Banking
-        ["RC","RC-"+yy+"-"],["OP","OP-"+yy+"-"],["JE","JE-"+yy+"-"]
-      ];
+      const seeds = [];
+      const addSeed = (t, pfx) => { if (!seeds.some(x => x[0] === t)) seeds.push([t, pfx + "-" + yy + "-"]); };
+      Object.keys(SALES_META).forEach(t => addSeed(t, SALES_META[t].prefix || t));      // Sales A/R: SQ SO DN RET DPR DPI INV CM
+      Object.keys(PURCH_META).forEach(t => addSeed(t, PURCH_META[t].prefix || t));     // Purchasing A/P: PR PQ PO GRPO PDPR PDPI APINV APCM
+      [["GI","GI"],["IN","IN"],["OUT","OUT"],["TR","TR"],["OB","OB"],                  // Inventory
+       ["RC","RC"],["OP","OP"],["JE","JE"]].forEach(([t, p]) => addSeed(t, p));        // Banking + Journal
+
       let n = 0;
       for (const [docType, prefix] of seeds) {
         if (docSeries.some(s => s.companyId===cid && s.docType===docType)) continue;
@@ -2517,11 +2527,6 @@ select.ss-hidden{display:none !important}
                 <option value="ITM">ITM (ITM00001…)</option>
                 <option value="FG">FG (FG00001…)</option>
                 <option value="RM">RM (RM00001…)</option>
-                <option value="MANUAL">Manual</option>
-              </select>
-            </div>
-            <div class="fg"><label>Code Series</label>
-              <select id="item-series" onchange="onItemSeriesChange()">
                 <option value="MANUAL">Manual</option>
               </select>
             </div>
@@ -2893,6 +2898,7 @@ select.ss-hidden{display:none !important}
           <label class="btn btn-sm" style="cursor:pointer;margin:0">📥 Import Excel
             <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="openImportMapper('warehouses', this)">
           </label>
+          <button class="btn btn-sm" onclick="downloadImportTemplate('warehouses')">📄 Template</button>
         </div>
         <div id="wh-form" class="form-bar" style="display:none">
           ${currentUser.isSuperAdmin ? `<div class="fg"><label>Company</label>
@@ -3029,8 +3035,9 @@ select.ss-hidden{display:none !important}
           <h2>Goods Receipt / Issue</h2>
           <button class="btn btn-sm btn-primary" onclick="startNewStockDoc()">+ New Document</button>
           <label class="btn btn-sm" style="cursor:pointer;margin:0">📥 Import Excel
-            <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="openImportMapper('stock', this)">
+            <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="openImportMapper('stock_IO', this)">
           </label>
+          <button class="btn btn-sm" onclick="downloadImportTemplate('stock_IO')">📄 Template</button>
           <button class="btn btn-sm btn-danger" onclick="deleteSelectedStockDocs()">Delete selected</button>
         </div>
         <div id="stock-form" style="display:none;border:1px solid #b0b0b0;background:#fff">
@@ -3604,6 +3611,7 @@ select.ss-hidden{display:none !important}
           <label class="btn btn-sm" style="cursor:pointer;margin:0">📥 Import Excel
             <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="openImportMapper('partners', this)">
           </label>
+          <button class="btn btn-sm" onclick="downloadImportTemplate('partners')">📄 Template</button>
           <button class="btn btn-sm" onclick="exportPartners()">📤 Export</button>
           <button class="btn btn-sm btn-danger" onclick="deleteSelectedPartners()">Delete selected</button>
         </div>
@@ -3794,6 +3802,7 @@ select.ss-hidden{display:none !important}
           <label class="btn btn-sm" style="cursor:pointer;margin:0">📥 Import Excel
             <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="openImportMapper('pricelists', this)">
           </label>
+          <button class="btn btn-sm" onclick="downloadImportTemplate('pricelists')">📄 Template</button>
           <button class="btn btn-sm" onclick="exportPriceLists()">📤 Export</button>
         </div>
         <div id="pl-form" class="form-bar" style="display:none">
@@ -4036,12 +4045,10 @@ select.ss-hidden{display:none !important}
           return `<select onchange="purchaseLines[${idx}].whsCode=this.value" ${common}><option value="">—</option>${scoped(warehouses,cid).map(w=>`<option value="${w.code}" ${w.code===l.whsCode?"selected":""}>${esc(w.code)}${w.name?" — "+esc(w.name):""}</option>`).join("")}</select>`;
         }
         if (key === "acctCode") {
-          if (isItem) return `<span style="color:#999">—</span>`;
           const sorted = [...accts].sort((a,b)=>(a.acctCode||"").localeCompare(b.acctCode||""));
-          return `<select onchange="purchaseLines[${idx}].acctCode=this.value;renderPurchaseLines();" ${common}><option value="">— Code —</option>${sorted.map(a=>`<option value="${a.acctCode}" ${a.acctCode===l.acctCode?"selected":""}>${esc(a.acctCode)}${a.acctName?" — "+esc(a.acctName):""}</option>`).join("")}</select>`;
+          return `<select onchange="purchaseLines[${idx}].acctCode=this.value;renderPurchaseLines();" ${common}><option value="">${isItem ? "— default (Acct Determination) —" : "— Code —"}</option>${sorted.map(a=>`<option value="${a.acctCode}" ${a.acctCode===l.acctCode?"selected":""}>${esc(a.acctCode)}${a.acctName?" — "+esc(a.acctName):""}</option>`).join("")}</select>`;
         }
         if (key === "acctName") {
-          if (isItem) return `<span style="color:#999">—</span>`;
           const sorted = [...accts].sort((a,b)=>(a.acctName||"").localeCompare(b.acctName||""));
           return `<select onchange="purchaseLines[${idx}].acctCode=this.value;renderPurchaseLines();" ${common}><option value="">— Name —</option>${sorted.map(a=>`<option value="${a.acctCode}" ${a.acctCode===l.acctCode?"selected":""}>${esc(a.acctName||"")}</option>`).join("")}</select>`;
         }
@@ -4175,7 +4182,7 @@ select.ss-hidden{display:none !important}
           name: l.name || "",
           qty: parseFloat(l.qty),
           whsCode: isItem ? l.whsCode : null,
-          acctCode: !isItem ? l.acctCode : null,
+          acctCode: l.acctCode || null,
           price: parseFloat(l.price)||0, discPct: parseFloat(l.discPct)||0,
           dimPROJECT: l.dimPROJECT || null, dimDEPARTMENT: l.dimDEPARTMENT || null, dimBRANCH: l.dimBRANCH || null,
           lineTotal: round2((parseFloat(l.qty)||0) * (parseFloat(l.price)||0) * (1 - (parseFloat(l.discPct)||0)/100)),
@@ -4204,19 +4211,23 @@ select.ss-hidden{display:none !important}
       if (docType === "APINV" || docType === "APCM") {
         const ap = getMap(companyId, "AP_CONTROL");
         const invAcct = getMap(companyId, "INVENTORY");
-        if (!ap || !invAcct) return toast("GL Account Determination is mandatory: set AP Control and Inventory before posting " + docType);
+        const needDefault = lines.some(l => !l.acctCode) || (parseFloat(document.getElementById("p-freight") && document.getElementById("p-freight").value) || 0) !== 0;
+        if (!ap || (needDefault && !invAcct)) return toast("GL Account Determination is mandatory: set AP Control and Inventory before posting " + docType);
         const vatAcc = vatByAccount(companyId, lines, "VAT_INPUT");
         if (vatAcc[""]) return toast("VAT selected but no G/L account: set Input VAT in Account Determination (VAT_INPUT) or on the Tax Code");
         const vatDr = Object.keys(vatAcc).map(a => ({ acctCode: a, debit: vatAcc[a], credit: 0, lineMemo: "Input VAT " + docNo }));
         const vatCr = Object.keys(vatAcc).map(a => ({ acctCode: a, debit: 0, credit: vatAcc[a], lineMemo: "Reverse VAT " + docNo }));
         const costAmt = round2(netTotal + freight);
+        // The G/L account typed on the document line wins; Account Determination (INVENTORY) is only the fallback
+        const costByAcct = {};
+        lines.forEach(l => { const a = l.acctCode || invAcct; costByAcct[a] = round2((costByAcct[a] || 0) + (parseFloat(l.lineTotal) || 0)); });
+        const frt = round2(costAmt - netTotal);
+        if (frt !== 0) costByAcct[invAcct] = round2((costByAcct[invAcct] || 0) + frt);
+        const costDr = Object.keys(costByAcct).map(a => ({ acctCode: a, debit: costByAcct[a], credit: 0, lineMemo: "AP Inv " + docNo }));
+        const costCr = Object.keys(costByAcct).map(a => ({ acctCode: a, debit: 0, credit: costByAcct[a], lineMemo: "AP CM " + docNo }));
         const glLines = docType === "APINV"
-          ? [{ acctCode: invAcct, debit: costAmt, credit: 0, lineMemo: "AP Inv " + docNo },
-             ...vatDr,
-             { acctCode: ap, debit: 0, credit: grandTotal, lineMemo: "AP " + docNo }]
-          : [{ acctCode: ap, debit: grandTotal, credit: 0, lineMemo: "AP CM " + docNo },
-             { acctCode: invAcct, debit: 0, credit: costAmt, lineMemo: "AP CM inv " + docNo },
-             ...vatCr];
+          ? [...costDr, ...vatDr, { acctCode: ap, debit: 0, credit: grandTotal, lineMemo: "AP " + docNo }]
+          : [{ acctCode: ap, debit: grandTotal, credit: 0, lineMemo: "AP CM " + docNo }, ...costCr, ...vatCr];
         try {
           const je = await postJournalEntry(companyId, {
             refDate: docDate, memo: docType + " " + docNo + (docRate !== 1 ? " (" + docCurrency + " @" + docRate + ")" : ""), lines: fxLines(glLines, docRate),
@@ -4966,7 +4977,7 @@ select.ss-hidden{display:none !important}
       { key: "subCatNum", label: "BP Catalog No.", def: false },
       { key: "serialNum", label: "Serial Number", def: false },
       { key: "codeBars", label: "Bar Code", def: false },
-      { key: "acctCode", label: "G/L Account Code", def: false },
+      { key: "acctCode", label: "G/L Account", def: true },
       { key: "cogsAcct", label: "COGS Account Code", def: false },
       { key: "slpCode", label: "Sales Employee Code", def: false },
       { key: "commission", label: "Commission %", def: false },
@@ -5082,6 +5093,11 @@ select.ss-hidden{display:none !important}
       ).join("");
 
       function cellInput(idx, key, val, type) {
+        if (key === "acctCode") {
+          const l0 = salesLines[idx] || {};
+          const al = scoped(accounts, companyFilterId()).filter(a => a.postable !== "Title" && a.postable !== false).sort((a,b)=>(a.acctCode||"").localeCompare(b.acctCode||""));
+          return `<select onchange="salesLines[${idx}].acctCode=this.value" style="width:100%;margin:0;padding:2px;border:1px solid var(--border);min-width:120px"><option value="">— default (Acct Determination) —</option>${al.map(a => `<option value="${esc(a.acctCode)}" ${a.acctCode===l0.acctCode?"selected":""}>${esc(a.acctCode)}${a.acctName?" — "+esc(a.acctName):""}</option>`).join("")}</select>`;
+        }
         const common = `style="width:100%;margin:0;padding:3px;border:1px solid var(--border);min-width:70px"`;
         if (key === "lineType") {
           return `<select onchange="salesLines[${idx}].lineType=this.value;renderSalesLines();" ${common}>
@@ -5395,6 +5411,7 @@ select.ss-hidden{display:none !important}
           discPct: parseFloat(l.discPct) || 0,
           lineTotal: round2(l.lineTotal),
           whsCode: l.whsCode || null,
+          acctCode: l.acctCode || null,
           taxCode: l.taxCode || null,
           vatPrcnt: parseFloat(l.vatPrcnt) || 0,
           vatSum: round2(l.vatSum),
@@ -5466,17 +5483,22 @@ select.ss-hidden{display:none !important}
           }
           const vatCr = Object.keys(vatAcc).map(a => ({ acctCode: a, debit: 0, credit: vatAcc[a], lineMemo: "Output VAT " + docNo }));
           const vatDr = Object.keys(vatAcc).map(a => ({ acctCode: a, debit: vatAcc[a], credit: 0, lineMemo: "Reverse VAT " + docNo }));
-          const revAmt = round2(netTotal + freight);
+          // The G/L account typed on the document line wins; Account Determination (REVENUE) is only the fallback
+          const revByAcct = {};
+          lines.forEach(l => { const a = l.acctCode || rev; revByAcct[a] = round2((revByAcct[a] || 0) + (parseFloat(l.lineTotal) || 0)); });
+          if (freight) revByAcct[rev] = round2((revByAcct[rev] || 0) + freight);
+          const revCr = Object.keys(revByAcct).map(a => ({ acctCode: a, debit: 0, credit: revByAcct[a], lineMemo: "Revenue " + docNo }));
+          const revDr = Object.keys(revByAcct).map(a => ({ acctCode: a, debit: revByAcct[a], credit: 0, lineMemo: "CM reverse revenue " + docNo }));
           if (docType === "INV" || docType === "DPI") {
             glLines = [
               { acctCode: ar, debit: grandTotal, credit: 0, lineMemo: "AR " + docNo },
-              { acctCode: rev, debit: 0, credit: revAmt, lineMemo: "Revenue " + docNo },
+              ...revCr,
               ...vatCr,
             ];
           } else if (docType === "CM") {
             // Reverse: Dr Revenue (+VAT), Cr AR (reduces customer balance)
             glLines = [
-              { acctCode: rev, debit: revAmt, credit: 0, lineMemo: "CM reverse revenue " + docNo },
+              ...revDr,
               ...vatDr,
               { acctCode: ar, debit: 0, credit: grandTotal, lineMemo: "CM reverse AR " + docNo },
             ];
@@ -6239,6 +6261,9 @@ select.ss-hidden{display:none !important}
         if (!schema && kind.startsWith("stock_")) {
           schema = buildStockImportSchema(kind.replace("stock_", ""));
         }
+        if (!schema && kind.startsWith("purch_")) {
+          schema = buildPurchImportSchema(kind.replace("purch_", ""));
+        }
         if (!schema) {
           toast("Import not configured for: " + kind);
           input.value = "";
@@ -6266,7 +6291,7 @@ select.ss-hidden{display:none !important}
           const found = headers.find(h => f.labels.some(l => String(h).toLowerCase() === String(l).toLowerCase()));
           map[f.key] = found || "";
         });
-        const stateKind = kind.startsWith("sales_") ? "sales_doc" : (kind.startsWith("stock_") ? "stock_doc" : kind);
+        const stateKind = kind.startsWith("sales_") ? "sales_doc" : (kind.startsWith("stock_") ? "stock_doc" : (kind.startsWith("purch_") ? "purch_doc" : kind));
         __importState = { kind: stateKind, rawKind: kind, schema, rows, headers, map, cid };
         const body = `
           <div style="padding:8px">
@@ -6424,7 +6449,7 @@ select.ss-hidden{display:none !important}
         map[s.dataset.field] = s.value || "";
       });
       for (const r of schema.required) {
-        if (!map[r]) return toast("Map required field: " + r);
+        if (!map[r]) { __busy = false; hideProgress(); if (btn) { btn.disabled = false; btn.textContent = "Import"; } return toast("Map required field: " + r); }
       }
       let added = 0, skipped = 0;
       try {
@@ -6432,6 +6457,14 @@ select.ss-hidden{display:none !important}
         if (kind === "sales_doc" && schema.docType) {
           const res = await importSalesDocumentRows(schema.docType, rows, map, cid);
           toast("Sales imported: " + res.added + " docs · skipped lines: " + res.skipped, true);
+          __importState = null;
+          if (schema.refresh) schema.refresh();
+          Object.keys(openWins || {}).forEach(id => { try { closeWin(id); } catch(_){} });
+          return;
+        }
+        if (kind === "purch_doc" && schema.docType) {
+          const res = await importPurchaseDocumentRows(schema.docType, rows, map, cid);
+          toast("Purchasing imported: " + res.added + " docs · skipped lines: " + res.skipped, true);
           __importState = null;
           if (schema.refresh) schema.refresh();
           Object.keys(openWins || {}).forEach(id => { try { closeWin(id); } catch(_){} });
@@ -6514,6 +6547,7 @@ select.ss-hidden{display:none !important}
           Object.keys(openWins || {}).forEach(id => { try { closeWin(id); } catch(_){} });
           return;
         }
+        if (schema.begin) schema.begin(rows, map, cid);
         for (let i = 0; i < rows.length; i++) {
           const row = rows[i];
           showProgress(Math.round((i / total) * 100), "Importing " + (i+1) + " / " + total);
@@ -6521,7 +6555,8 @@ select.ss-hidden{display:none !important}
           if (!data) { skipped++; continue; }
           if (schema.exists(data)) { skipped++; continue; }
           const ref = await db.collection(schema.collection).add(data);
-          if (schema.collection === "items") items.push({ id: ref.id, ...data });
+          if (schema.push) schema.push({ id: ref.id, ...data });
+          else if (schema.collection === "items") items.push({ id: ref.id, ...data });
           else if (schema.collection === "employees") employees.push({ id: ref.id, ...data });
           else if (schema.collection === "partners") partners.push({ id: ref.id, ...data });
           else if (schema.collection === "branches") branches.push({ id: ref.id, ...data });
@@ -6699,7 +6734,13 @@ select.ss-hidden{display:none !important}
     /** Only G/L accounts flagged as Cash Account (falls back to cash/bank by name when none is flagged) */
     function payCashAccounts(cid) {
       const all = scoped(accounts, cid).filter(a => a.postable !== false && a.postable !== "Title");
-      let list = all.filter(a => a.cashAccount === "Y" || a.cashAccount === true || a.isCash === true || a.isCash === "Y");
+      const byCode = {}; scoped(accounts, cid).forEach(a => byCode[a.acctCode] = a);
+      const underCashBank = (a) => {            // any ancestor that is a Cash / Bank title account
+        let p = a.fatherNum, guard = 0;
+        while (p && byCode[p] && guard++ < 12) { if (/cash|bank|petty|m-?pesa|mobile money/i.test(byCode[p].acctName || "")) return true; p = byCode[p].fatherNum; }
+        return false;
+      };
+      let list = all.filter(a => a.cashAccount === "Y" || a.cashAccount === true || a.isCash === true || a.isCash === "Y" || underCashBank(a));
       if (!list.length) list = all.filter(a => /cash|bank|petty|mpesa|m-pesa|tigo|airtel|halo/i.test(a.acctName || ""));
       return list.sort((a,b) => (a.acctCode||"").localeCompare(b.acctCode||""));
     }
@@ -6734,10 +6775,7 @@ select.ss-hidden{display:none !important}
         <div class="toolbar">
           <h2>${cfg.title}</h2>
           <button class="btn btn-sm btn-primary" onclick="startNewPay('${dir}')">+ Payment</button>
-          ${dir === "in" ? `<label class="btn btn-sm" style="cursor:pointer;margin:0">📥 Import Excel
-            <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="openImportMapper('payments', this)"></label>
-          <button class="btn btn-sm" onclick="downloadDocTemplate('payments')">📄 Template</button>
-          <button class="btn btn-sm" onclick="exportPaymentsExcel()">📤 Export</button>` : ""}
+          ${dir === "in" ? `<button class="btn btn-sm" onclick="exportPaymentsExcel()">📤 Export</button>` : ""}
         </div>
         <div id="${p}-form" style="display:none;border:1px solid #b0b0b0;background:#fff;margin-bottom:12px">
           ${currentUser.isSuperAdmin ? `<div class="form-bar" style="margin:0"><div class="fg"><label>Company</label>
@@ -6836,6 +6874,14 @@ select.ss-hidden{display:none !important}
       const d = payEl(p, "date"); if (d && !d.value) d.valueAsDate = new Date();
       const dd = payEl(p, "docdate"); if (dd && !dd.value) dd.valueAsDate = new Date();
       payAcctLines[p] = [{ acctCode: "", amount: "", project: "", department: "", branch: "" }];
+      try {
+        const cid0 = companyFilterId();
+        const dc = getMap(cid0, "CASH"), db0 = getMap(cid0, "BANK");
+        const sc = payEl(p, "cashacct"), sb = payEl(p, "trsfracct"), sk = payEl(p, "checkacct");
+        if (sc && dc && !sc.value && Array.from(sc.options).some(o => o.value === dc)) sc.value = dc;
+        if (sb && db0 && !sb.value && Array.from(sb.options).some(o => o.value === db0)) sb.value = db0;
+        if (sk && db0 && !sk.value && Array.from(sk.options).some(o => o.value === db0)) sk.value = db0;
+      } catch (e) {}
       onPayTypeChange(p);
       onDocCurrencyChange(p);
     }
@@ -7056,8 +7102,9 @@ select.ss-hidden{display:none !important}
         const dr = round2(jl.reduce((s, l) => s + l.debit, 0)), cr = round2(jl.reduce((s, l) => s + l.credit, 0));
         const plug = round2(dr - cr);
         if (Math.abs(plug) > 0.01) {
-          const fxAcct = getMap(companyId, "FX_DIFF");
-          if (!fxAcct) throw new Error("Exchange-rate difference of " + payFmt(Math.abs(plug)) + ". Map FX_DIFF (Exchange Rate Gain/Loss) in Account Determination, or adjust the rate");
+          // plug>0 means credits are short => gain; otherwise loss
+          const fxAcct = (plug > 0 ? getMap(companyId, "FX_GAIN") : getMap(companyId, "FX_LOSS")) || getMap(companyId, "FX_DIFF");
+          if (!fxAcct) throw new Error("Exchange-rate difference of " + payFmt(Math.abs(plug)) + ". Map FX_GAIN / FX_LOSS (Exchange Rate Gain/Loss) in Account Determination, or adjust the rate");
           jl.push({ acctCode: fxAcct, debit: plug < 0 ? -plug : 0, credit: plug > 0 ? plug : 0, lineMemo: "Exchange rate difference" });
         }
         const docNo = await payEnsureSeries(companyId, cfg.series);
@@ -7729,6 +7776,10 @@ select.ss-hidden{display:none !important}
         <div class="toolbar">
           <h2>Exchange Rates</h2>
           <button class="btn btn-sm btn-primary" onclick="document.getElementById('er-form').style.display='grid'">+ Rate</button>
+          <label class="btn btn-sm" style="cursor:pointer;margin:0">📥 Import Excel
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="openImportMapper('exrates', this)">
+        </label>
+        <button class="btn btn-sm" onclick="downloadImportTemplate('exrates')">📄 Template</button>
         </div>
         <div id="er-form" class="form-bar" style="display:none">
           <div class="fg"><label>Currency *</label><select id="er-cur"><option value="">—</option>${curOpts}</select></div>
@@ -7801,6 +7852,10 @@ select.ss-hidden{display:none !important}
           <h2>Tax Codes</h2>
           <button class="btn btn-sm btn-primary" onclick="document.getElementById('tc-form').style.display='grid'">+ Tax Code</button>
           <button class="btn btn-sm" onclick="seedDefaultTaxCodes()">Seed VAT / Exempt</button>
+          <label class="btn btn-sm" style="cursor:pointer;margin:0">📥 Import Excel
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="openImportMapper('taxcodes', this)">
+        </label>
+        <button class="btn btn-sm" onclick="downloadImportTemplate('taxcodes')">📄 Template</button>
         </div>
         <div id="tc-form" class="form-bar" style="display:none">
           <div class="fg"><label>Code *</label><input id="tc-code" placeholder="X1"></div>
@@ -7896,12 +7951,20 @@ select.ss-hidden{display:none !important}
         added++;
       }
       // Auto-map VAT G/L accounts (only when missing and the account exists)
-      const vatMaps = [["VAT_OUTPUT", "222100"], ["VAT_INPUT", "122400"]];
+      const findVat = (cands, nameRe) => {
+        const mine = accounts.filter(a => a.companyId === cid && a.postable !== "Title");
+        for (const c of cands) if (mine.some(a => a.acctCode === c)) return c;
+        const hit = mine.find(a => nameRe.test(a.acctName || ""));
+        return hit ? hit.acctCode : null;
+      };
+      const vatOut = findVat(["207000", "222100"], /vat.*(payable|output)|output.*vat/i);
+      const vatIn = findVat(["143030", "122400"], /vat.*(receivable|input)|input.*vat/i);
+      const vatMaps = [["VAT_OUTPUT", vatOut], ["VAT_INPUT", vatIn]];
       let mapped = 0;
       for (const [mapKey, acctCode] of vatMaps) {
         const ex = accountMaps.find(m => m.companyId === cid && m.mapKey === mapKey);
         if (ex && ex.acctCode) continue;
-        if (!accounts.some(a => a.companyId === cid && a.acctCode === acctCode)) continue;
+        if (!acctCode) continue;
         if (ex) { await db.collection("account_maps").doc(ex.id).update({ acctCode }); ex.acctCode = acctCode; }
         else {
           const data = { companyId: cid, mapKey, acctCode };
@@ -7913,7 +7976,7 @@ select.ss-hidden{display:none !important}
       // Link tax codes to their VAT accounts when empty
       for (const t of taxCodes.filter(x => x.companyId === cid && !x.acctCode && x.id)) {
         const ty = (t.taxType || "").toUpperCase();
-        const ac = ty === "OUTPUT" ? "222100" : ty === "INPUT" ? "122400" : null;
+        const ac = ty === "OUTPUT" ? vatOut : ty === "INPUT" ? vatIn : null;
         if (ac && accounts.some(a => a.companyId === cid && a.acctCode === ac)) {
           await db.collection("tax_codes").doc(t.id).update({ acctCode: ac });
           t.acctCode = ac;
@@ -7937,11 +8000,14 @@ select.ss-hidden{display:none !important}
         ["OB_EQUITY", "Opening Balance — Equity clearing"],
         ["VAT_OUTPUT", "A/R Invoice — Output VAT"],
         ["VAT_INPUT", "A/P Invoice — Input VAT"],
-        ["FX_DIFF", "Payments — Exchange Rate Gain/Loss"],
+        ["FX_GAIN", "Payments — Realised Exchange Gain"],
+        ["FX_LOSS", "Payments — Realised Exchange Loss"],
+        ["FX_DIFF", "Payments — Exchange Difference (fallback)"],
       ];
       el.innerHTML = `
         <div class="toolbar"><h2>Account Determination</h2>
           <button class="btn btn-sm btn-primary" onclick="saveAcctMaps()">Save mappings</button>
+          <button class="btn btn-sm" onclick="suggestAcctMaps()" title="Fills the empty lines with suggested accounts from your Chart of Accounts — review, then Save">💡 Suggest from my COA</button>
         </div>
         <div class="grid-wrap"><table class="grid">
           <thead><tr><th>Posting purpose</th><th>G/L Account</th></tr></thead>
@@ -7960,6 +8026,20 @@ select.ss-hidden{display:none !important}
         </table></div>`;
     }
 
+    const ACCT_MAP_SUGGEST = {
+      AR_CONTROL: "140000", AP_CONTROL: "203000", REVENUE: "400000", COGS: "500025", INVENTORY: "132000",
+      CASH: "140200", BANK: "161012", OB_EQUITY: "331000", VAT_OUTPUT: "207000", VAT_INPUT: "143030",
+      FX_GAIN: "700020", FX_LOSS: "650040", FX_DIFF: "650040",
+    };
+    function suggestAcctMaps() {
+      let n = 0, miss = [];
+      document.querySelectorAll(".acct-map-sel").forEach(sel => {
+        const code = ACCT_MAP_SUGGEST[sel.dataset.map];
+        if (!code || sel.value) return;
+        if (Array.from(sel.options).some(o => o.value === code)) { sel.value = code; n++; } else miss.push(sel.dataset.map);
+      });
+      toast(n ? n + " suggestions filled — review, then press Save mappings" + (miss.length ? " (not found in COA: " + miss.join(", ") + ")" : "") : "Nothing to suggest (all lines set or accounts not in COA)", !!n);
+    }
     async function saveAcctMaps() {
       const cid = companyFilterId() || (currentUser.isSuperAdmin && companies[0] && companies[0].id);
       if (!cid) return toast("Company required");
@@ -8199,6 +8279,7 @@ select.ss-hidden{display:none !important}
           <label class="btn btn-sm" style="cursor:pointer;margin:0">📥 Import Excel
             <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="openImportMapper('currencies', this)">
           </label>
+          <button class="btn btn-sm" onclick="downloadImportTemplate('currencies')">📄 Template</button>
           <button class="btn btn-sm btn-primary" onclick="document.getElementById('cur-form').style.display='grid'">+ Currency</button>
           <button class="btn btn-sm" onclick="seedIsoCurrencies()">Load common ISO currencies</button>
         </div>
@@ -8535,7 +8616,10 @@ select.ss-hidden{display:none !important}
       const list = scoped(assets, cid);
       el.innerHTML = `<div class="toolbar"><h2>Asset Master</h2>
         <button class="btn btn-sm btn-primary" onclick="document.getElementById('asset-form').style.display='grid'">+ Asset</button>
-        <button class="btn btn-sm" onclick="downloadDocTemplate('assets')">📄 Template</button>
+        <label class="btn btn-sm" style="cursor:pointer;margin:0">📥 Import Excel
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="openImportMapper('assets', this)">
+        </label>
+        <button class="btn btn-sm" onclick="downloadImportTemplate('assets')">📄 Template</button>
         <button class="btn btn-sm" onclick="exportList('assets')">📤 Export</button>
       </div>
       <div id="asset-form" class="form-bar" style="display:none">
@@ -8622,7 +8706,10 @@ select.ss-hidden{display:none !important}
       const empOpts = scoped(employees, cid).map(e => `<option value="${esc(e.employeeCode)}">${esc(e.fullName||e.employeeCode)} — ${esc(e.employeeCode)}</option>`).join("");
       el.innerHTML = `<div class="toolbar"><h2>Leave Management</h2>
         <button class="btn btn-sm btn-primary" onclick="document.getElementById('lv-form').style.display='grid'">+ Leave Request</button>
-        <button class="btn btn-sm" onclick="downloadDocTemplate('leave')">📄 Template</button>
+        <label class="btn btn-sm" style="cursor:pointer;margin:0">📥 Import Excel
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="openImportMapper('leave', this)">
+        </label>
+        <button class="btn btn-sm" onclick="downloadImportTemplate('leave')">📄 Template</button>
         <button class="btn btn-sm" onclick="exportList('leave')">📤 Export</button>
       </div>
       <div id="lv-form" class="form-bar" style="display:none">
@@ -8707,7 +8794,10 @@ select.ss-hidden{display:none !important}
       const bpOpts = scoped(partners, cid).filter(p => p.bpType === "C" || !p.bpType).map(p => `<option value="${esc(p.bpCode)}">${esc(p.name||p.bpCode)} — ${esc(p.bpCode)}</option>`).join("");
       el.innerHTML = `<div class="toolbar"><h2>Opportunities</h2>
         <button class="btn btn-sm btn-primary" onclick="document.getElementById('opp-form').style.display='grid'">+ Opportunity</button>
-        <button class="btn btn-sm" onclick="downloadDocTemplate('opportunities')">📄 Template</button>
+        <label class="btn btn-sm" style="cursor:pointer;margin:0">📥 Import Excel
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="openImportMapper('opportunities', this)">
+        </label>
+        <button class="btn btn-sm" onclick="downloadImportTemplate('opportunities')">📄 Template</button>
         <button class="btn btn-sm" onclick="exportList('opportunities')">📤 Export</button>
       </div>
       <div id="opp-form" class="form-bar" style="display:none">
@@ -8875,6 +8965,7 @@ select.ss-hidden{display:none !important}
           <label class="btn btn-sm" style="cursor:pointer;margin:0">📥 Import Excel
             <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="openImportMapper('bpgroups', this)">
           </label>
+          <button class="btn btn-sm" onclick="downloadImportTemplate('bpgroups')">📄 Template</button>
           <button class="btn btn-sm btn-primary" onclick="document.getElementById('pg-form').style.display='grid'">+ Group</button>
         </div>
         <div id="pg-form" class="form-bar" style="display:none">
@@ -9253,6 +9344,23 @@ select.ss-hidden{display:none !important}
 
 
     // ---- System Information (tables / fields) ----
+    const APP_VERSION = "2026-11-12";
+    /** Full read-only backup of everything loaded for the signed-in session (Super Admin = all companies) */
+    function exportFullBackup() {
+      const data = {
+        exportedAt: new Date().toISOString(), appVersion: APP_VERSION, project: firebaseConfig.projectId,
+        companyScope: (currentUser && currentUser.isSuperAdmin) ? "ALL" : activeCompanyId,
+        companies, branches, users: users.map(u => ({ ...u, password: undefined })), employees, salesEmployees, dimensions, dimensionTypes,
+        docSeries, items, boms, prodOrders, opportunities, activities, assets, leaveRequests, warehouses, stockDocs, partners,
+        priceLists, salesDocs, purchaseDocs, payments, accounts, journals, accountMaps, partnerGroups, currencies, taxCodes, exchangeRates, itemSeriesDefs
+      };
+      const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "KESHASHA_backup_" + new Date().toISOString().slice(0, 10) + ".json";
+      document.body.appendChild(a); a.click(); a.remove();
+      toast("Backup downloaded", true);
+    }
     function renderSystemInfo(el) {
       const tables = [
         { name: "companies", fields: "code, name, tin, currencyCode, isActive" },
@@ -9276,7 +9384,10 @@ select.ss-hidden{display:none !important}
         { name: "dimensions", fields: "dimType, code, name" },
       ];
       el.innerHTML = `
-        <div class="toolbar"><h2>System Information</h2></div>
+        <div class="toolbar"><h2>System Information</h2>
+          <span style="font-size:12px;color:#64748b">App version: <b>${APP_VERSION}</b> · Data lives in Firebase project <b>${esc((typeof firebaseConfig!=="undefined" && firebaseConfig.projectId) || "")}</b>, not in this file</span>
+          <button class="btn btn-sm btn-primary" onclick="exportFullBackup()">💾 Backup all data (JSON)</button>
+        </div>
         <div class="grid-wrap"><table class="grid">
           <thead><tr><th>Table / Collection</th><th>Main fields</th></tr></thead>
           <tbody>
@@ -9665,6 +9776,706 @@ select.ss-hidden{display:none !important}
   obs.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled"] });
   document.querySelectorAll("select").forEach(enhance);
 })();
+</script>
+<script>
+/* ===================================================================
+   KESHASHA — Import/Template v2, "undefined" guards, Banking PDF
+   (loaded after the main script: overrides earlier definitions)
+   =================================================================== */
+
+/* ---------- 1. Never show "undefined" / "null" / "NaN" ---------- */
+(function () {
+  try {
+    ["HTMLInputElement", "HTMLTextAreaElement"].forEach(function (n) {
+      var proto = window[n] && window[n].prototype;
+      var d = proto && Object.getOwnPropertyDescriptor(proto, "value");
+      if (!d || !d.set || d.__kcl) return;
+      var set = d.set, get = d.get;
+      var nd = { configurable: true, enumerable: d.enumerable, get: get,
+        set: function (v) { if (v === undefined || v === null || v === "undefined" || v === "null" || (typeof v === "number" && isNaN(v))) v = ""; return set.call(this, v); } };
+      nd.__kcl = true;
+      Object.defineProperty(proto, "value", nd);
+    });
+  } catch (e) {}
+  function scrub(root) {
+    try {
+      root.querySelectorAll("input,textarea").forEach(function (i) {
+        if (i.value === "undefined" || i.value === "null" || i.value === "NaN") i.value = "";
+        var p = i.getAttribute("placeholder"); if (p === "undefined") i.setAttribute("placeholder", "");
+      });
+      root.querySelectorAll("td,th,span,b,div,small,label,option").forEach(function (c) {
+        if (c.children.length === 0) {
+          var t = c.textContent.trim();
+          if (t === "undefined" || t === "null" || t === "NaN") c.textContent = "";
+        }
+      });
+    } catch (e) {}
+  }
+  var pending = false;
+  function sched() { if (pending) return; pending = true; setTimeout(function () { pending = false; scrub(document.body); }, 60); }
+  try { new MutationObserver(sched).observe(document.body, { childList: true, subtree: true }); } catch (e) {}
+})();
+
+/* ---------- 2. Helpers ---------- */
+function __yn(v, def) {
+  var s = String(v == null ? "" : v).trim().toLowerCase();
+  if (!s) return def;
+  if (/^(n|no|false|0|inactive|off)$/.test(s)) return false;
+  if (/^(y|yes|true|1|active|on)$/.test(s)) return true;
+  return def;
+}
+function __num(v, def) { var n = parseFloat(String(v == null ? "" : v).replace(/,/g, "")); return isNaN(n) ? (def == null ? 0 : def) : n; }
+function __date(v) {
+  if (v == null || v === "") return "";
+  if (typeof v === "number" && isFinite(v)) { var d = new Date(Math.round((v - 25569) * 86400 * 1000)); return d.toISOString().slice(0, 10); }
+  var s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  var m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+  if (m) return m[3] + "-" + m[2].padStart(2, "0") + "-" + m[1].padStart(2, "0");
+  var d2 = new Date(s); return isNaN(d2) ? "" : d2.toISOString().slice(0, 10);
+}
+function F(key, labels, desc, sample) { return { key: key, labels: labels, desc: desc || "", sample: sample == null ? "" : sample }; }
+function __G(map, row) { return function (k) { var c = map[k]; if (!c) return ""; var v = row[c]; return v == null ? "" : String(v).trim(); }; }
+function __local() { try { return defaultCurrencyCode(); } catch (e) { return "TZS"; } }
+
+/* ---------- 3. Schemas (all columns the screens really use) ---------- */
+(function () {
+  var S = IMPORT_SCHEMAS;
+  var now = function () { return new Date().toISOString(); };
+
+  S.items = {
+    collection: "items", array: "items", required: ["itemCode", "name"], push: function (o) { items.push(o); },
+    fields: [
+      F("itemCode", ["itemCode", "ItemCode", "Item No.", "Item No", "Code"], "Unique item code (required)", "ITM00001"),
+      F("name", ["name", "ItemName", "Item Description", "Description", "Item Name"], "Item description (required)", "Nondo 12mm"),
+      F("foreignName", ["foreignName", "Foreign Name", "FrgnName"], "Foreign / alternative name", ""),
+      F("itemGroup", ["itemGroup", "ItmsGrpCod", "Group", "Item Group"], "Item group", "Hardware"),
+      F("barcode", ["barcode", "CodeBars", "Bar Code"], "Barcode", ""),
+      F("uom", ["uom", "UoM", "UOM", "Inventory UoM", "InvntryUom"], "Inventory UoM", "pcs"),
+      F("salesUom", ["salesUom", "Sales UoM", "SalUnitMsr"], "Sales UoM (blank = same as inventory)", ""),
+      F("purchaseUom", ["purchaseUom", "Purchase UoM", "BuyUnitMsr"], "Purchase UoM (blank = same as inventory)", ""),
+      F("manageBy", ["manageBy", "ManageBy", "Manage By"], "None / Batch / Serial", "None"),
+      F("valuationMethod", ["valuationMethod", "Valuation", "EvalSystem"], "MovingAverage / FIFO / Standard", "MovingAverage"),
+      F("defaultWh", ["defaultWh", "Default WH", "DfltWH"], "Default warehouse code", "MAIN"),
+      F("minLevel", ["minLevel", "Min Level", "MinLevel"], "Minimum stock level", 0),
+      F("maxLevel", ["maxLevel", "Max Level", "MaxLevel"], "Maximum stock level", 0),
+      F("reorderQty", ["reorderQty", "Reorder Qty", "ReorderQty"], "Reorder quantity", 0),
+      F("lastPurchasePrice", ["lastPurchasePrice", "LastPurPrc", "Price", "Last Purchase Price"], "Last purchase price", 0),
+      F("isInventory", ["isInventory", "Inventory Item", "InvntItem"], "Y / N", "Y"),
+      F("isSales", ["isSales", "Sales Item", "SellItem"], "Y / N", "Y"),
+      F("isPurchase", ["isPurchase", "Purchase Item", "PrchseItem"], "Y / N", "Y"),
+      F("status", ["status", "Status"], "active / inactive", "active"),
+      F("remarks", ["remarks", "Remarks", "UserText"], "Remarks", ""),
+    ],
+    build: function (row, map, cid) {
+      var g = __G(map, row);
+      var itemCode = g("itemCode").toUpperCase(), name = g("name");
+      if (!itemCode || !name) return null;
+      var mb = g("manageBy").toLowerCase();
+      var val = g("valuationMethod").toLowerCase();
+      return {
+        companyId: cid, itemCode: itemCode, name: name,
+        foreignName: g("foreignName") || null, itemGroup: g("itemGroup") || null, barcode: g("barcode") || null,
+        uom: g("uom") || "pcs", salesUom: g("salesUom") || null, purchaseUom: g("purchaseUom") || null,
+        manageBy: mb.indexOf("batch") === 0 ? "Batch" : mb.indexOf("serial") === 0 ? "Serial" : "None",
+        valuationMethod: val.indexOf("fifo") === 0 ? "FIFO" : val.indexOf("stand") === 0 ? "Standard" : "MovingAverage",
+        defaultWh: g("defaultWh") ? g("defaultWh").toUpperCase() : null,
+        minLevel: __num(g("minLevel")), maxLevel: __num(g("maxLevel")), reorderQty: __num(g("reorderQty")),
+        lastPurchasePrice: __num(g("lastPurchasePrice")),
+        isInventory: __yn(g("isInventory"), true), isSales: __yn(g("isSales"), true), isPurchase: __yn(g("isPurchase"), true),
+        status: __yn(g("status"), true) ? "active" : "inactive", isActive: __yn(g("status"), true),
+        remarks: g("remarks") || null, codeSeries: "MANUAL", createdAt: now()
+      };
+    },
+    exists: function (d) { return items.some(function (i) { return i.companyId === d.companyId && i.itemCode === d.itemCode; }); },
+    refresh: function () { renderItems(document.getElementById("main")); }
+  };
+
+  S.partners = {
+    collection: "partners", array: "partners", required: ["bpCode", "name"], push: function (o) { partners.push(o); },
+    fields: [
+      F("bpCode", ["bpCode", "CardCode", "BP Code", "Code"], "Unique BP code (required)", "C00001"),
+      F("name", ["name", "CardName", "Name", "BP Name"], "Business partner name (required)", "ABC Traders Ltd"),
+      F("bpType", ["bpType", "CardType", "Type"], "C = Customer, S = Vendor, B = Both", "C"),
+      F("groupCode", ["groupCode", "GroupCode", "Group", "BP Group"], "BP Group code (see BP Groups)", "CUST-RET"),
+      F("tin", ["tin", "TIN", "Tax ID", "LicTradNum"], "TIN / tax id", ""),
+      F("phone", ["phone", "Phone", "Phone1", "mobile"], "Phone", "+255700000000"),
+      F("email", ["email", "E_Mail", "Email"], "E-mail", ""),
+      F("creditLimit", ["creditLimit", "CreditLine", "Credit Limit"], "Credit limit", 0),
+      F("paymentTermsDays", ["paymentTermsDays", "Payment Terms", "Terms", "PayTerms"], "Payment terms in days", 30),
+      F("currencyCode", ["currencyCode", "Currency", "Curr"], "Currency code (blank = local)", "TZS"),
+      F("address", ["address", "Address", "Street"], "Address", "Dar es Salaam"),
+      F("status", ["status", "Status"], "active / inactive", "active"),
+      F("remarks", ["remarks", "Remarks"], "Remarks", ""),
+    ],
+    build: function (row, map, cid) {
+      var g = __G(map, row);
+      var bpCode = g("bpCode").toUpperCase(), name = g("name");
+      if (!bpCode || !name) return null;
+      var t = g("bpType").toUpperCase(), bpType = "C";
+      if (/^(S|V|VENDOR|SUPPLIER)/.test(t)) bpType = "S"; else if (/^(B|BOTH)/.test(t)) bpType = "B";
+      var st = __yn(g("status"), true);
+      return {
+        companyId: cid, bpCode: bpCode, name: name, bpType: bpType, codeSeries: "MANUAL",
+        groupCode: g("groupCode") ? g("groupCode").toUpperCase() : null, tin: g("tin") || null,
+        phone: g("phone") || null, email: g("email") || null,
+        creditLimit: __num(g("creditLimit")), paymentTermsDays: parseInt(g("paymentTermsDays"), 10) || 0,
+        currencyCode: (g("currencyCode") || __local()).toUpperCase(), address: g("address") || null,
+        status: st ? "active" : "inactive", isActive: st, remarks: g("remarks") || null, createdAt: now()
+      };
+    },
+    exists: function (d) { return partners.some(function (p) { return p.companyId === d.companyId && p.bpCode === d.bpCode; }); },
+    refresh: function () { renderPartners(document.getElementById("main")); }
+  };
+
+  S.bpgroups = {
+    collection: "partner_groups", array: "partnerGroups", required: ["code", "name"], push: function (o) { partnerGroups.push(o); },
+    fields: [
+      F("code", ["code", "Code", "Group", "GroupCode"], "Group code (required)", "CUST-RET"),
+      F("name", ["name", "Name", "GroupName"], "Group name (required)", "Retail customers"),
+      F("groupType", ["groupType", "Type", "C/V", "GroupType"], "C = Customer group, V = Vendor group", "C"),
+    ],
+    build: function (row, map, cid) {
+      var g = __G(map, row);
+      var code = g("code").toUpperCase(), name = g("name");
+      if (!code || !name) return null;
+      var t = g("groupType").toUpperCase();
+      return { companyId: cid, code: code, name: name, groupType: /^(V|S)/.test(t) ? "V" : "C", isActive: true, createdAt: now() };
+    },
+    exists: function (d) { return partnerGroups.some(function (x) { return x.companyId === d.companyId && x.code === d.code && x.groupType === d.groupType; }); },
+    refresh: function () { renderBpGroups(document.getElementById("main")); }
+  };
+
+  S.branches = {
+    collection: "branches", array: "branches", required: ["code", "name"], push: function (o) { branches.push(o); },
+    fields: [
+      F("code", ["code", "Code", "Branch"], "Branch code (required)", "HQ"),
+      F("name", ["name", "Name"], "Branch name (required)", "Head Office"),
+      F("address", ["address", "Address"], "Address", ""),
+      F("phone", ["phone", "Phone"], "Phone", ""),
+    ],
+    build: function (row, map, cid) {
+      var g = __G(map, row); var code = g("code").toUpperCase(), name = g("name");
+      if (!code || !name) return null;
+      return { companyId: cid, code: code, name: name, address: g("address") || null, phone: g("phone") || null, isHq: code === "HQ", isActive: true };
+    },
+    exists: function (d) { return branches.some(function (b) { return b.companyId === d.companyId && b.code === d.code; }); },
+    refresh: function () { renderBranches(document.getElementById("main")); }
+  };
+
+  S.employees = {
+    collection: "employees", array: "employees", required: ["employeeCode", "fullName"], push: function (o) { employees.push(o); },
+    fields: [
+      F("employeeCode", ["employeeCode", "empID", "Employee No.", "Employee Code", "Code"], "Unique code (required)", "E001"),
+      F("fullName", ["fullName", "Full Name", "Name"], "Full name (required)", "John Doe"),
+      F("department", ["department", "dept", "Department"], "Department", "Sales"),
+      F("jobTitle", ["jobTitle", "Job Title", "position"], "Job title", "Officer"),
+      F("branchCode", ["branchCode", "branch", "Branch"], "Branch code", "HQ"),
+      F("mobile", ["mobile", "Mobile", "phone"], "Mobile", ""),
+      F("email", ["email", "E-Mail", "Email"], "E-mail", ""),
+      F("hireDate", ["hireDate", "Hire Date", "StartDate"], "Hire date YYYY-MM-DD", ""),
+      F("basicSalary", ["basicSalary", "Salary", "Basic Salary"], "Basic monthly salary", 0),
+    ],
+    build: function (row, map, cid) {
+      var g = __G(map, row); var code = g("employeeCode"), name = g("fullName");
+      if (!code || !name) return null;
+      return { companyId: cid, employeeCode: code, fullName: name, department: g("department") || null, jobTitle: g("jobTitle") || null,
+        branchCode: g("branchCode") ? g("branchCode").toUpperCase() : null, mobile: g("mobile") || null, email: g("email") || null,
+        hireDate: __date(row[map.hireDate]) || null, basicSalary: __num(g("basicSalary")), salary: __num(g("basicSalary")),
+        status: "active", isActive: true, createdAt: now() };
+    },
+    exists: function (d) { return employees.some(function (e) { return e.companyId === d.companyId && e.employeeCode === d.employeeCode; }); },
+    refresh: function () { renderEmployees(document.getElementById("main")); }
+  };
+
+  S.users = Object.assign({}, S.users, {
+    fields: [
+      F("email", ["email", "Email", "E-Mail"], "Login e-mail (required)", "user@company.com"),
+      F("fullName", ["fullName", "Full Name", "Name"], "Full name (required)", "Mary Doe"),
+      F("password", ["password", "Password"], "Initial password (default 1234)", "1234"),
+    ],
+    push: function (o) { users.push(o); }
+  });
+
+  S.warehouses = {
+    collection: "warehouses", array: "warehouses", required: ["code", "name"], push: function (o) { warehouses.push(o); },
+    fields: [
+      F("code", ["code", "Code", "Warehouse", "WhsCode"], "Warehouse code (required)", "MAIN"),
+      F("name", ["name", "Name", "WhsName"], "Warehouse name (required)", "Main Store"),
+      F("branchCode", ["branchCode", "Branch", "branch"], "Branch code", "HQ"),
+      F("address", ["address", "Address", "Location"], "Address / location", ""),
+    ],
+    build: function (row, map, cid) {
+      var g = __G(map, row); var code = g("code").toUpperCase(), name = g("name");
+      if (!code || !name) return null;
+      return { companyId: cid, code: code, name: name, branchCode: g("branchCode") ? g("branchCode").toUpperCase() : null, address: g("address") || null, isActive: true };
+    },
+    exists: function (d) { return warehouses.some(function (w) { return w.companyId === d.companyId && w.code === d.code; }); },
+    refresh: function () { renderWarehouses(document.getElementById("main")); }
+  };
+
+  S.pricelists = {
+    collection: "price_lists", array: "priceLists", required: ["itemCode", "price"], push: function (o) { priceLists.push(o); },
+    fields: [
+      F("listName", ["listName", "List", "PriceList", "List Name"], "Price list name", "Base"),
+      F("itemCode", ["itemCode", "ItemCode", "Item", "Item No."], "Item code (required)", "ITM00001"),
+      F("price", ["price", "Price", "ListPrice"], "Price (required)", 100),
+      F("currencyCode", ["currencyCode", "Currency", "Curr"], "Currency", "TZS"),
+    ],
+    build: function (row, map, cid) {
+      var g = __G(map, row); var itemCode = g("itemCode").toUpperCase(); var price = parseFloat(g("price"));
+      if (!itemCode || isNaN(price)) return null;
+      return { companyId: cid, listName: g("listName") || "Base", itemCode: itemCode, price: price, currencyCode: (g("currencyCode") || __local()).toUpperCase(), createdAt: now() };
+    },
+    exists: function (d) { return priceLists.some(function (p) { return p.companyId === d.companyId && p.listName === d.listName && p.itemCode === d.itemCode; }); },
+    refresh: function () { renderPriceLists(document.getElementById("main")); }
+  };
+
+  S.currencies = {
+    collection: "currencies", array: "currencies", required: ["code", "name"], push: function (o) { currencies.push(o); },
+    fields: [
+      F("code", ["code", "Code", "Currency", "ISO"], "Currency code (required)", "USD"),
+      F("name", ["name", "Name"], "Currency name (required)", "US Dollar"),
+      F("isoCode", ["isoCode", "ISO Code"], "ISO code", "USD"),
+      F("symbol", ["symbol", "Symbol"], "Symbol", "$"),
+    ],
+    build: function (row, map, cid) {
+      var g = __G(map, row); var code = g("code").toUpperCase(), name = g("name");
+      if (!code || !name) return null;
+      return { companyId: cid, code: code, name: name, isoCode: g("isoCode") || code, symbol: g("symbol") || code, isActive: true };
+    },
+    exists: function (d) { return currencies.some(function (c) { return c.companyId === d.companyId && c.code === d.code; }); },
+    refresh: function () { renderCurrencies(document.getElementById("main")); }
+  };
+
+  S.exrates = {
+    collection: "exchange_rates", array: "exchangeRates", required: ["currency", "rate", "rateDate"], push: function (o) { exchangeRates.push(o); },
+    fields: [
+      F("currency", ["currency", "Currency", "Code"], "Currency code (required)", "USD"),
+      F("rate", ["rate", "Rate"], "Local currency per 1 unit (required, > 0)", 2600),
+      F("rateDate", ["rateDate", "Date", "Rate Date"], "Date YYYY-MM-DD (required)", new Date().toISOString().slice(0, 10)),
+    ],
+    build: function (row, map, cid) {
+      var g = __G(map, row); var cur = g("currency").toUpperCase(); var rate = __num(g("rate")); var dt = __date(row[map.rateDate]);
+      if (!cur || !(rate > 0) || !dt) return null;
+      return { companyId: cid, currency: cur, rate: rate, rateDate: dt, createdAt: now() };
+    },
+    exists: function (d) { return exchangeRates.some(function (r) { return r.companyId === d.companyId && r.currency === d.currency && r.rateDate === d.rateDate; }); },
+    refresh: function () { renderExchangeRates(document.getElementById("main")); }
+  };
+
+  S.taxcodes = {
+    collection: "tax_codes", array: "taxCodes", required: ["code", "name"], push: function (o) { taxCodes.push(o); },
+    fields: [
+      F("code", ["code", "Code", "Tax Code"], "Tax code (required)", "X1"),
+      F("name", ["name", "Name"], "Description (required)", "Standard Output VAT"),
+      F("rate", ["rate", "Rate", "Rate %"], "Rate in % (e.g. 18)", 18),
+      F("taxType", ["taxType", "Type", "Tax Type"], "OUTPUT / INPUT / EXEMPT", "OUTPUT"),
+      F("acctCode", ["acctCode", "Account", "G/L Account"], "VAT G/L account code", "222100"),
+    ],
+    build: function (row, map, cid) {
+      var g = __G(map, row); var code = g("code").toUpperCase(), name = g("name");
+      if (!code || !name) return null;
+      var t = g("taxType").toUpperCase(); t = /^IN/.test(t) ? "INPUT" : /^EX/.test(t) ? "EXEMPT" : "OUTPUT";
+      return { companyId: cid, code: code, name: name, rate: __num(g("rate")), taxType: t, acctCode: g("acctCode") || null, isActive: true, createdAt: now() };
+    },
+    exists: function (d) { return taxCodes.some(function (t) { return t.companyId === d.companyId && t.code === d.code; }); },
+    refresh: function () { renderTaxCodes(document.getElementById("main")); }
+  };
+
+  /* ---- Chart of accounts: real multi-level, Title/Active, status ---- */
+  var COA_CAT = ["Assets", "Liabilities", "Capital and Reserves", "Turnover", "Cost of Sales", "Operating Costs", "Non-Operating Income and Expenditure", "Taxation and Extraordinary Items"];
+  S.accounts = {
+    collection: "accounts", array: "accounts", required: ["acctCode", "acctName"], push: function (o) { accounts.push(o); },
+    fields: [
+      F("acctCode", ["acctCode", "AcctCode", "Account Code", "Code"], "G/L account code (required)", "111000"),
+      F("acctName", ["acctName", "AcctName", "Account Name", "Name"], "Account name (required)", "Cash on Hand"),
+      F("category", ["category", "Category", "Groups", "Group"], "Assets / Liabilities / Capital and Reserves / Turnover / Cost of Sales / Operating Costs / ...", "Assets"),
+      F("postable", ["postable", "Postable", "Type", "AccountType", "Active", "Title"], "Title (header) or Active (postable)", "Active"),
+      F("level", ["level", "Level", "Levels"], "Level 1..n (blank = computed from Parent)", 3),
+      F("fatherNum", ["fatherNum", "FatherNum", "Parent", "fatherCode", "Father Code"], "Parent account code", "110000"),
+      F("currency", ["currency", "Currency"], "Account currency", "TZS"),
+      F("externalCode", ["externalCode", "External Code", "ExternalCode"], "External code", ""),
+      F("cashAccount", ["cashAccount", "isCash", "Cash Account"], "Y / N — cash/bank account", "Y"),
+      F("controlAccount", ["controlAccount", "Control Account"], "Y / N — control account", "N"),
+      F("status", ["status", "Status", "Active"], "active / inactive", "active"),
+    ],
+    begin: function (rows, map, cid) {
+      var g = function (r, k) { var c = map[k]; var v = c ? r[c] : ""; return v == null ? "" : String(v).trim(); };
+      var parentOf = {}, childCount = {}, levelIn = {}, catOf = {};
+      rows.forEach(function (r) {
+        var code = g(r, "acctCode"); if (!code) return;
+        var p = g(r, "fatherNum"); if (p) { parentOf[code] = p; childCount[p] = (childCount[p] || 0) + 1; }
+        var lv = parseInt(g(r, "level"), 10); if (lv > 0) levelIn[code] = lv;
+        var cat = g(r, "category"); if (cat) catOf[code] = cat;
+      });
+      accounts.forEach(function (a) {
+        if (a.companyId !== cid) return;
+        if (!parentOf[a.acctCode] && a.fatherNum) parentOf[a.acctCode] = a.fatherNum;
+        if (!levelIn[a.acctCode] && a.level) levelIn[a.acctCode] = parseInt(a.level, 10);
+        if (!catOf[a.acctCode] && a.category) catOf[a.acctCode] = a.category;
+      });
+      var cache = {};
+      function lvl(code, depth) {
+        if (levelIn[code]) return levelIn[code];
+        if (cache[code]) return cache[code];
+        var p = parentOf[code];
+        var v = (!p || depth > 12) ? 1 : lvl(p, (depth || 0) + 1) + 1;
+        return (cache[code] = v);
+      }
+      function cat(code, depth) {
+        if (catOf[code]) return catOf[code];
+        var p = parentOf[code];
+        if (p && (depth || 0) < 12) return cat(p, (depth || 0) + 1);
+        var d = String(code).charAt(0);
+        return COA_CAT[Math.max(0, Math.min(COA_CAT.length - 1, (parseInt(d, 10) || 1) - 1))];
+      }
+      this.__ctx = { childCount: childCount, lvl: lvl, cat: cat };
+    },
+    build: function (row, map, cid) {
+      var g = __G(map, row);
+      var code = g("acctCode"), name = g("acctName");
+      if (!code || !name) return null;
+      var ctx = this.__ctx || { childCount: {}, lvl: function () { return 1; }, cat: function () { return "Assets"; } };
+      var rawPost = g("postable").toLowerCase();
+      var post;
+      if (/title|header/.test(rawPost) || /^(n|no|false|0)$/.test(rawPost)) post = "Title";
+      else if (/active|post|detail/.test(rawPost) || /^(y|yes|true|1)$/.test(rawPost)) post = "Active";
+      else post = ctx.childCount[code] ? "Title" : "Active";
+      var lv = parseInt(g("level"), 10);
+      var st = __yn(g("status"), true);
+      var catIn = g("category");
+      var cat = COA_CAT.filter(function (c) { return c.toLowerCase() === catIn.toLowerCase(); })[0] || (catIn && /^(asset)/i.test(catIn) ? "Assets" : catIn && /^(liab)/i.test(catIn) ? "Liabilities" : catIn && /^(capital|equity)/i.test(catIn) ? "Capital and Reserves" : catIn && /^(turnover|revenue|income|sales)/i.test(catIn) ? "Turnover" : catIn && /^cost/i.test(catIn) ? "Cost of Sales" : catIn && /^(operating|expense)/i.test(catIn) ? "Operating Costs" : ctx.cat(code));
+      return {
+        companyId: cid, acctCode: code, acctName: name, category: cat, postable: post,
+        level: lv > 0 ? lv : ctx.lvl(code), fatherNum: g("fatherNum") || null,
+        currency: (g("currency") || __local()).toUpperCase(), externalCode: g("externalCode") || null,
+        cashAccount: __yn(g("cashAccount"), false) ? "Y" : "N", controlAccount: __yn(g("controlAccount"), false) ? "Y" : "N",
+        status: st ? "active" : "inactive", isActive: true, createdAt: now()
+      };
+    },
+    exists: function (d) { return accounts.some(function (a) { return a.companyId === d.companyId && a.acctCode === d.acctCode; }); },
+    refresh: function () { renderCOA(document.getElementById("main")); }
+  };
+
+  /* ---- HR / assets / CRM ---- */
+  S.assets = {
+    collection: "assets", array: "assets", required: ["assetCode", "name"], push: function (o) { assets.push(o); },
+    fields: [
+      F("assetCode", ["assetCode", "Asset Code", "Code"], "Unique asset code (required)", "FA001"),
+      F("name", ["name", "Name", "Description"], "Asset name (required)", "Delivery truck"),
+      F("cost", ["cost", "Cost", "Acquisition Cost"], "Acquisition cost", 10000000),
+      F("usefulLife", ["usefulLife", "Useful Life", "Life"], "Useful life in years", 5),
+      F("acqDate", ["acqDate", "Acquisition Date", "Date"], "Acquisition date YYYY-MM-DD", new Date().toISOString().slice(0, 10)),
+    ],
+    build: function (row, map, cid) {
+      var g = __G(map, row); var code = g("assetCode").toUpperCase(), name = g("name");
+      if (!code || !name) return null;
+      var cost = __num(g("cost"));
+      return { companyId: cid, assetCode: code, name: name, cost: cost, usefulLife: parseInt(g("usefulLife"), 10) || 5, acqDate: __date(row[map.acqDate]) || new Date().toISOString().slice(0, 10), nbv: cost, createdAt: now() };
+    },
+    exists: function (d) { return assets.some(function (a) { return a.companyId === d.companyId && a.assetCode === d.assetCode; }); },
+    refresh: function () { renderAssets(document.getElementById("main")); }
+  };
+  S.leave = {
+    collection: "leave_requests", array: "leaveRequests", required: ["employeeCode", "fromDate", "toDate"], push: function (o) { leaveRequests.push(o); },
+    fields: [
+      F("employeeCode", ["employeeCode", "Employee", "Employee Code"], "Employee code (required)", "E001"),
+      F("leaveType", ["leaveType", "Type", "Leave Type"], "Annual / Sick / Maternity / Unpaid", "Annual"),
+      F("fromDate", ["fromDate", "From", "From Date"], "From YYYY-MM-DD (required)", new Date().toISOString().slice(0, 10)),
+      F("toDate", ["toDate", "To", "To Date"], "To YYYY-MM-DD (required)", new Date().toISOString().slice(0, 10)),
+    ],
+    build: function (row, map, cid) {
+      var g = __G(map, row); var e = g("employeeCode"); var f = __date(row[map.fromDate]), t = __date(row[map.toDate]);
+      if (!e || !f || !t) return null;
+      return { companyId: cid, employeeCode: e, leaveType: g("leaveType") || "Annual", fromDate: f, toDate: t, status: "pending", createdAt: now() };
+    },
+    exists: function () { return false; },
+    refresh: function () { renderLeave(document.getElementById("main")); }
+  };
+  S.opportunities = {
+    collection: "opportunities", array: "opportunities", required: ["name"], push: function (o) { opportunities.push(o); },
+    fields: [
+      F("name", ["name", "Name", "Opportunity"], "Opportunity name (required)", "New shop supply"),
+      F("bpCode", ["bpCode", "Customer", "BP Code"], "Business partner code", "C00001"),
+      F("value", ["value", "Value", "Amount"], "Potential value", 5000000),
+      F("stage", ["stage", "Stage"], "Lead / Qualified / Proposal / Negotiation / Won / Lost", "Lead"),
+      F("probability", ["probability", "Probability", "Prob %"], "Probability %", 20),
+    ],
+    build: function (row, map, cid) {
+      var g = __G(map, row); var name = g("name");
+      if (!name) return null;
+      return { companyId: cid, name: name, bpCode: g("bpCode") || "", value: __num(g("value")), stage: g("stage") || "Lead", probability: __num(g("probability")), createdAt: now() };
+    },
+    exists: function () { return false; },
+    refresh: function () { renderOpportunities(document.getElementById("main")); }
+  };
+  S.dimensions = Object.assign({}, S.dimensions, {
+    fields: [
+      F("dimType", ["dimType", "Type", "Dimension"], "Dimension type: PROJECT / DEPARTMENT / BRANCH / ... (required)", "PROJECT"),
+      F("code", ["code", "Code"], "Code (required)", "P001"),
+      F("name", ["name", "Name"], "Name (required)", "Warehouse project"),
+    ],
+    push: function (o) { dimensions.push(o); }
+  });
+})();
+
+/* ---------- 4. Document import schemas (sales / purchasing / stock) ---------- */
+var __DOC_FIELDS_COMMON = [
+  F("docGroup", ["docGroup", "Group", "DocGroup", "Batch"], "Same value on all lines of one document (blank = one document per row)", "1"),
+  F("docDate", ["docDate", "Date", "Posting Date", "DocDate"], "Posting date YYYY-MM-DD", new Date().toISOString().slice(0, 10)),
+  F("dueDate", ["dueDate", "Due Date", "DocDueDate"], "Due date YYYY-MM-DD", ""),
+  F("bpCode", ["bpCode", "CardCode", "Customer", "Vendor", "BP Code"], "Business partner code (required)", "C00001"),
+  F("branchCode", ["branchCode", "Branch"], "Branch code", "HQ"),
+  F("currency", ["currency", "Currency", "DocCur"], "Document currency (blank = local)", ""),
+  F("rate", ["rate", "Rate", "DocRate"], "Rate to local (blank = from Exchange Rates)", ""),
+  F("remarks", ["remarks", "Remarks", "Comments"], "Remarks", ""),
+  F("itemCode", ["itemCode", "Item", "ItemCode", "Item No."], "Item code (required unless service line)", "ITM00001"),
+  F("name", ["name", "Description", "Dscription", "Item Name"], "Line description", ""),
+  F("qty", ["qty", "Quantity", "Qty"], "Quantity (required)", 1),
+  F("uom", ["uom", "UoM", "UOM"], "UoM", "pcs"),
+  F("price", ["price", "UnitPrice", "Price", "PriceBefDi"], "Unit price", 100),
+  F("discPct", ["discPct", "Discount", "Disc%"], "Discount %", 0),
+  F("taxCode", ["taxCode", "Tax Code", "VatGroup"], "Tax code (X1 / X0 / I1)", ""),
+  F("acctCode", ["acctCode", "G/L Account", "AcctCode"], "G/L account (blank = Account Determination)", ""),
+  F("project", ["project", "Project"], "Project code", ""),
+];
+function buildSalesImportSchema(docType) {
+  var fields = __DOC_FIELDS_COMMON.slice();
+  fields.splice(8, 0, F("warehouseCode", ["warehouseCode", "Warehouse", "WhsCode", "WH"], "Warehouse code", "MAIN"));
+  fields.splice(5, 0, F("slpCode", ["slpCode", "Sales Employee", "SalesPerson"], "Sales employee code", ""));
+  return { collection: "sales_docs", array: "salesDocs", required: ["bpCode", "itemCode", "qty"], fields: fields,
+    isDocumentImport: true, docType: docType, build: function () { return null; }, exists: function () { return false; },
+    refresh: function () { renderSalesDoc(document.getElementById("main"), docType); } };
+}
+function buildPurchImportSchema(docType) {
+  var fields = __DOC_FIELDS_COMMON.slice();
+  fields.splice(8, 0, F("warehouseCode", ["warehouseCode", "Warehouse", "WhsCode", "WH"], "Warehouse code (required for item lines of GRPO / A/P Invoice)", "MAIN"));
+  fields.splice(5, 0, F("requester", ["requester", "Requester", "Employee"], "Requester employee code", ""));
+  return { collection: "purchase_docs", array: "purchaseDocs", required: ["bpCode", "qty"], fields: fields,
+    isDocumentImport: true, docType: docType, build: function () { return null; }, exists: function () { return false; },
+    refresh: function () { renderPurchaseDoc(document.getElementById("main"), docType); } };
+}
+function buildStockImportSchema(kind) {
+  var d = new Date().toISOString().slice(0, 10);
+  var f = [F("docGroup", ["docGroup", "Group", "DocGroup"], "Same value on all lines of one document", "1"), F("docDate", ["docDate", "Date", "Posting Date"], "Posting date", d)];
+  if (kind === "TR") f.push(F("fromWh", ["fromWh", "From", "FromWH"], "From warehouse (required)", "MAIN"), F("toWh", ["toWh", "To", "ToWH"], "To warehouse (required)", "SHOP"));
+  else {
+    if (kind === "IO") f.push(F("docType", ["docType", "Type", "IN", "OUT"], "IN = Goods Receipt, OUT = Goods Issue", "IN"));
+    f.push(F("warehouseCode", ["warehouseCode", "Warehouse", "WhsCode", "WH"], "Warehouse code (required)", "MAIN"));
+  }
+  f.push(F("itemCode", ["itemCode", "Item", "ItemCode"], "Item code (required)", "ITM00001"), F("name", ["name", "Description", "Item Name"], "Description", ""),
+    F("qty", ["qty", "Quantity", "Qty"], "Quantity (required)", 10), F("uom", ["uom", "UoM"], "UoM", "pcs"),
+    F("unitCost", ["unitCost", "Cost", "Price"], "Unit cost", 100), F("remarks", ["remarks", "Remarks"], "Remarks", ""));
+  return { collection: "stock_docs", array: "stockDocs", required: ["itemCode", "qty"], fields: f, isDocumentImport: true, stockKind: kind,
+    build: function () { return null; }, exists: function () { return false; },
+    refresh: function () { var m = document.getElementById("main"); if (kind === "TR") renderTransfer(m); else if (kind === "OB") renderOpening(m); else renderStock(m); } };
+}
+IMPORT_SCHEMAS.payments = { collection: "payments", array: "payments", required: [], fields: [], build: function () { return null; }, exists: function () { return false; }, refresh: function () { renderPayments(document.getElementById("main")); } };
+
+/* Import — Sales / Purchase documents (grouped by docGroup; VAT, currency, G/L account aware) */
+async function __importMarketingRows(kind, docType, rows, map, cid) {
+  var isSales = kind === "sales";
+  var g = function (row, k) { var c = map[k]; return c ? String(row[c] == null ? "" : row[c]).trim() : ""; };
+  var groups = {}, order = [];
+  rows.forEach(function (row, idx) {
+    var key = g(row, "docGroup") || (g(row, "bpCode") + "|" + g(row, "docDate") + "|g" + idx);
+    if (!groups[key]) { groups[key] = []; order.push(key); }
+    groups[key].push(row);
+  });
+  var added = 0, skipped = 0, errors = [];
+  for (var gi = 0; gi < order.length; gi++) {
+    showProgress(10 + Math.round((gi / Math.max(order.length, 1)) * 85), "Posting " + (gi + 1) + "/" + order.length);
+    var gRows = groups[order[gi]], first = gRows[0];
+    var bpCode = g(first, "bpCode").toUpperCase();
+    if (!bpCode) { skipped += gRows.length; continue; }
+    var bp = partners.find(function (p) { return p.companyId === cid && p.bpCode === bpCode; });
+    if (!bp) { skipped += gRows.length; errors.push("BP " + bpCode + " not found"); continue; }
+    var docDate = __date(first[map.docDate]) || new Date().toISOString().slice(0, 10);
+    var dueDate = __date(first[map.dueDate]) || null;
+    var cur = (g(first, "currency") || bp.currencyCode || __local()).toUpperCase();
+    var local = __local();
+    var rate = cur === local ? 1 : (__num(g(first, "rate")) || (function () { var best = scoped(exchangeRates, cid).filter(function (r) { return r.currency === cur && r.rateDate <= docDate; }).sort(function (a, b) { return b.rateDate.localeCompare(a.rateDate); })[0]; return best ? parseFloat(best.rate) : 1; })());
+    var lines = [];
+    gRows.forEach(function (row) {
+      var itemCode = g(row, "itemCode").toUpperCase(), acctCode = g(row, "acctCode");
+      var qty = __num(g(row, "qty"));
+      if (!(qty > 0) || (!itemCode && !acctCode)) { skipped++; return; }
+      var it = itemCode ? items.find(function (x) { return x.companyId === cid && x.itemCode === itemCode; }) : null;
+      var price = __num(g(row, "price")), disc = __num(g(row, "discPct"));
+      var taxCode = g(row, "taxCode").toUpperCase() || null;
+      var net = round2(qty * price * (1 - disc / 100));
+      var vp = taxRateFor(cid, taxCode);
+      var line = { lineNum: lines.length + 1, lineType: itemCode ? "I" : "S", itemCode: itemCode || null,
+        name: g(row, "name") || (it ? it.name : "") || acctCode, qty: qty, uom: g(row, "uom") || (it ? it.uom : "") || "pcs",
+        priceBefDi: price, price: round2(price * (1 - disc / 100)), discPct: disc, lineTotal: net,
+        taxCode: taxCode, vatPrcnt: vp, vatSum: round2(net * vp / 100), gTotal: round2(net + net * vp / 100),
+        acctCode: acctCode || null, project: g(row, "project") || null };
+      var wh = g(row, "warehouseCode").toUpperCase() || (it && it.defaultWh) || g(first, "warehouseCode").toUpperCase() || "";
+      if (isSales) line.whsCode = itemCode ? (wh || null) : null; else line.whsCode = itemCode ? (wh || null) : null;
+      lines.push(line);
+    });
+    if (!lines.length) continue;
+    var netTotal = round2(lines.reduce(function (s, l) { return s + l.lineTotal; }, 0));
+    var taxTotal = round2(lines.reduce(function (s, l) { return s + l.vatSum; }, 0));
+    var grandTotal = round2(netTotal + taxTotal);
+    var docNo = await nextSalesDocNo(cid, docType);
+    var data = { companyId: cid, docType: docType, docNo: docNo, docDate: docDate, dueDate: dueDate, bpCode: bpCode, bpName: bp.name || "",
+      warehouseCode: g(first, "warehouseCode").toUpperCase() || null, branchCode: g(first, "branchCode").toUpperCase() || null,
+      remarks: g(first, "remarks") || null, lines: lines, grandTotal: grandTotal, netTotal: netTotal, taxTotal: taxTotal, freight: 0,
+      docCurrency: cur, docRate: rate, grandTotalLC: round2(grandTotal * rate), status: "open",
+      createdBy: currentUser.email, createdAt: new Date().toISOString(), imported: true };
+    if (isSales) { data.slpCode = g(first, "slpCode") || null; data.paidAmount = 0; }
+    else { data.requester = g(first, "requester") || null; }
+    var ref = await db.collection(isSales ? "sales_docs" : "purchase_docs").add(data);
+    (isSales ? salesDocs : purchaseDocs).unshift(Object.assign({ id: ref.id }, data));
+    added++;
+  }
+  if (errors.length) toast(errors.slice(0, 3).join(" · "));
+  return { added: added, skipped: skipped };
+}
+async function importSalesDocumentRows(docType, rows, map, cid) { return __importMarketingRows("sales", docType, rows, map, cid); }
+async function importPurchaseDocumentRows(docType, rows, map, cid) { return __importMarketingRows("purch", docType, rows, map, cid); }
+
+/* ---------- 5. Template download: every column, a sample row and an Instructions sheet ---------- */
+function __schemaFor(kind) {
+  if (kind === "stock") kind = "stock_IO";
+  if (IMPORT_SCHEMAS[kind]) return IMPORT_SCHEMAS[kind];
+  if (kind.indexOf("sales_") === 0) return buildSalesImportSchema(kind.slice(6));
+  if (kind.indexOf("purch_") === 0) return buildPurchImportSchema(kind.slice(6));
+  if (kind.indexOf("stock_") === 0) return buildStockImportSchema(kind.slice(6));
+  return null;
+}
+function downloadImportTemplate(kind) {
+  var schema = __schemaFor(kind);
+  if (!schema || !schema.fields || !schema.fields.length) { toast("No import template for: " + kind); return; }
+  var heads = schema.fields.map(function (f) { return f.labels[0]; });
+  var sample = schema.fields.map(function (f) { return f.sample === undefined ? "" : f.sample; });
+  var wb = XLSX.utils.book_new();
+  var ws = XLSX.utils.aoa_to_sheet([heads, sample]);
+  ws["!cols"] = heads.map(function (h) { return { wch: Math.max(12, h.length + 4) }; });
+  XLSX.utils.book_append_sheet(wb, ws, "Template");
+  var info = [["Column", "Required", "Description"]].concat(schema.fields.map(function (f) {
+    return [f.labels[0], schema.required.indexOf(f.key) >= 0 ? "YES" : "", f.desc || ""];
+  }));
+  info.push([], ["Note", "", "Keep the header row. Delete the sample row before importing. Dates: YYYY-MM-DD. Existing codes are skipped."]);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(info), "Instructions");
+  if (kind === "accounts") {
+    var ex = [heads,
+      ["100000", "Assets", "Assets", "Title", 1, "", "TZS", "N", "N", "active"],
+      ["110000", "Current Assets", "Assets", "Title", 2, "100000", "TZS", "N", "N", "active"],
+      ["111000", "Cash on Hand", "Assets", "Active", 3, "110000", "TZS", "Y", "N", "active"],
+      ["112000", "Bank — CRDB", "Assets", "Active", 3, "110000", "TZS", "Y", "N", "active"],
+      ["120000", "Accounts Receivable", "Assets", "Active", 3, "110000", "TZS", "N", "Y", "active"],
+      ["200000", "Liabilities", "Liabilities", "Title", 1, "", "TZS", "N", "N", "active"],
+      ["210000", "Accounts Payable", "Liabilities", "Active", 2, "200000", "TZS", "N", "Y", "active"],
+      ["222100", "VAT Payable", "Liabilities", "Active", 2, "200000", "TZS", "N", "N", "active"],
+      ["400000", "Turnover", "Turnover", "Title", 1, "", "TZS", "N", "N", "active"],
+      ["410000", "Sales Revenue", "Turnover", "Active", 2, "400000", "TZS", "N", "N", "active"],
+      ["500000", "Cost of Sales", "Cost of Sales", "Title", 1, "", "TZS", "N", "N", "active"],
+      ["510000", "COGS", "Cost of Sales", "Active", 2, "500000", "TZS", "N", "N", "active"]];
+    wb.Sheets["Template"] = XLSX.utils.aoa_to_sheet(ex);
+  }
+  XLSX.writeFile(wb, "KESHASHA_Template_" + kind + ".xlsx");
+  toast("Template downloaded — " + heads.length + " columns", true);
+}
+// Every old template entry point now builds the full template from the same schema
+function downloadItemTemplate() { downloadImportTemplate("items"); }
+function downloadEmpTemplate() { downloadImportTemplate("employees"); }
+function downloadBranchTemplate() { downloadImportTemplate("branches"); }
+function downloadDimTemplate() { downloadImportTemplate("dimensions"); }
+function downloadAcctTemplate() { downloadImportTemplate("accounts"); }
+function downloadPurchTemplate(docType) { downloadImportTemplate("purch_" + docType); }
+function downloadDocTemplate(kind) {
+  var m = { coa: "accounts", payments: "payments", stock_IO: "stock_IO", leave: "leave", assets: "assets", opportunities: "opportunities" };
+  downloadImportTemplate(m[kind] || kind);
+}
+function doDownloadTemplate(kind) { downloadImportTemplate(kind); }
+
+
+/* ---------- 6. Banking Reports: filters + Excel + PDF (company logo & print header/footer from Document Settings) ---------- */
+function __bankRows() {
+  var cid = companyFilterId();
+  var from = (document.getElementById("br-from") || {}).value || "", to = (document.getElementById("br-to") || {}).value || "";
+  var dir = (document.getElementById("br-dir") || {}).value || "";
+  return scoped(payments, cid).filter(function (p) {
+    var d = p.direction || ((p.docType === "OUT") ? "out" : "in");
+    if (dir && d !== dir) return false;
+    if (from && (p.docDate || "") < from) return false;
+    if (to && (p.docDate || "") > to) return false;
+    return true;
+  }).sort(function (a, b) { return (a.docDate || "").localeCompare(b.docDate || "") || (a.docNo || "").localeCompare(b.docNo || ""); });
+}
+function __fmt2(n) { return Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function __bankSummary(list) {
+  var s = { inT: 0, outT: 0, cash: 0, check: 0, trsfr: 0 };
+  list.forEach(function (p) {
+    var d = p.direction || ((p.docType === "OUT") ? "out" : "in");
+    var t = parseFloat(p.docTotalLC != null ? p.docTotalLC : (p.docTotal || p.amount)) || 0;
+    if (d === "out") s.outT += t; else s.inT += t;
+    s.cash += parseFloat(p.cashSum) || 0; s.check += parseFloat(p.checkSum) || 0; s.trsfr += parseFloat(p.trsfrSum) || 0;
+  });
+  return s;
+}
+function renderBankingReports(el) {
+  var prevFrom = (document.getElementById("br-from") || {}).value || "", prevTo = (document.getElementById("br-to") || {}).value || "", prevDir = (document.getElementById("br-dir") || {}).value || "";
+  el.innerHTML = '<div class="toolbar"><h2>Banking Reports</h2>' +
+    '<label style="font-size:12px">From <input type="date" id="br-from" value="' + prevFrom + '" style="margin:0;padding:3px" onchange="__bankRefresh()"></label>' +
+    '<label style="font-size:12px">To <input type="date" id="br-to" value="' + prevTo + '" style="margin:0;padding:3px" onchange="__bankRefresh()"></label>' +
+    '<select id="br-dir" style="margin:0;padding:4px" onchange="__bankRefresh()"><option value="">Incoming + Outgoing</option><option value="in"' + (prevDir === "in" ? " selected" : "") + '>Incoming only</option><option value="out"' + (prevDir === "out" ? " selected" : "") + '>Outgoing only</option></select>' +
+    '<button class="btn btn-sm btn-primary" onclick="exportBankingPDF()">📄 Export PDF</button>' +
+    '<button class="btn btn-sm" onclick="exportBankingExcel()">📤 Excel</button></div>' +
+    '<div id="br-body"></div>';
+  __bankRefresh();
+}
+function __bankRefresh() {
+  var box = document.getElementById("br-body"); if (!box) return;
+  var list = __bankRows(), s = __bankSummary(list);
+  var card = function (l, v) { return '<div style="background:#fff;border:1px solid #ddd;padding:12px;border-radius:6px"><div style="font-size:12px;color:#64748b">' + l + '</div><div style="font-size:18px;font-weight:700">' + __fmt2(v) + '</div></div>'; };
+  box.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px">' +
+    card("Total Receipts", s.inT) + card("Total Payments", s.outT) + card("Net", s.inT - s.outT) + card("Cash", s.cash) + card("Checks", s.check) + card("Transfers", s.trsfr) + '</div>' +
+    '<div class="grid-wrap"><table class="grid"><thead><tr><th>Doc No</th><th>Date</th><th>Direction</th><th>Type</th><th>Code</th><th>Name</th><th>Currency</th><th>Cash</th><th>Check</th><th>Transfer</th><th>Total</th><th>Total (Local)</th></tr></thead><tbody>' +
+    (list.map(function (p) {
+      var d = p.direction || ((p.docType === "OUT") ? "out" : "in");
+      return '<tr><td>' + esc(p.docNo) + '</td><td>' + esc(p.docDate) + '</td><td>' + (d === "out" ? "Outgoing" : "Incoming") + '</td><td>' + esc(p.docType || "") + '</td><td>' + esc(p.cardCode || p.bpCode || "") + '</td><td>' + esc(p.cardName || "") + '</td><td>' + esc(p.docCurrency || "") + '</td>' +
+        '<td style="text-align:right">' + __fmt2(p.cashSum) + '</td><td style="text-align:right">' + __fmt2(p.checkSum) + '</td><td style="text-align:right">' + __fmt2(p.trsfrSum) + '</td>' +
+        '<td style="text-align:right;font-weight:700">' + __fmt2(p.docTotal || p.amount) + '</td><td style="text-align:right">' + __fmt2(p.docTotalLC != null ? p.docTotalLC : (p.docTotal || p.amount)) + '</td></tr>';
+    }).join("") || '<tr><td colspan="12">No payments</td></tr>') + '</tbody></table></div>';
+}
+function exportBankingExcel() {
+  var list = __bankRows();
+  var data = [["Doc No", "Date", "Direction", "Type", "Code", "Name", "Currency", "Rate", "Cash", "Check", "Transfer", "Total", "Total (Local)"]];
+  list.forEach(function (p) { data.push([p.docNo, p.docDate, (p.direction === "out" || p.docType === "OUT") ? "Outgoing" : "Incoming", p.docType || "", p.cardCode || p.bpCode || "", p.cardName || "", p.docCurrency || "", p.docRate || 1, p.cashSum || 0, p.checkSum || 0, p.trsfrSum || 0, p.docTotal || p.amount || 0, p.docTotalLC != null ? p.docTotalLC : (p.docTotal || p.amount || 0)]); });
+  var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(data), "Banking");
+  XLSX.writeFile(wb, "KESHASHA_Banking_Report.xlsx");
+}
+function exportBankingPDF() {
+  var co = (typeof activeCompany === "function" && activeCompany()) || {};
+  var logo = co.logoData || "";
+  var list = __bankRows(), s = __bankSummary(list);
+  var from = (document.getElementById("br-from") || {}).value || "", to = (document.getElementById("br-to") || {}).value || "";
+  var rows = list.map(function (p) {
+    var d = p.direction || ((p.docType === "OUT") ? "out" : "in");
+    return "<tr><td>" + esc(p.docNo) + "</td><td>" + esc(p.docDate) + "</td><td>" + (d === "out" ? "Outgoing" : "Incoming") + "</td><td>" + esc(p.cardCode || p.bpCode || "") + " " + esc(p.cardName || "") + "</td><td>" + esc(p.docCurrency || "") + "</td>" +
+      '<td style="text-align:right">' + __fmt2(p.cashSum) + '</td><td style="text-align:right">' + __fmt2(p.checkSum) + '</td><td style="text-align:right">' + __fmt2(p.trsfrSum) + '</td><td style="text-align:right"><b>' + __fmt2(p.docTotal || p.amount) + '</b></td><td style="text-align:right">' + __fmt2(p.docTotalLC != null ? p.docTotalLC : (p.docTotal || p.amount)) + "</td></tr>";
+  }).join("");
+  var html = '<!DOCTYPE html><html><head><title>Banking Report</title><style>' +
+    'body{font-family:Arial,sans-serif;margin:24px;color:#111}.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0b3d91;padding-bottom:12px;margin-bottom:16px}' +
+    '.logo{max-height:64px}.co{text-align:right;font-size:13px}h1{margin:0;font-size:20px;color:#0b3d91}table{width:100%;border-collapse:collapse;margin-top:12px;font-size:11px}' +
+    'th,td{border:1px solid #ccc;padding:5px 7px}th{background:#f1f5f9;text-align:left}.sum{display:flex;gap:18px;margin:10px 0;font-size:12px}.sum div{border:1px solid #ddd;padding:6px 10px;border-radius:4px}' +
+    '.ft{margin-top:24px;font-size:11px;color:#64748b;border-top:1px solid #ddd;padding-top:8px}@media print{body{margin:12px}}</style></head><body>' +
+    '<div class="hdr"><div>' + (logo ? '<img class="logo" src="' + logo + '">' : '<div style="font-size:18px;font-weight:700">' + esc(co.name || "Company") + "</div>") + '</div>' +
+    '<div class="co"><div style="font-weight:700">' + esc(co.name || "") + "</div><div>" + esc(co.printHeader || "") + "</div></div></div>" +
+    "<h1>Banking Report</h1><div style=\"font-size:12px;color:#555\">" + (from || to ? "Period: " + esc(from || "…") + " – " + esc(to || "…") : "All dates") + " · Printed " + esc(new Date().toISOString().slice(0, 10)) + "</div>" +
+    '<div class="sum"><div>Receipts<br><b>' + __fmt2(s.inT) + "</b></div><div>Payments<br><b>" + __fmt2(s.outT) + "</b></div><div>Net<br><b>" + __fmt2(s.inT - s.outT) + "</b></div><div>Cash<br><b>" + __fmt2(s.cash) + "</b></div><div>Checks<br><b>" + __fmt2(s.check) + "</b></div><div>Transfers<br><b>" + __fmt2(s.trsfr) + "</b></div></div>" +
+    "<table><thead><tr><th>Doc No</th><th>Date</th><th>Direction</th><th>Partner / Account</th><th>Cur</th><th>Cash</th><th>Check</th><th>Transfer</th><th>Total</th><th>Total (Local)</th></tr></thead><tbody>" + (rows || '<tr><td colspan="10">No payments</td></tr>') + "</tbody></table>" +
+    '<div class="ft">' + esc(co.printFooter || "Thank you for your business.") + "</div></body></html>";
+  var w = window.open("", "_blank");
+  if (!w) return toast("Allow pop-ups to export the PDF (then choose Save as PDF)");
+  w.document.write(html); w.document.close();
+  setTimeout(function () { w.print(); }, 400);
+}
+
 </script>
 </body>
 </html>
