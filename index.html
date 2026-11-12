@@ -1164,8 +1164,8 @@ select.ss-hidden{display:none !important}
         </div>
         <div class="mod-title" onclick="toggleSidebarGroup('reports')">Reports <span class="chev" id="chev-reports">▶</span></div>
         <div class="mod-children" id="grp-reports">
-          <button data-page="pl" onclick="nav('pl')">Profit & Loss</button>
-          <button data-page="bs" onclick="nav('bs')">Balance Sheet</button>
+          <button data-page="pl" onclick="nav('pl')">Financial Statements (IFRS)</button>
+          <button data-page="bs" onclick="nav('bs')">Statement of Financial Position</button>
         </div>`;
       }
       if (moduleVisibility.finance !== false) {
@@ -4015,7 +4015,9 @@ select.ss-hidden{display:none !important}
       const body = document.getElementById("p-lines");
       const head = document.querySelector("#purch-form thead tr");
       if (!body) return;
-      const visible = PURCH_LINE_COLS.filter(c => isPurchColVisible(c.key));
+      purchaseLines.forEach(l => { if ((l.lineType||"I")==="S") { l.qty = 1; l.whsCode = ""; l.numPerMsr = 1; } });
+      const __allSvcP = purchaseLines.length > 0 && purchaseLines.every(l => (l.lineType||"I")==="S");
+      const visible = PURCH_LINE_COLS.filter(c => isPurchColVisible(c.key) && !(__allSvcP && ["qty","numPerMsr","whsCode","uom","uomCode","openQty"].includes(c.key)));
       if (head) {
         head.innerHTML = `<th>#</th>${visible.map(c => {
           let label = c.label;
@@ -4038,6 +4040,7 @@ select.ss-hidden{display:none !important}
           if (isItem) return `<select onchange="purchaseLines[${idx}].itemCode=this.value;onPurchItemChange(${idx});" ${common}><option value="">—</option>${itemList.map(i=>`<option value="${i.itemCode}" ${i.itemCode===l.itemCode?"selected":""}>${esc(i.name||i.itemCode)} — ${esc(i.itemCode)}</option>`).join("")}</select>`;
           return `<input value="${esc(l.name||"")}" onchange="purchaseLines[${idx}].name=this.value" ${common}>`;
         }
+        if ((key === "qty" || key === "numPerMsr" || key === "uom" || key === "uomCode") && !isItem) return `<span style="color:#999">—</span>`;
         if (key === "qty") return `<input type="number" step="any" value="${l.qty||""}" onchange="purchaseLines[${idx}].qty=this.value;renderPurchaseLines();" ${common}>`;
         if (key === "numPerMsr") return `<input type="number" step="any" value="${l.numPerMsr||1}" onchange="purchaseLines[${idx}].numPerMsr=this.value;renderPurchaseLines();" ${common}>`;
         if (key === "whsCode") {
@@ -4163,7 +4166,8 @@ select.ss-hidden{display:none !important}
       if (!bpCode) return toast("Vendor is required");
       if (!docDate) return toast("Posting Date is required");
       if (!branchCode) return toast("Branch is required");
-      if ((docType === "GRPO" || docType === "APINV") && !warehouseCode) return toast("Warehouse is required for " + docType);
+      if ((docType === "GRPO" || docType === "APINV") && !warehouseCode && purchaseLines.some(l => (l.lineType||"I")==="I" && l.itemCode)) return toast("Warehouse is required for " + docType);
+      purchaseLines.forEach(l => { if ((l.lineType||"I")==="S") { l.qty = 1; l.whsCode = ""; } });
       for (let i = 0; i < purchaseLines.length; i++) {
         const l = purchaseLines[i];
         const isItem = (l.lineType || "I") === "I";
@@ -4237,11 +4241,11 @@ select.ss-hidden{display:none !important}
         } catch (ge) { toast("Saved but GL failed: " + ge.message); }
       }
       // Stock for GRPO
-      if (docType === "GRPO" && warehouseCode) {
+      if (docType === "GRPO" && warehouseCode && lines.some(l => (l.lineType||"I")==="I" && l.itemCode)) {
         const sDocNo = await nextStockDocNo(companyId, "IN");
         const sData = {
           companyId, docNo: sDocNo, docType: "IN", docDate, warehouseCode,
-          remarks: "GRPO " + docNo, lines: lines.map((l,i)=>({ lineNum:i+1, itemCode:l.itemCode, name:l.name, qty: (parseFloat(l.qty)||0) * (parseFloat(l.numPerMsr)||1) })),
+          remarks: "GRPO " + docNo, lines: lines.filter(l => (l.lineType||"I")==="I" && l.itemCode).map((l,i)=>({ lineNum:i+1, itemCode:l.itemCode, name:l.name, qty: (parseFloat(l.qty)||0) * (parseFloat(l.numPerMsr)||1) })),
           status: "posted", createdBy: currentUser.email, createdAt: new Date().toISOString(), sourceDoc: docNo
         };
         const sRef = await db.collection("stock_docs").add(sData);
@@ -5074,7 +5078,9 @@ select.ss-hidden{display:none !important}
       const body = document.getElementById("s-lines");
       const head = document.getElementById("s-lines-head");
       if (!body) return;
-      const visible = SALES_LINE_COLS.filter(c => isLineColVisible(c.key));
+      salesLines.forEach(l => { if ((l.lineType||"I")==="S") { l.qty = 1; l.whsCode = ""; l.itemCode = ""; } });
+      const __allSvcS = salesLines.length > 0 && salesLines.every(l => (l.lineType||"I")==="S");
+      const visible = SALES_LINE_COLS.filter(c => isLineColVisible(c.key) && !(__allSvcS && ["qty","openQty","whsCode","fromWhsCod","uom","uomCode","numPerMsr","packQty","invQty","weight1","volume","stockPrice"].includes(c.key)));
 
       if (head) {
         head.innerHTML = `<tr>
@@ -5105,6 +5111,7 @@ select.ss-hidden{display:none !important}
             <option value="S" ${val==="S"?"selected":""}>Service</option>
           </select>`;
         }
+        if ((salesLines[idx].lineType||"I") === "S" && ["itemCode","qty","openQty","whsCode","fromWhsCod","uom","uomCode","numPerMsr","packQty","invQty","weight1","volume","stockPrice"].includes(key)) return `<span style="color:#999">—</span>`;
         if (key === "itemCode") {
           return `<select onchange="onSalesItem(${idx}, this.value)" ${common}>
             <option value="">—</option>${itemOpts(val||"")}</select>`;
@@ -5393,7 +5400,8 @@ select.ss-hidden{display:none !important}
       if (!bpCode) return toast("Customer is required");
       if (!docDate) return toast("Posting Date is required");
       if (!branchCode) return toast("Branch is required");
-      if ((docType === "DN" || docType === "RET" || docType === "INV") && !warehouseCode) return toast("Warehouse is required for " + docType);
+      if ((docType === "DN" || docType === "RET" || docType === "INV") && !warehouseCode && salesLines.some(l => (l.lineType||"I")==="I" && l.itemCode)) return toast("Warehouse is required for " + docType);
+      salesLines.forEach(l => { if ((l.lineType||"I")==="S") { l.qty = 1; l.whsCode = ""; } });
       const bp = partners.find(p => p.companyId === companyId && p.bpCode === bpCode);
       const lines = salesLines.filter(l => (l.itemCode || l.name) && parseFloat(l.qty) > 0).map((l, i) => {
         if (l.taxCode) l.vatPrcnt = taxRateFor(companyId, l.taxCode);
@@ -5445,13 +5453,13 @@ select.ss-hidden{display:none !important}
       };
       try {
         // Stock effect for Delivery / Return
-        if (meta.stock && warehouseCode) {
+        if (meta.stock && warehouseCode && lines.some(l => l.lineType !== "S" && l.itemCode)) {
           const stockType = meta.stock; // OUT or IN
           const sDocNo = await nextStockDocNo(companyId, stockType);
           const sData = {
             companyId, docNo: sDocNo, docType: stockType, docDate, warehouseCode,
             remarks: (docType + " " + docNo) + (remarks ? " — " + remarks : ""),
-            lines: lines.map((l, i) => ({ lineNum: i+1, itemCode: l.itemCode, name: l.name, qty: l.qty, uom: l.uom })),
+            lines: lines.filter(l => l.lineType !== "S" && l.itemCode).map((l, i) => ({ lineNum: i+1, itemCode: l.itemCode, name: l.name, qty: l.qty, uom: l.uom })),
             status: "posted",
             createdBy: currentUser.email,
             createdAt: new Date().toISOString(),
@@ -8003,6 +8011,31 @@ select.ss-hidden{display:none !important}
         ["FX_GAIN", "Payments — Realised Exchange Gain"],
         ["FX_LOSS", "Payments — Realised Exchange Loss"],
         ["FX_DIFF", "Payments — Exchange Difference (fallback)"],
+        ["DP_RECEIVED", "A/R Down Payment — Customer Advances (liability)"],
+        ["DP_MADE", "A/P Down Payment — Advances to Suppliers (asset)"],
+        ["GRNI", "GRPO — Goods Received Not Invoiced"],
+        ["SALES_RETURN", "A/R Credit Memo / Return — Sales Returns"],
+        ["SALES_DISC", "Sales — Trade Discounts Allowed"],
+        ["PURCH_DISC", "Purchasing — Discounts Received"],
+        ["PPV", "Purchasing — Purchase Price Variance"],
+        ["FREIGHT_OUT", "Sales — Delivery / Freight Outward"],
+        ["STOCK_GAIN", "Inventory Counting — Stock Gain"],
+        ["STOCK_LOSS", "Inventory Counting — Stock Loss / Write-off"],
+        ["RETAINED", "Year-end — Retained Earnings"],
+        ["DEPR_EXPENSE", "Fixed Assets — Depreciation Expense"],
+        ["ACCUM_DEPR", "Fixed Assets — Accumulated Depreciation"],
+        ["ASSET_COST", "Fixed Assets — Asset Cost"],
+        ["GAIN_DISPOSAL", "Fixed Assets — Gain on Disposal"],
+        ["LOSS_DISPOSAL", "Fixed Assets — Loss on Disposal"],
+        ["WHT_RECEIVABLE", "Withholding Tax Receivable"],
+        ["WHT_PAYABLE", "Withholding Tax Payable"],
+        ["ECL_EXPENSE", "Expected Credit Loss Expense"],
+        ["BAD_DEBT", "Bad Debts Written Off"],
+        ["PAYROLL_EXPENSE", "Payroll — Salaries Expense"],
+        ["PAYROLL_PAYABLE", "Payroll — Salaries Payable"],
+        ["PAYE_PAYABLE", "Payroll — PAYE Payable"],
+        ["INCOME_TAX_EXP", "Income Tax Expense"],
+        ["INCOME_TAX_PAY", "Current Income Tax Payable"],
       ];
       el.innerHTML = `
         <div class="toolbar"><h2>Account Determination</h2>
@@ -10476,6 +10509,607 @@ function exportBankingPDF() {
   setTimeout(function () { w.print(); }, 400);
 }
 
+</script>
+<script>
+/* ===== IFRS module: COA seed, Account Determination seed, IFRS Financial Statements ===== */
+(function () {
+  "use strict";
+  var CAT = { A: "Assets", L: "Liabilities", E: "Capital and Reserves", T: "Turnover", C: "Cost of Sales", O: "Operating Costs", N: "Non-Operating Income and Expenditure", X: "Taxation and Extraordinary Items" };
+
+  /* code|name|cat|T(itle)/A(ctive)|father|flags(C=cash,R=control)|ifrsLine */
+  var COA = [
+    "100000|Assets|A|T||",
+    "110000|Non-Current Assets|A|T|100000|",
+    "111000|Property, Plant and Equipment|A|T|110000|",
+    "111100|Land|A|A|111000||PPE",
+    "111200|Buildings|A|A|111000||PPE", "111210|Accumulated Depreciation - Buildings|A|A|111000||PPE",
+    "111300|Plant and Machinery|A|A|111000||PPE", "111310|Accumulated Depreciation - Plant and Machinery|A|A|111000||PPE",
+    "111400|Motor Vehicles|A|A|111000||PPE", "111410|Accumulated Depreciation - Motor Vehicles|A|A|111000||PPE",
+    "111500|Furniture and Fixtures|A|A|111000||PPE", "111510|Accumulated Depreciation - Furniture and Fixtures|A|A|111000||PPE",
+    "111600|Office Equipment|A|A|111000||PPE", "111610|Accumulated Depreciation - Office Equipment|A|A|111000||PPE",
+    "111700|Computer Equipment|A|A|111000||PPE", "111710|Accumulated Depreciation - Computer Equipment|A|A|111000||PPE",
+    "111800|Capital Work in Progress|A|A|111000||PPE",
+    "112000|Intangible Assets|A|T|110000|",
+    "112100|Goodwill|A|A|112000||INTANG", "112200|Computer Software|A|A|112000||INTANG", "112290|Accumulated Amortisation - Intangibles|A|A|112000||INTANG",
+    "113000|Investment Property|A|A|110000||INVPROP",
+    "114000|Right-of-Use Assets|A|A|110000||ROU", "114900|Accumulated Depreciation - Right-of-Use Assets|A|A|110000||ROU",
+    "115000|Long-term Investments|A|A|110000||INVEST_NC",
+    "116000|Deferred Tax Assets|A|A|110000||DTA",
+    "119000|Other Non-Current Assets|A|A|110000||OTH_NCA",
+    "120000|Current Assets|A|T|100000|",
+    "121000|Inventories|A|T|120000|",
+    "121100|Merchandise / Trading Goods|A|A|121000||INV", "121200|Raw Materials|A|A|121000||INV", "121300|Work in Progress|A|A|121000||INV",
+    "121400|Finished Goods|A|A|121000||INV", "121500|Goods in Transit|A|A|121000||INV", "121900|Inventory Write-down Allowance|A|A|121000||INV",
+    "122000|Trade and Other Receivables|A|T|120000|",
+    "122100|Trade Receivables|A|A|122000|R|TRADE_REC", "122200|Allowance for Expected Credit Losses|A|A|122000||TRADE_REC",
+    "122300|Staff Receivables and Advances|A|A|122000||OTH_REC", "122400|Other Receivables|A|A|122000||OTH_REC",
+    "122500|Prepayments|A|A|122000||OTH_REC", "122600|VAT Receivable (Input VAT)|A|A|122000||OTH_REC",
+    "122700|Withholding Tax Receivable|A|A|122000||OTH_REC", "122800|Advances to Suppliers (AP Down Payments)|A|A|122000||OTH_REC",
+    "123000|Current Income Tax Assets|A|A|120000||INC_TAX_REC",
+    "124000|Cash and Cash Equivalents|A|T|120000|",
+    "124100|Petty Cash|A|A|124000|C|CASH", "124200|Cash on Hand|A|A|124000|C|CASH",
+    "124300|Bank - Operating Account|A|A|124000|C|CASH", "124400|Bank - Savings Account|A|A|124000|C|CASH",
+    "124500|Mobile Money Wallets|A|A|124000|C|CASH", "124900|Cash in Transit|A|A|124000|C|CASH",
+
+    "200000|Liabilities|L|T||",
+    "210000|Non-Current Liabilities|L|T|200000|",
+    "211000|Long-term Borrowings|L|A|210000||LOAN_NC",
+    "212000|Lease Liabilities - Non-current|L|A|210000||LEASE_NC",
+    "213000|Deferred Tax Liabilities|L|A|210000||DTL",
+    "214000|Provisions - Non-current|L|A|210000||PROV_NC",
+    "215000|Employee Benefit Obligations|L|A|210000||OTH_NCL",
+    "220000|Current Liabilities|L|T|200000|",
+    "221000|Trade and Other Payables|L|T|220000|",
+    "221100|Trade Payables|L|A|221000|R|TRADE_PAY", "221200|Accrued Expenses|L|A|221000||OTH_PAY",
+    "221300|Goods Received Not Invoiced (GRNI)|L|A|221000||TRADE_PAY", "221400|Other Payables|L|A|221000||OTH_PAY",
+    "221500|Customer Advances (AR Down Payments)|L|A|221000||CONTRACT", "221600|Deferred Income|L|A|221000||CONTRACT",
+    "222000|Tax and Statutory Liabilities|L|T|220000|",
+    "222100|VAT Output Payable|L|A|222000||OTH_PAY", "222200|Withholding Tax Payable|L|A|222000||OTH_PAY",
+    "222300|PAYE Payable|L|A|222000||OTH_PAY", "222400|Skills Development Levy Payable|L|A|222000||OTH_PAY",
+    "222500|Social Security (NSSF) Payable|L|A|222000||OTH_PAY", "222600|Workers Compensation Fund Payable|L|A|222000||OTH_PAY",
+    "222900|Other Statutory Payables|L|A|222000||OTH_PAY",
+    "223000|Current Income Tax Payable|L|A|220000||INC_TAX_PAY",
+    "224000|Short-term Borrowings|L|T|220000|",
+    "224100|Bank Overdraft|L|A|224000||LOAN_C", "224200|Current Portion of Long-term Borrowings|L|A|224000||LOAN_C", "224300|Short-term Loans|L|A|224000||LOAN_C",
+    "225000|Lease Liabilities - Current|L|A|220000||LEASE_C",
+    "226000|Provisions - Current|L|A|220000||PROV_C",
+    "227000|Salaries and Wages Payable|L|A|220000||OTH_PAY", "227100|Dividends Payable|L|A|220000||OTH_PAY",
+
+    "300000|Equity|E|T||",
+    "310000|Share Capital|E|A|300000||SHARE_CAP", "320000|Share Premium|E|A|300000||SHARE_PREM",
+    "330000|Retained Earnings|E|A|300000||RETAINED", "331000|Opening Balance Equity|E|A|300000||RETAINED",
+    "340000|Revaluation Reserve|E|A|300000||RES_OCI", "350000|Foreign Currency Translation Reserve|E|A|300000||RES_OCI",
+    "360000|Other Reserves|E|A|300000||RESERVES", "370000|Dividends Declared / Owner's Drawings|E|A|300000||RETAINED",
+
+    "410000|Revenue|T|T||",
+    "411000|Sales - Goods|T|A|410000||REVENUE", "412000|Sales - Services|T|A|410000||REVENUE",
+    "413000|Sales Returns and Allowances|T|A|410000||REVENUE", "414000|Trade Discounts Allowed|T|A|410000||REVENUE",
+
+    "510000|Cost of Sales|C|T||",
+    "511000|Cost of Goods Sold|C|A|510000||COGS", "512000|Direct Labour|C|A|510000||COGS",
+    "513000|Freight and Import Duties|C|A|510000||COGS", "514000|Inventory Write-downs|C|A|510000||COGS",
+    "541000|Stock Count Gain|C|A|510000||COGS", "542000|Stock Count Loss|C|A|510000||COGS", "543000|Purchase Price Variance|C|A|510000||COGS",
+
+    "610000|Selling and Distribution Expenses|O|T||",
+    "611000|Advertising and Marketing|O|A|610000||DIST", "612000|Sales Commissions|O|A|610000||DIST", "613000|Delivery and Freight Outward|O|A|610000||DIST",
+    "620000|Administrative Expenses|O|T||",
+    "621000|Salaries and Wages|O|A|620000||ADMIN", "621100|Employee Benefits and Statutory Contributions|O|A|620000||ADMIN",
+    "622000|Rent Expense|O|A|620000||ADMIN", "623000|Utilities|O|A|620000||ADMIN", "624000|Telephone and Internet|O|A|620000||ADMIN",
+    "625000|Office Supplies and Stationery|O|A|620000||ADMIN", "626000|Repairs and Maintenance|O|A|620000||ADMIN",
+    "627000|Travel and Accommodation|O|A|620000||ADMIN", "628000|Professional and Legal Fees|O|A|620000||ADMIN",
+    "629000|Insurance|O|A|620000||ADMIN", "630000|Bank Charges|O|A|620000||ADMIN",
+    "631000|Depreciation Expense - Property, Plant and Equipment|O|A|620000||ADMIN",
+    "632000|Depreciation Expense - Right-of-Use Assets|O|A|620000||ADMIN",
+    "633000|Amortisation Expense - Intangibles|O|A|620000||ADMIN",
+    "634000|Expected Credit Loss Expense|O|A|620000||ADMIN", "635000|Licences and Subscriptions|O|A|620000||ADMIN",
+    "636000|Training and Development|O|A|620000||ADMIN", "637000|Donations and CSR|O|A|620000||ADMIN",
+    "638000|Fuel and Vehicle Running Costs|O|A|620000||ADMIN", "639000|Security Services|O|A|620000||ADMIN",
+
+    "710000|Other Income|N|T||",
+    "711000|Gain on Disposal of Assets|N|A|710000||OTH_INC", "712000|Rental Income|N|A|710000||OTH_INC", "713000|Sundry Income|N|A|710000||OTH_INC",
+    "714000|Foreign Exchange Gain|N|A|710000||OTH_INC", "715000|Government Grants|N|A|710000||OTH_INC", "716000|Discounts Received|N|A|710000||OTH_INC",
+    "720000|Finance Income|N|T||",
+    "721000|Interest Income|N|A|720000||FIN_INC", "722000|Dividend Income|N|A|720000||FIN_INC",
+    "730000|Other Expenses|N|T||",
+    "731000|Loss on Disposal of Assets|N|A|730000||OTH_EXP", "732000|Foreign Exchange Loss|N|A|730000||OTH_EXP",
+    "733000|Penalties and Fines|N|A|730000||OTH_EXP", "734000|Bad Debts Written Off|N|A|730000||OTH_EXP",
+    "740000|Finance Costs|N|T||",
+    "741000|Interest Expense on Borrowings|N|A|740000||FIN_COST", "742000|Interest Expense on Lease Liabilities|N|A|740000||FIN_COST",
+    "743000|Unwinding of Discount on Provisions|N|A|740000||FIN_COST",
+
+    "810000|Income Tax Expense|X|T||",
+    "811000|Current Income Tax Expense|X|A|810000||TAX_EXP", "812000|Deferred Tax Expense / (Credit)|X|A|810000||TAX_EXP"
+  ];
+
+  function ctx() { return (typeof companyFilterId === "function" ? companyFilterId() : null) || (typeof activeCompanyId !== "undefined" && activeCompanyId) || (companies[0] && companies[0].id); }
+  function norm(s) { return String(s || "").trim().toLowerCase().replace(/\s+/g, " "); }
+
+  window.seedIfrsCoa = async function () {
+    if (!requireAuth("fin.coa", 2)) return;
+    var cid = ctx();
+    if (!cid) return toast("Select a company first");
+    if (!confirm("Add the IFRS Chart of Accounts (" + COA.length + " accounts)?\n\nOnly accounts whose code AND name do not exist yet will be added. Nothing existing is changed or deleted.")) return;
+    var mine = scoped(accounts, cid);
+    var byCode = {}, byName = {};
+    mine.forEach(function (a) { byCode[a.acctCode] = a; byName[norm(a.acctName)] = a; });
+    var parsed = COA.map(function (r) { var p = r.split("|"); return { code: p[0], name: p[1], cat: CAT[p[2]], title: p[3] === "T", father: p[4] || "", flags: p[5] || "", line: p[6] || "" }; });
+    var remap = {}, toAdd = [];
+    parsed.forEach(function (r) {
+      if (byCode[r.code]) { remap[r.code] = r.code; return; }
+      var same = byName[norm(r.name)];
+      if (same) { remap[r.code] = same.acctCode; return; }
+      toAdd.push(r);
+    });
+    if (!toAdd.length) return toast("IFRS accounts are already in your Chart of Accounts - nothing to add", true);
+    var sim = {}; // code -> {father, title}
+    mine.forEach(function (a) { sim[a.acctCode] = { father: a.fatherNum || "", title: a.postable === "Title" }; });
+    toAdd.forEach(function (r) { sim[r.code] = { father: "", title: r.title }; });
+    function resolveFather(f) {
+      var g = 0;
+      while (f && g++ < 8) {
+        var c = remap[f] || f;
+        if (sim[c] && sim[c].title) return c;
+        var d = parsed.find(function (x) { return x.code === f; });
+        f = d ? d.father : "";
+      }
+      return "";
+    }
+    toAdd.forEach(function (r) { sim[r.code].father = resolveFather(r.father); r.fatherRes = sim[r.code].father; });
+    function levelOf(c) { var n = 1, g = 0, f = sim[c] && sim[c].father; while (f && g++ < 12) { n++; f = sim[f] && sim[f].father; } return n; }
+    showProgress(0, "Adding IFRS accounts…");
+    var now = new Date().toISOString(), added = 0;
+    try {
+      for (var i = 0; i < toAdd.length; i += 400) {
+        var batch = db.batch(), slice = toAdd.slice(i, i + 400), docs = [];
+        slice.forEach(function (r) {
+          var data = {
+            companyId: cid, acctCode: r.code, acctName: r.name, category: r.cat,
+            postable: r.title ? "Title" : "Active", level: levelOf(r.code), fatherNum: r.fatherRes || null,
+            currency: (typeof defaultCurrencyCode === "function" ? defaultCurrencyCode() : "TZS") || "TZS",
+            externalCode: null, cashAccount: r.flags.indexOf("C") >= 0 ? "Y" : "N", controlAccount: r.flags.indexOf("R") >= 0 ? "Y" : "N",
+            status: "Active", isActive: true, ifrsLine: r.line || null, source: "IFRS seed", createdAt: now
+          };
+          var ref = db.collection("accounts").doc();
+          batch.set(ref, data);
+          docs.push({ id: ref.id, ...data });
+        });
+        await batch.commit();
+        docs.forEach(function (d) { accounts.push(d); });
+        added += slice.length;
+        showProgress(Math.round(added / toAdd.length * 100), "IFRS COA " + added + "/" + toAdd.length);
+      }
+      hideProgress();
+      toast("IFRS Chart of Accounts: " + added + " added, " + (parsed.length - added) + " already existed", true);
+    } catch (e) { hideProgress(); toast("Seed failed: " + e.message + " (" + added + " added before the error)"); }
+    renderCOA(document.getElementById("main"));
+  };
+
+  /* ---------- Account Determination seed ---------- */
+  var MAP_CAND = {
+    AR_CONTROL: ["140000", "122100"], AP_CONTROL: ["203000", "221100"], REVENUE: ["400000", "411000"], COGS: ["500025", "511000"],
+    INVENTORY: ["132000", "121100"], CASH: ["140200", "124100"], BANK: ["161012", "124300"], OB_EQUITY: ["331000"],
+    VAT_OUTPUT: ["207000", "222100"], VAT_INPUT: ["143030", "122600"], FX_GAIN: ["700020", "714000"], FX_LOSS: ["650040", "732000"], FX_DIFF: ["650040", "732000"],
+    DP_RECEIVED: ["221500"], DP_MADE: ["122800"], GRNI: ["221300"], SALES_RETURN: ["413000"], SALES_DISC: ["414000"], PURCH_DISC: ["716000"],
+    RETAINED: ["330000"], STOCK_GAIN: ["541000"], STOCK_LOSS: ["542000"], PPV: ["543000"], FREIGHT_OUT: ["613000"],
+    DEPR_EXPENSE: ["631000"], ACCUM_DEPR: ["111710", "111610"], ASSET_COST: ["111700", "111600"], GAIN_DISPOSAL: ["711000"], LOSS_DISPOSAL: ["731000"],
+    WHT_RECEIVABLE: ["122700"], WHT_PAYABLE: ["222200"], ECL_EXPENSE: ["634000"], BAD_DEBT: ["734000"],
+    PAYROLL_EXPENSE: ["621000"], PAYROLL_PAYABLE: ["227000"], PAYE_PAYABLE: ["222300"], INCOME_TAX_EXP: ["811000"], INCOME_TAX_PAY: ["223000"]
+  };
+  window.ACCT_MAP_SEED = MAP_CAND;
+  window.seedAcctMaps = async function () {
+    if (!requireAuth("fin.map", 2)) return;
+    var n = 0, miss = [];
+    document.querySelectorAll(".acct-map-sel").forEach(function (sel) {
+      if (sel.value) return;
+      var c = MAP_CAND[sel.dataset.map] || [];
+      for (var i = 0; i < c.length; i++) {
+        if (Array.from(sel.options).some(function (o) { return o.value === c[i]; })) { sel.value = c[i]; n++; return; }
+      }
+      miss.push(sel.dataset.map);
+    });
+    if (!n) return toast("Nothing to seed - all lines set" + (miss.length ? " (accounts missing for: " + miss.join(", ") + " - run 'Seed IFRS COA' first)" : ""));
+    await saveAcctMaps();
+    toast(n + " mappings seeded and saved" + (miss.length ? " | still empty: " + miss.join(", ") : ""), true);
+  };
+  var __suggest = window.suggestAcctMaps;
+  window.suggestAcctMaps = function () {
+    if (typeof __suggest === "function") __suggest();
+    document.querySelectorAll(".acct-map-sel").forEach(function (sel) {
+      if (sel.value) return;
+      var c = MAP_CAND[sel.dataset.map] || [];
+      for (var i = 0; i < c.length; i++) if (Array.from(sel.options).some(function (o) { return o.value === c[i]; })) { sel.value = c[i]; return; }
+    });
+  };
+
+  /* ---------- IFRS classification ---------- */
+  var LABEL = {
+    PPE: "Property, plant and equipment", INTANG: "Intangible assets", INVPROP: "Investment property", ROU: "Right-of-use assets",
+    INVEST_NC: "Long-term investments", DTA: "Deferred tax assets", OTH_NCA: "Other non-current assets",
+    INV: "Inventories", TRADE_REC: "Trade receivables", OTH_REC: "Other receivables and prepayments", INC_TAX_REC: "Current tax assets", CASH: "Cash and cash equivalents",
+    SHARE_CAP: "Share capital", SHARE_PREM: "Share premium", RES_OCI: "Revaluation and translation reserves", RESERVES: "Other reserves", RETAINED: "Retained earnings",
+    LOAN_NC: "Borrowings", LEASE_NC: "Lease liabilities", DTL: "Deferred tax liabilities", PROV_NC: "Provisions", OTH_NCL: "Other non-current liabilities",
+    TRADE_PAY: "Trade payables", OTH_PAY: "Other payables and accruals", CONTRACT: "Contract liabilities and deferred income", LOAN_C: "Borrowings",
+    LEASE_C: "Lease liabilities", INC_TAX_PAY: "Current tax liabilities", PROV_C: "Provisions",
+    REVENUE: "Revenue", COGS: "Cost of sales", OTH_INC: "Other income", DIST: "Selling and distribution expenses", ADMIN: "Administrative expenses",
+    OTH_EXP: "Other expenses", FIN_INC: "Finance income", FIN_COST: "Finance costs", TAX_EXP: "Income tax expense"
+  };
+  var PL_KEYS = ["REVENUE", "COGS", "OTH_INC", "DIST", "ADMIN", "OTH_EXP", "FIN_INC", "FIN_COST", "TAX_EXP"];
+  var LIAB_EQ = ["SHARE_CAP", "SHARE_PREM", "RES_OCI", "RESERVES", "RETAINED", "LOAN_NC", "LEASE_NC", "DTL", "PROV_NC", "OTH_NCL", "TRADE_PAY", "OTH_PAY", "CONTRACT", "LOAN_C", "LEASE_C", "INC_TAX_PAY", "PROV_C"];
+
+  function lineOf(a, byCode) {
+    if (a.ifrsLine && LABEL[a.ifrsLine]) return a.ifrsLine;
+    var n = String(a.acctName || "").toLowerCase(), cat = a.category || "", code = String(a.acctCode || "");
+    var anc = ""; var p = a.fatherNum, g = 0;
+    while (p && byCode[p] && g++ < 10) { anc += " " + String(byCode[p].acctName || "").toLowerCase(); p = byCode[p].fatherNum; }
+    var cur = n + " " + anc;
+    if (cat === "Assets") {
+      if (a.cashAccount === "Y" || /\b(cash|bank|petty|mpesa|m-pesa|mobile money|tigo ?pesa|airtel money|float)\b/.test(cur) && !/receivable|prepay/.test(n)) return "CASH";
+      if (/investment propert/.test(n)) return "INVPROP";
+      if (/right.of.use/.test(n)) return "ROU";
+      if (/deferred tax/.test(n)) return "DTA";
+      if (/intangible|goodwill|software|licen[cs]e|patent|trademark|amortis|amortiz/.test(cur)) return "INTANG";
+      if (/property|plant|equipment|vehicle|furniture|fixture|building|land\b|machinery|computer|motor|leasehold|capital work|depreciation|fixed asset/.test(cur)) return "PPE";
+      if (/long.term invest|non.current|investment in/.test(cur)) return /invest/.test(cur) ? "INVEST_NC" : "OTH_NCA";
+      if (/inventor|stock|goods|raw material|work in progress|finished|merchandise|spare/.test(cur)) return "INV";
+      if (/income tax|tax recoverable|corporate tax/.test(n)) return "INC_TAX_REC";
+      if (/trade receivable|accounts receivable|debtor|customer|\breceivables?\b/.test(n) && !/other|staff|employee|prepay/.test(n)) return "TRADE_REC";
+      return "OTH_REC";
+    }
+    if (cat === "Liabilities") {
+      if (/deferred tax/.test(n)) return "DTL";
+      if (/income tax|corporate tax|current tax|tax payable - income/.test(n)) return "INC_TAX_PAY";
+      if (/lease/.test(n)) return /non.current|long/.test(cur) ? "LEASE_NC" : "LEASE_C";
+      if (/loan|borrow|debenture|mortgage|overdraft/.test(n)) return (/long|non.current|mortgage|term loan/.test(cur) && !/short|current portion|overdraft/.test(n)) ? "LOAN_NC" : "LOAN_C";
+      if (/provision/.test(n)) return /non.current|long/.test(cur) ? "PROV_NC" : "PROV_C";
+      if (/non.current|long.term/.test(cur)) return "OTH_NCL";
+      if (/contract|deferred income|unearned|advance|deposit|down ?payment/.test(n)) return "CONTRACT";
+      if (/payable|creditor|supplier|vendor|\bap\b/.test(n) && !/tax|vat|paye|withholding|levy|salary|salaries|wage|dividend|other/.test(n)) return "TRADE_PAY";
+      return "OTH_PAY";
+    }
+    if (cat === "Capital and Reserves") {
+      if (/premium/.test(n)) return "SHARE_PREM";
+      if (/retained|accumulated|opening balance|brought forward|drawing|dividend|profit|loss/.test(n)) return "RETAINED";
+      if (/revaluation|translation|\boci\b|comprehensive/.test(n)) return "RES_OCI";
+      if (/share capital|capital|ordinary share|paid.up/.test(n)) return "SHARE_CAP";
+      return "RESERVES";
+    }
+    if (cat === "Turnover") {
+      if (/interest|dividend/.test(n)) return "FIN_INC";
+      if (/other income|gain|rent|sundry|grant|discount received|miscellaneous|commission received/.test(n)) return "OTH_INC";
+      return "REVENUE";
+    }
+    if (cat === "Cost of Sales") return "COGS";
+    if (cat === "Operating Costs") return /selling|distribution|marketing|advert|commission|delivery|freight out|promotion/.test(n) ? "DIST" : "ADMIN";
+    if (cat === "Non-Operating Income and Expenditure") {
+      var inc = /income|gain|received|profit on|dividend|grant|rent|sundry/.test(n) && !/loss|expense/.test(n);
+      if (/interest|finance|loan|bank charge/.test(n)) return inc ? "FIN_INC" : "FIN_COST";
+      return inc ? "OTH_INC" : "OTH_EXP";
+    }
+    if (cat === "Taxation and Extraordinary Items") return /tax/.test(n) ? "TAX_EXP" : "OTH_EXP";
+    // fallback by first digit
+    var d = code.charAt(0);
+    return d === "1" ? "OTH_REC" : d === "2" ? "OTH_PAY" : d === "3" ? "RESERVES" : d === "4" ? "REVENUE" : d === "5" ? "COGS" : d === "6" ? "ADMIN" : d === "7" ? "OTH_INC" : d === "8" ? "TAX_EXP" : "OTH_REC";
+  }
+  window.__fsLineOf = lineOf;
+
+  /* ---------- Computation ---------- */
+  function ymd(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function addYears(s, n) { var d = new Date(s + "T00:00:00"); d.setFullYear(d.getFullYear() + n); return ymd(d); }
+  function dayBefore(s) { var d = new Date(s + "T00:00:00"); d.setDate(d.getDate() - 1); return ymd(d); }
+
+  // net = debit - credit
+  function compute(cid, from, to, accts, jrnls) {
+    var byCode = {}; accts.forEach(function (a) { byCode[a.acctCode] = a; });
+    var pre = {}, mov = {}, cum = {};
+    jrnls.forEach(function (j) {
+      var d = String(j.refDate || "").slice(0, 10);
+      if (!d || d > to) return;
+      (j.lines || []).forEach(function (l) {
+        var net = (parseFloat(l.debit) || 0) - (parseFloat(l.credit) || 0);
+        cum[l.acctCode] = (cum[l.acctCode] || 0) + net;
+        if (d < from) pre[l.acctCode] = (pre[l.acctCode] || 0) + net; else mov[l.acctCode] = (mov[l.acctCode] || 0) + net;
+      });
+    });
+    var R = { from: from, to: to, lines: {}, unknown: 0 };
+    Object.keys(LABEL).forEach(function (k) { R.lines[k] = { open: 0, close: 0, mov: 0, acc: [] }; });
+    var plPre = 0, plMov = 0, ociMov = 0;
+    accts.forEach(function (a) {
+      if (a.postable === "Title") return;
+      var k = lineOf(a, byCode), L = R.lines[k];
+      var isPL = PL_KEYS.indexOf(k) >= 0;
+      var p = pre[a.acctCode] || 0, m = mov[a.acctCode] || 0, c = cum[a.acctCode] || 0;
+      if (isPL) {
+        // presentation: credit - debit (income +, expense -)
+        L.mov += -m; plPre += -p; plMov += -m;
+        if (m || p) L.acc.push({ code: a.acctCode, name: a.acctName, v: -m });
+      } else {
+        var sign = (a.category === "Assets") ? 1 : -1;
+        L.open += sign * p; L.close += sign * c; L.mov += sign * m;
+        if (c || p) L.acc.push({ code: a.acctCode, name: a.acctName, v: sign * c, o: sign * p });
+      }
+    });
+    R.plPre = plPre; R.profit = plMov;
+    // retained earnings incl. prior-period results; profit for the period shown separately
+    R.reClose = R.lines.RETAINED.close + plPre;
+    R.reOpen = R.lines.RETAINED.open + plPre;
+    return R;
+  }
+  window.__fsCompute = compute;
+
+  function sumKeys(R, keys, f) { return keys.reduce(function (s, k) { return s + R.lines[k][f]; }, 0); }
+
+  /* ---------- Statement builders -> {title, cols, rows} ---------- */
+  function fmt(n) {
+    if (n === null || n === undefined || n === "") return "";
+    n = Number(n); if (!isFinite(n)) return "";
+    if (Math.abs(n) < 0.005) return "-";
+    var s = Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return n < 0 ? "(" + s + ")" : s;
+  }
+  function row(type, label, vals, acc) { return { type: type, label: label, v: vals, acc: acc || null }; }
+
+  function buildSFP(A, B) {
+    var cols = B ? ["As at " + A.to, "As at " + B.to] : ["As at " + A.to];
+    var rows = [];
+    function line(k, f) {
+      var v = [A.lines[k][f || "close"]]; if (B) v.push(B.lines[k][f || "close"]);
+      return row("line", LABEL[k], v, A.lines[k].acc.map(function (x) { return { code: x.code, name: x.name, v: B ? [x.v, null] : [x.v] }; }));
+    }
+    function sub(label, keys, type) { var v = [sumKeys(A, keys, "close")]; if (B) v.push(sumKeys(B, keys, "close")); return row(type || "sub", label, v); }
+    function head(t) { return row("head", t, B ? ["", ""] : [""]); }
+    var NCA = ["PPE", "INTANG", "INVPROP", "ROU", "INVEST_NC", "DTA", "OTH_NCA"], CA = ["INV", "TRADE_REC", "OTH_REC", "INC_TAX_REC", "CASH"];
+    rows.push(head("ASSETS"), head("Non-current assets"));
+    NCA.forEach(function (k) { rows.push(line(k)); });
+    rows.push(sub("Total non-current assets", NCA), head("Current assets"));
+    CA.forEach(function (k) { rows.push(line(k)); });
+    rows.push(sub("Total current assets", CA), sub("TOTAL ASSETS", NCA.concat(CA), "grand"));
+    var EQ = ["SHARE_CAP", "SHARE_PREM", "RES_OCI", "RESERVES"], NCL = ["LOAN_NC", "LEASE_NC", "DTL", "PROV_NC", "OTH_NCL"], CL = ["TRADE_PAY", "OTH_PAY", "CONTRACT", "LOAN_C", "LEASE_C", "INC_TAX_PAY", "PROV_C"];
+    rows.push(head("EQUITY AND LIABILITIES"), head("Equity attributable to owners"));
+    EQ.forEach(function (k) { rows.push(line(k)); });
+    var reV = [A.reClose], pV = [A.profit]; if (B) { reV.push(B.reClose); pV.push(B.profit); }
+    rows.push(row("line", "Retained earnings (brought forward)", reV, A.lines.RETAINED.acc.map(function (x) { return { code: x.code, name: x.name, v: B ? [x.v, null] : [x.v] }; })));
+    rows.push(row("line", "Profit / (loss) for the period", pV));
+    var eqTot = [sumKeys(A, EQ, "close") + A.reClose + A.profit]; if (B) eqTot.push(sumKeys(B, EQ, "close") + B.reClose + B.profit);
+    rows.push(row("sub", "Total equity", eqTot));
+    rows.push(head("Non-current liabilities"));
+    NCL.forEach(function (k) { rows.push(line(k)); });
+    rows.push(sub("Total non-current liabilities", NCL), head("Current liabilities"));
+    CL.forEach(function (k) { rows.push(line(k)); });
+    rows.push(sub("Total current liabilities", CL));
+    var tl = [sumKeys(A, NCL.concat(CL), "close")]; if (B) tl.push(sumKeys(B, NCL.concat(CL), "close"));
+    rows.push(row("sub", "Total liabilities", tl));
+    var tel = [eqTot[0] + tl[0]]; if (B) tel.push(eqTot[1] + tl[1]);
+    rows.push(row("grand", "TOTAL EQUITY AND LIABILITIES", tel));
+    var ta = [sumKeys(A, NCA.concat(CA), "close")]; if (B) ta.push(sumKeys(B, NCA.concat(CA), "close"));
+    var diff = [ta[0] - tel[0]]; if (B) diff.push(ta[1] - tel[1]);
+    if (diff.some(function (d) { return Math.abs(d) >= 0.01; })) rows.push(row("warn", "Out of balance - check unposted/unclassified accounts", diff));
+    return { title: "Statement of Financial Position", sub: "IAS 1 - Presentation of Financial Statements", cols: cols, rows: rows };
+  }
+
+  function plCalc(R) {
+    var L = function (k) { return R.lines[k].mov; };
+    var rev = L("REVENUE"), cogs = L("COGS"), gp = rev + cogs;
+    var oi = L("OTH_INC"), dist = L("DIST"), adm = L("ADMIN"), oe = L("OTH_EXP");
+    var op = gp + oi + dist + adm + oe, fi = L("FIN_INC"), fc = L("FIN_COST"), pbt = op + fi + fc, tax = L("TAX_EXP"), np = pbt + tax;
+    var oci = R.lines.RES_OCI.mov;
+    return { rev: rev, cogs: cogs, gp: gp, oi: oi, dist: dist, adm: adm, oe: oe, op: op, fi: fi, fc: fc, pbt: pbt, tax: tax, np: np, oci: oci, tci: np + oci };
+  }
+  function buildPL(A, B) {
+    var a = plCalc(A), b = B ? plCalc(B) : null, rows = [];
+    var cols = B ? [A.from + " to " + A.to, B.from + " to " + B.to] : [A.from + " to " + A.to];
+    function r(type, label, key, acc) { var v = [a[key]]; if (B) v.push(b[key]); return row(type, label, v, acc); }
+    function accs(k) { return A.lines[k].acc.map(function (x) { return { code: x.code, name: x.name, v: B ? [x.v, null] : [x.v] }; }); }
+    rows.push(r("line", "Revenue", "rev", accs("REVENUE")), r("line", "Cost of sales", "cogs", accs("COGS")), r("sub", "Gross profit", "gp"),
+      r("line", "Other income", "oi", accs("OTH_INC")), r("line", "Selling and distribution expenses", "dist", accs("DIST")),
+      r("line", "Administrative expenses", "adm", accs("ADMIN")), r("line", "Other expenses", "oe", accs("OTH_EXP")),
+      r("sub", "Operating profit", "op"), r("line", "Finance income", "fi", accs("FIN_INC")), r("line", "Finance costs", "fc", accs("FIN_COST")),
+      r("sub", "Profit before tax", "pbt"), r("line", "Income tax expense", "tax", accs("TAX_EXP")), r("grand", "PROFIT / (LOSS) FOR THE PERIOD", "np"),
+      row("head", "Other comprehensive income (items that may be reclassified / not reclassified)", B ? ["", ""] : [""]),
+      r("line", "Revaluation and translation reserve movements", "oci"), r("grand", "TOTAL COMPREHENSIVE INCOME FOR THE PERIOD", "tci"));
+    return { title: "Statement of Profit or Loss and Other Comprehensive Income", sub: "IAS 1 - by function of expense", cols: cols, rows: rows };
+  }
+
+  function buildSOCE(A, B) {
+    var cols = ["Share capital", "Share premium", "Other reserves", "Retained earnings", "Total equity"];
+    function block(R, label) {
+      var p = plCalc(R), rows = [];
+      var cap = R.lines.SHARE_CAP, prem = R.lines.SHARE_PREM, ro = R.lines.RES_OCI, rs = R.lines.RESERVES, re = R.lines.RETAINED;
+      var open = [cap.open, prem.open, ro.open + rs.open, R.reOpen];
+      function tot(a) { return a.concat([a.reduce(function (s, x) { return s + x; }, 0)]); }
+      var out = [row("head", label, ["", "", "", "", ""]), row("line", "Balance at " + R.from + " (opening)", tot(open))];
+      out.push(row("line", "Profit / (loss) for the period", tot([0, 0, 0, p.np])));
+      out.push(row("line", "Other comprehensive income", tot([0, 0, p.oci, 0])));
+      out.push(row("sub", "Total comprehensive income", tot([0, 0, p.oci, p.np])));
+      out.push(row("line", "Shares issued / capital movements", tot([cap.mov, prem.mov, 0, 0])));
+      out.push(row("line", "Dividends and other movements", tot([0, 0, rs.mov + (ro.mov - p.oci), re.mov])));
+      var close = [cap.close, prem.close, ro.close + rs.close, R.reClose + R.profit];
+      out.push(row("grand", "Balance at " + R.to + " (closing)", tot(close)));
+      return out;
+    }
+    var rows = block(A, "Current period: " + A.from + " to " + A.to);
+    if (B) rows = rows.concat(block(B, "Comparative period: " + B.from + " to " + B.to));
+    return { title: "Statement of Changes in Equity", sub: "IAS 1", cols: cols, rows: rows };
+  }
+
+  function cfCalc(R) {
+    var L = R.lines, d = function (k) { return L[k].close - L[k].open; };
+    var p = plCalc(R);
+    var deprAcc = 0;
+    ["COGS", "DIST", "ADMIN", "OTH_EXP"].forEach(function (k) { L[k].acc.forEach(function (x) { if (/depreciation|amortis|amortiz/i.test(x.name || "")) deprAcc += -x.v; }); });
+    var c = {};
+    c.pbt = p.pbt; c.depr = deprAcc; c.fc = -p.fc; c.fi = -p.fi;
+    c.inv = -d("INV"); c.rec = -(d("TRADE_REC") + d("OTH_REC")); c.pay = d("TRADE_PAY") + d("OTH_PAY") + d("CONTRACT") + d("PROV_C") + d("PROV_NC") + d("OTH_NCL");
+    c.gen = c.pbt + c.depr + c.fc + c.fi + c.inv + c.rec + c.pay;
+    c.tax = p.tax + d("INC_TAX_PAY") - d("INC_TAX_REC") + d("DTL") - d("DTA");
+    c.cfo = c.gen + c.tax;
+    c.capex = -(d("PPE") + d("INTANG") + d("INVPROP") + d("ROU") + d("OTH_NCA") + deprAcc - p.oci);
+    c.invest = -d("INVEST_NC"); c.intRec = p.fi;
+    c.cfi = c.capex + c.invest + c.intRec;
+    c.loans = d("LOAN_NC") + d("LOAN_C"); c.lease = d("LEASE_NC") + d("LEASE_C"); c.shares = d("SHARE_CAP") + d("SHARE_PREM");
+    c.othEq = d("RESERVES") + L.RETAINED.mov; c.intPaid = p.fc;
+    c.cff = c.loans + c.lease + c.shares + c.othEq + c.intPaid;
+    c.net = c.cfo + c.cfi + c.cff; c.open = L.CASH.open; c.close = L.CASH.close;
+    c.diff = (c.close - c.open) - c.net;
+    return c;
+  }
+  function buildCF(A, B) {
+    var a = cfCalc(A), b = B ? cfCalc(B) : null, rows = [];
+    var cols = B ? [A.from + " to " + A.to, B.from + " to " + B.to] : [A.from + " to " + A.to];
+    function r(type, label, key) { var v = [a[key]]; if (B) v.push(b[key]); return row(type, label, v); }
+    function h(t) { return row("head", t, B ? ["", ""] : [""]); }
+    rows.push(h("Cash flows from operating activities (indirect method)"), r("line", "Profit before tax", "pbt"),
+      r("line", "Depreciation and amortisation", "depr"), r("line", "Finance costs", "fc"), r("line", "Finance income", "fi"),
+      r("line", "Decrease / (increase) in inventories", "inv"), r("line", "Decrease / (increase) in receivables", "rec"),
+      r("line", "Increase / (decrease) in payables and provisions", "pay"), r("sub", "Cash generated from operations", "gen"),
+      r("line", "Income tax paid", "tax"), r("grand", "Net cash from operating activities", "cfo"),
+      h("Cash flows from investing activities"), r("line", "Purchase of property, plant, equipment and intangibles", "capex"),
+      r("line", "Purchase of investments", "invest"), r("line", "Interest received", "intRec"), r("grand", "Net cash used in investing activities", "cfi"),
+      h("Cash flows from financing activities"), r("line", "Proceeds from / (repayment of) borrowings", "loans"),
+      r("line", "Lease liability movements", "lease"), r("line", "Proceeds from share issue", "shares"),
+      r("line", "Dividends paid and other equity movements", "othEq"), r("line", "Interest paid", "intPaid"),
+      r("grand", "Net cash from / (used in) financing activities", "cff"),
+      r("sub", "Net increase / (decrease) in cash and cash equivalents", "net"),
+      r("line", "Cash and cash equivalents at beginning of period", "open"), r("grand", "CASH AND CASH EQUIVALENTS AT END OF PERIOD", "close"));
+    if (Math.abs(a.diff) >= 0.01 || (b && Math.abs(b.diff) >= 0.01)) rows.push(row("warn", "Unreconciled difference (check unclassified accounts)", b ? [a.diff, b.diff] : [a.diff]));
+    return { title: "Statement of Cash Flows", sub: "IAS 7 - indirect method", cols: cols, rows: rows };
+  }
+  window.__fsBuild = { sfp: buildSFP, pl: buildPL, soce: buildSOCE, cf: buildCF, cfCalc: cfCalc, plCalc: plCalc };
+
+  /* ---------- State / UI ---------- */
+  var S = window.__fs = window.__fs || { tab: "sfp", from: "", to: "", cmp: true, detail: false };
+  var TABS = [["sfp", "Financial Position"], ["pl", "Profit or Loss & OCI"], ["soce", "Changes in Equity"], ["cf", "Cash Flows"]];
+  function initDates() {
+    if (!S.to) { var t = new Date(); S.to = ymd(t); }
+    if (!S.from) S.from = S.to.slice(0, 4) + "-01-01";
+  }
+  function data(tab) {
+    var cid = ctx();
+    var accts = scoped(accounts, cid), jr = scoped(journals, cid).filter(function (j) { return j.status !== "cancelled"; });
+    var from = S.from, to = S.to;
+    var A, B = null;
+    if (tab === "sfp") {
+      // opening point-in-time uses same fiscal start so retained earnings split stays consistent
+      A = compute(cid, from, to, accts, jr);
+      if (S.cmp) B = compute(cid, addYears(from, -1), addYears(to, -1), accts, jr);
+    } else {
+      A = compute(cid, from, to, accts, jr);
+      if (S.cmp) B = compute(cid, addYears(from, -1), addYears(to, -1), accts, jr);
+    }
+    var fn = { sfp: buildSFP, pl: buildPL, soce: buildSOCE, cf: buildCF }[tab];
+    return fn(A, B);
+  }
+  function stmtHtml(st, detail, forPrint) {
+    var n = st.cols.length, wide = n > 2;
+    var h = '<table class="fs-t"><thead><tr><th class="fs-l">' + esc(st.title) + '</th>' + st.cols.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join("") + '</tr></thead><tbody>';
+    st.rows.forEach(function (r) {
+      var cls = "fs-" + r.type;
+      h += '<tr class="' + cls + '"><td class="fs-l">' + esc(r.label) + '</td>' + r.v.map(function (x) { return '<td class="' + (Number(x) < 0 ? "neg" : "") + '">' + (r.type === "head" ? "" : fmt(x)) + '</td>'; }).join("") + '</tr>';
+      if (detail && r.acc && r.acc.length) r.acc.forEach(function (a) {
+        h += '<tr class="fs-acc"><td class="fs-l">&nbsp;&nbsp;&nbsp;' + esc(a.code) + ' - ' + esc(a.name) + '</td>' + a.v.map(function (x) { return '<td>' + (x === null ? "" : fmt(x)) + '</td>'; }).join("") + '</tr>';
+      });
+    });
+    return h + '</tbody></table>';
+  }
+  var CSS = '.fs-t{width:100%;border-collapse:collapse;font-size:13px}.fs-t th{background:#0b3d91;color:#fff;padding:8px 10px;text-align:right;font-weight:600}.fs-t th.fs-l{text-align:left}' +
+    '.fs-t td{padding:5px 10px;text-align:right;border-bottom:1px solid #e5e9f0;font-variant-numeric:tabular-nums}.fs-t td.fs-l{text-align:left}.fs-t td.neg{color:#b91c1c}' +
+    '.fs-head td{background:#eef3fb;font-weight:700;color:#0b3d91;text-align:left}.fs-line td.fs-l{padding-left:22px}.fs-sub td{font-weight:700;border-top:1px solid #94a3b8}' +
+    '.fs-grand td{font-weight:800;border-top:2px solid #0b3d91;border-bottom:3px double #0b3d91;background:#f8fafc}.fs-acc td{font-size:11.5px;color:#64748b;border-bottom:1px dotted #e5e9f0}.fs-warn td{background:#fee2e2;color:#991b1b;font-weight:700}';
+
+  window.renderFS = function (el, tab) {
+    initDates(); if (tab) S.tab = tab;
+    var st = data(S.tab);
+    el.innerHTML = '<style>' + CSS + '.fs-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}.fs-tabs{display:flex;gap:4px;flex-wrap:wrap;margin:8px 0}' +
+      '.fs-tabs button{border:1px solid var(--border);background:#fff;padding:6px 12px;border-radius:6px;cursor:pointer}.fs-tabs button.on{background:#0b3d91;color:#fff;border-color:#0b3d91}</style>' +
+      '<div class="toolbar"><h2>Financial Statements (IFRS)</h2>' +
+      '<button class="btn btn-sm btn-primary" onclick="exportFsPDF(false)">📄 PDF (this statement)</button>' +
+      '<button class="btn btn-sm btn-primary" onclick="exportFsPDF(true)">📚 PDF (full set)</button>' +
+      '<button class="btn btn-sm" onclick="exportFsExcel()">📊 Excel (full set)</button></div>' +
+      '<div class="fs-bar"><label>From <input type="date" id="fs-from" value="' + S.from + '" style="margin:0;padding:4px"></label>' +
+      '<label>To <input type="date" id="fs-to" value="' + S.to + '" style="margin:0;padding:4px"></label>' +
+      '<label><input type="checkbox" id="fs-cmp" ' + (S.cmp ? "checked" : "") + '> Comparative (prior year)</label>' +
+      '<label><input type="checkbox" id="fs-det" ' + (S.detail ? "checked" : "") + '> Account detail</label>' +
+      '<button class="btn btn-sm" onclick="fsApply()">Apply</button></div>' +
+      '<div class="fs-tabs">' + TABS.map(function (t) { return '<button class="' + (S.tab === t[0] ? "on" : "") + '" onclick="renderFS(document.getElementById(\'main\'),\'' + t[0] + '\')">' + t[1] + '</button>'; }).join("") + '</div>' +
+      '<div class="grid-wrap" style="padding:8px">' + stmtHtml(st, S.detail) + '</div>' +
+      '<div style="font-size:11px;color:#64748b;margin-top:8px">Based on posted journal entries. Accounts are classified into IFRS lines by the "IFRS seed" tag or by account category/name - review any custom accounts. Cash-flow statement is derived (indirect method).</div>';
+  };
+  window.fsApply = function () {
+    S.from = document.getElementById("fs-from").value || S.from; S.to = document.getElementById("fs-to").value || S.to;
+    S.cmp = document.getElementById("fs-cmp").checked; S.detail = document.getElementById("fs-det").checked;
+    if (S.from > S.to) return toast("'From' date is after 'To' date");
+    renderFS(document.getElementById("main"));
+  };
+  window.renderPL = function (el) { renderFS(el, "pl"); };
+  window.renderBS = function (el) { renderFS(el, "sfp"); };
+
+  function coInfo() { return (typeof activeCompany === "function" && activeCompany()) || {}; }
+  window.exportFsPDF = function (all) {
+    initDates();
+    var co = coInfo(), logo = co.logoData || "";
+    var tabs = all ? TABS.map(function (t) { return t[0]; }) : [S.tab];
+    var cur = (typeof __local === "function" ? __local() : "TZS");
+    var pages = tabs.map(function (t, i) {
+      var st = data(t);
+      return '<section class="pg' + (i ? " brk" : "") + '"><div class="hdr"><div>' + (logo ? '<img class="logo" src="' + logo + '">' : '<div class="cn">' + esc(co.name || "Company") + '</div>') +
+        '</div><div class="co"><div class="cn">' + esc(co.name || "") + '</div><div>' + esc(co.printHeader || "").replace(/\n/g, "<br>") + '</div></div></div>' +
+        '<h1>' + esc(st.title) + '</h1><div class="sb">' + esc(st.sub || "") + ' &middot; Period: ' + esc(S.from) + ' to ' + esc(S.to) + ' &middot; Amounts in ' + esc(cur) + '</div>' +
+        stmtHtml(st, S.detail, true) + '</section>';
+    }).join("");
+    var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Financial Statements</title><style>body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#111}.pg{padding:22px 30px}.brk{page-break-before:always}' +
+      '.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0b3d91;padding-bottom:10px;margin-bottom:12px}.logo{max-height:68px}.co{text-align:right;font-size:12px;color:#334155}.cn{font-weight:700;font-size:16px;color:#0b3d91}' +
+      'h1{margin:6px 0 2px;font-size:20px;color:#0b3d91}.sb{font-size:12px;color:#64748b;margin-bottom:12px}.ft{position:fixed;bottom:0;left:0;right:0;padding:6px 30px;font-size:10.5px;color:#64748b;border-top:1px solid #ddd;background:#fff}' +
+      CSS + '@media print{.pg{padding:14px 20px 40px}}</style></head><body>' + pages +
+      '<div class="ft">' + esc(co.printFooter || "") + ' &nbsp; | Prepared in accordance with IFRS presentation requirements (IAS 1, IAS 7) &middot; Printed ' + esc(new Date().toISOString().slice(0, 10)) + '</div></body></html>';
+    var w = window.open("", "_blank");
+    if (!w) return toast("Allow pop-ups to export the PDF (then choose Save as PDF)");
+    w.document.write(html); w.document.close(); setTimeout(function () { w.print(); }, 500);
+  };
+  window.exportFsExcel = function () {
+    initDates();
+    if (typeof XLSX === "undefined") return toast("Excel library not loaded");
+    var co = coInfo(), cur = (typeof __local === "function" ? __local() : "TZS");
+    var wb = XLSX.utils.book_new();
+    TABS.forEach(function (t) {
+      var st = data(t[0]);
+      var aoa = [[co.name || ""], [(co.printHeader || "").replace(/\n/g, " | ")], [st.title], [(st.sub || "") + " | Period: " + S.from + " to " + S.to + " | Amounts in " + cur], [], [""].concat(st.cols)];
+      st.rows.forEach(function (r) {
+        aoa.push([r.label].concat(r.type === "head" ? r.v.map(function () { return ""; }) : r.v.map(function (x) { return (x === "" || x === null) ? "" : Math.round(Number(x) * 100) / 100; })));
+        if (S.detail && r.acc) r.acc.forEach(function (a) { aoa.push(["    " + a.code + " - " + a.name].concat(a.v.map(function (x) { return x === null ? "" : Math.round(Number(x) * 100) / 100; }))); });
+      });
+      aoa.push([], [co.printFooter || ""]);
+      var ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws["!cols"] = [{ wch: 58 }].concat(st.cols.map(function () { return { wch: 20 }; }));
+      for (var addr in ws) { if (addr[0] !== "!" && ws[addr].t === "n") ws[addr].z = '#,##0.00;[Red](#,##0.00);"-"'; }
+      XLSX.utils.book_append_sheet(wb, ws, t[1].replace(/[^A-Za-z0-9 ]/g, "").slice(0, 28));
+    });
+    XLSX.writeFile(wb, "Financial_Statements_" + S.to + ".xlsx");
+    toast("Excel exported (logo appears in the PDF export)", true);
+  };
+
+  /* ---------- UI hooks: COA seed button, Account Determination seed button ---------- */
+  var __coa = window.renderCOA;
+  window.renderCOA = function (el) {
+    __coa(el);
+    var tb = el.querySelector(".toolbar");
+    if (tb && !tb.querySelector("[data-ifrs-seed]")) {
+      var b = document.createElement("button");
+      b.className = "btn btn-sm"; b.setAttribute("data-ifrs-seed", "1"); b.textContent = "🌱 Seed IFRS COA";
+      b.title = "Adds standard IFRS accounts that are not yet in your chart (existing ones are untouched)";
+      b.onclick = seedIfrsCoa; tb.appendChild(b);
+    }
+  };
+  var __map = window.renderAcctMap;
+  window.renderAcctMap = function (el) {
+    __map(el);
+    var tb = el.querySelector(".toolbar");
+    if (tb && !tb.querySelector("[data-map-seed]")) {
+      var b = document.createElement("button");
+      b.className = "btn btn-sm"; b.setAttribute("data-map-seed", "1"); b.textContent = "🌱 Seed all & save";
+      b.title = "Fills every empty line with a matching account (your COA first, then IFRS seed) and saves";
+      b.onclick = seedAcctMaps; tb.appendChild(b);
+    }
+  };
+})();
 </script>
 </body>
 </html>
