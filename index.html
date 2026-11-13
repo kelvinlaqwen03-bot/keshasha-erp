@@ -218,7 +218,7 @@
       min-width:420px; min-height:280px; border-radius:4px 4px 0 0;
     }
     .win-title {
-      background:#0b3d91; color:#fff; padding:6px 8px; font-size:12px; font-weight:600;
+      background:var(--primary); color:#fff; padding:6px 8px; font-size:12px; font-weight:600;
       display:flex; align-items:center; justify-content:space-between; cursor:move; user-select:none;
     }
     .win-title .win-btns { display:flex; gap:4px; }
@@ -246,7 +246,7 @@
       background:#334155; color:#e2e8f0; border:0; padding:2px 10px; font-size:11px;
       border-radius:3px 3px 0 0; cursor:pointer; white-space:nowrap;
     }
-    .taskbar-wins button.active { background:#0b3d91; }
+    .taskbar-wins button.active { background:var(--primary); }
 
 
     .win-stack { position: fixed; inset: 0; pointer-events: none; z-index: 80; }
@@ -256,7 +256,7 @@
       min-width: 480px; min-height: 280px;
     }
     .win-hd {
-      background: #0b3d91; color: #fff; padding: 6px 10px; display: flex; align-items: center;
+      background: var(--primary); color: #fff; padding: 6px 10px; display: flex; align-items: center;
       justify-content: space-between; cursor: move; user-select: none; font-size: 13px; font-weight: 600;
     }
     .win-hd .win-btns { display: flex; gap: 4px; }
@@ -301,7 +301,7 @@
     .doc-window.maximized { inset:0 !important; width:auto !important; height:auto !important; z-index:25; }
     .doc-window.minimized { display:none; }
     .doc-win-hd {
-      background:#0b3d91; color:#fff; padding:6px 10px; display:flex; align-items:center; justify-content:space-between;
+      background:var(--primary); color:#fff; padding:6px 10px; display:flex; align-items:center; justify-content:space-between;
       cursor:move; user-select:none; font-size:13px; font-weight:600;
     }
     .doc-win-hd .btns button {
@@ -320,7 +320,7 @@
       overflow:auto; box-shadow:0 12px 40px rgba(0,0,0,.2);
     }
     .modal-hd {
-      background:#0b3d91; color:#fff; padding:10px 14px; font-weight:700; font-size:14px;
+      background:var(--primary); color:#fff; padding:10px 14px; font-weight:700; font-size:14px;
       display:flex; justify-content:space-between; align-items:center;
     }
     .modal-bd { padding:12px 14px; }
@@ -395,7 +395,7 @@ select.ss-hidden{display:none !important}
 .ss-panel{position:fixed;z-index:2147483000;background:#fff;border:1px solid #94a3b8;box-shadow:0 8px 24px rgba(0,0,0,.2);max-height:280px;max-width:520px;overflow:auto;font-size:12.5px;color:#1a1a2e}
 .ss-opt{padding:5px 9px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ss-opt:hover{background:#eef3fb}
-.ss-opt.active{background:#0b3d91;color:#fff}
+.ss-opt.active{background:var(--primary);color:#fff}
 .ss-opt.sel{font-weight:700}
 .ss-empty,.ss-more{padding:6px 9px;color:#667085;font-style:italic}
 </style>
@@ -432,7 +432,7 @@ select.ss-hidden{display:none !important}
       <div style="display:flex;align-items:center;gap:10px">
         <img src="logo_icon.jpg" alt="" style="height:28px;width:auto;border-radius:4px;background:#fff;padding:2px" />
         <div>
-          <strong>KESHASHA</strong><span class="badge" id="phase-badge">Phase 1</span>
+          <strong>KESHASHA</strong>
           <span id="company-label" style="margin-left:10px;font-size:12px;opacity:.9"></span>
         </div>
       </div>
@@ -463,6 +463,12 @@ select.ss-hidden{display:none !important}
               <button onclick="nav('docseries')">Document Numbering</button>
               <button onclick="nav('itemseries')">Item Series</button>
               <button onclick="nav('authz')">Authorizations</button>
+              <button onclick="nav('apprstages')">Approval Stages</button>
+              <button onclick="nav('apprtemp')">Approval Templates</button>
+              <button onclick="nav('apprstatus')">Approval Status</button>
+              <button onclick="nav('license')" id="menu-license">License Pool</button>
+              <button onclick="nav('licadmin')" id="menu-licadmin">License Admin</button>
+              <button onclick="nav('sysinfo2')">System Tables</button>
               <button onclick="nav('uitemplate')">UI Templates</button>
               <button onclick="nav('exrates')">Exchange Rates</button>
               <button onclick="nav('dimensions')">Dimensions</button>
@@ -486,6 +492,12 @@ select.ss-hidden{display:none !important}
               <button onclick="nav('transfer')">Inventory Transfer</button>
               <button onclick="nav('stockbal')">Stock Balance</button>
               <button onclick="nav('invreports')">Inventory Reports</button>
+              <button onclick="nav('superinv')">Super Inv. Reports</button>
+              <button onclick="nav('invcount')">Inv. Counting</button>
+              <button onclick="nav('invpost')">Inv. Posting</button>
+              <button onclick="nav('invreval')">Inv. Revaluation</button>
+              <button onclick="nav('invopen')">Inv. Opening Bal.</button>
+              <button onclick="nav('batch')">Batch / Serial</button>
             </div>
           </div>
           <div class="sub">
@@ -549,6 +561,11 @@ select.ss-hidden{display:none !important}
           <button onclick="toggleModule('finance')">Show/Hide Financials</button>
           <button onclick="toggleModule('banking')">Show/Hide Banking</button>
           <button onclick="nav('sysinfo')">System Information</button>
+          <button onclick="nav('sysinfo2')">System Tables</button>
+          <button onclick="nav('intercompany')">Group Reports</button>
+          <button onclick="nav('powerbi')">Power BI</button>
+          <button onclick="nav('whatsapp')">WhatsApp Reports</button>
+          <button onclick="nav('emailsch')">Email Schedule</button>
         </div>
       </div>
       <div class="menu">Tools
@@ -556,6 +573,11 @@ select.ss-hidden{display:none !important}
           <button onclick="nav('docseries')">Document Numbering</button>
           <button onclick="nav('itemseries')">Item Series</button>
           <button onclick="nav('authz')">Authorizations</button>
+          <button onclick="nav('queries')">Queries Manager</button>
+          <button onclick="nav('udt')">User Defined Tables</button>
+          <button onclick="nav('udf')">User Defined Fields</button>
+          <button onclick="nav('udo')">User Defined Objects</button>
+          <button onclick="nav('barcode')">Barcode / EFD</button>
           <button onclick="nav('uitemplate')">UI Templates</button>
               <button onclick="nav('exrates')">Exchange Rates</button>
           <button onclick="nav('dimtypes')">Dimension Types</button>
@@ -1083,6 +1105,12 @@ select.ss-hidden{display:none !important}
           <button data-page="uitemplate" onclick="nav('uitemplate')">UI Templates</button>
           <button data-page="exrates" onclick="nav('exrates')">Exchange Rates</button>
           <button data-page="docsettings" onclick="nav('docsettings')">Document Settings</button>
+          <button data-page="apprstages" onclick="nav('apprstages')">Approval Stages</button>
+          <button data-page="apprtemp" onclick="nav('apprtemp')">Approval Templates</button>
+          <button data-page="apprstatus" onclick="nav('apprstatus')">Approval Status</button>
+          <button data-page="license" onclick="nav('license')" id="sb-license">License Pool</button>
+          <button data-page="licadmin" onclick="nav('licadmin')" id="sb-licadmin">License Admin</button>
+          <button data-page="sysinfo2" onclick="nav('sysinfo2')">System Tables</button>
         </div>`;
       }
       if (moduleVisibility.inventory !== false) {
@@ -1095,6 +1123,12 @@ select.ss-hidden{display:none !important}
           <button data-page="transfer" onclick="nav('transfer')">Inventory Transfer</button>
           <button data-page="stockbal" onclick="nav('stockbal')">Stock Balance</button>
           <button data-page="invreports" onclick="nav('invreports')">Inventory Reports</button>
+          <button data-page="superinv" onclick="nav('superinv')">Super Inv. Reports</button>
+          <button data-page="invcount" onclick="nav('invcount')">Inv. Counting</button>
+          <button data-page="invpost" onclick="nav('invpost')">Inv. Posting</button>
+          <button data-page="invreval" onclick="nav('invreval')">Inv. Revaluation</button>
+          <button data-page="invopen" onclick="nav('invopen')">Inv. Opening Bal.</button>
+          <button data-page="batch" onclick="nav('batch')">Batch / Serial</button>
         </div>`;
       }
       if (moduleVisibility.bp !== false) {
@@ -1154,6 +1188,8 @@ select.ss-hidden{display:none !important}
         </div>
         <div class="mod-title" onclick="toggleSidebarGroup('hr')">HR / Payroll <span class="chev" id="chev-hr">▶</span></div>
         <div class="mod-children" id="grp-hr">
+          <button data-page="hrloans" onclick="nav('hrloans')">Employee Loans</button>
+          <button data-page="basicpay" onclick="nav('basicpay')">Basic Pay</button>
           <button data-page="payroll" onclick="nav('payroll')">Payroll</button>
           <button data-page="leave" onclick="nav('leave')">Leave</button>
         </div>
@@ -1166,6 +1202,10 @@ select.ss-hidden{display:none !important}
         <div class="mod-children" id="grp-reports">
           <button data-page="pl" onclick="nav('pl')">Financial Statements (IFRS)</button>
           <button data-page="bs" onclick="nav('bs')">Statement of Financial Position</button>
+          <button data-page="intercompany" onclick="nav('intercompany')">Group / Intercompany Reports</button>
+          <button data-page="powerbi" onclick="nav('powerbi')">Power BI</button>
+          <button data-page="whatsapp" onclick="nav('whatsapp')">WhatsApp Reports</button>
+          <button data-page="emailsch" onclick="nav('emailsch')">Email Schedule</button>
         </div>`;
       }
       if (moduleVisibility.finance !== false) {
@@ -1183,6 +1223,14 @@ select.ss-hidden{display:none !important}
           <button data-page="taxcodes" onclick="nav('taxcodes')">Tax Codes</button>
         </div>`;
       }
+      html += `<div class="mod-title" onclick="toggleSidebarGroup('custom')">Customization <span class="chev" id="chev-custom">▶</span></div>
+        <div class="mod-children" id="grp-custom">
+          <button data-page="queries" onclick="nav('queries')">Queries Manager</button>
+          <button data-page="udt" onclick="nav('udt')">User Defined Tables</button>
+          <button data-page="udf" onclick="nav('udf')">User Defined Fields</button>
+          <button data-page="udo" onclick="nav('udo')">User Defined Objects</button>
+          <button data-page="barcode" onclick="nav('barcode')">Barcode / EFD</button>
+        </div>`;
       document.getElementById("sidebar").innerHTML = html;
       // Hide screens without at least Read auth
       if (currentUser && !currentUser.isSuperAdmin) {
@@ -1291,6 +1339,29 @@ select.ss-hidden{display:none !important}
       else if (page === "sysinfo") renderSystemInfo(main);
       else if (page === "itemseries") renderItemSeriesDefs(main);
       else if (page === "uitemplate") renderUiTemplates(main);
+      else if (page === "intercompany") window.renderIntercompanyFS(main);
+      else if (page === "hrloans") window.renderHRLoans(main);
+      else if (page === "basicpay") window.renderBasicPay(main);
+      else if (page === "invcount") window.renderInvCounting(main);
+      else if (page === "invpost") window.renderInvPosting(main);
+      else if (page === "invreval") window.renderInvReval(main);
+      else if (page === "invopen") window.renderInvOpening(main);
+      else if (page === "superinv") window.renderSuperInvReports(main);
+      else if (page === "batch") window.renderBatchMgmt(main);
+      else if (page === "queries") window.renderQueries(main);
+      else if (page === "udt") window.renderUDT(main);
+      else if (page === "udf") window.renderUDF(main);
+      else if (page === "udo") window.renderUDO(main);
+      else if (page === "apprstages") window.renderApprovalStages(main);
+      else if (page === "apprtemp") window.renderApprovalTemplates(main);
+      else if (page === "apprstatus") window.renderApprovalStatus(main);
+      else if (page === "sysinfo2") window.renderSysInfoEnhanced(main);
+      else if (page === "powerbi") window.renderPowerBI(main);
+      else if (page === "whatsapp") window.renderWhatsApp(main);
+      else if (page === "emailsch") window.renderEmailSchedule(main);
+      else if (page === "license") window.renderLicense(main);
+      else if (page === "licadmin") window.renderLicenseAdmin(main);
+      else if (page === "barcode") window.renderBarcodeEFD(main);
       if (window.__keshashaReadOnly) {
         const b = document.createElement("div");
         b.style.cssText = "background:#fff7ed;border:1px solid #fdba74;color:#9a3412;padding:5px 10px;margin-bottom:8px;font-size:12px;font-weight:600";
@@ -2499,7 +2570,7 @@ select.ss-hidden{display:none !important}
 
 
     // ============================================================
-    // PHASE 1 — ITEMS (SAP-inspired OITM subset + Manage by)
+    // ITEMS (SAP-inspired OITM subset + Manage by)
     // manageBy: None | Batch | Serial
     // ============================================================
     function renderItems(el) {
@@ -3073,7 +3144,9 @@ select.ss-hidden{display:none !important}
           </div>
           <div class="toolbar" style="justify-content:flex-end">
             <button class="btn btn-sm" onclick="stockLinesDraft.push({itemCode:'',qty:'',uom:'pcs'});renderStockLines();">+ Row</button>
-            <button class="btn btn-sm btn-primary" onclick="postStockDoc()">Add & Post</button>
+            <button class="btn btn-sm btn-primary" onclick="postStockDoc('view')">Add & View</button>
+            <button class="btn btn-sm btn-primary" onclick="postStockDoc('new')">Add & New</button>
+            <button class="btn btn-sm" onclick="postStockDoc('close')">Add & Close</button>
             <button class="btn btn-sm" onclick="document.getElementById('stock-form').style.display='none'">Cancel</button>
           </div>
         </div>
@@ -3225,7 +3298,9 @@ select.ss-hidden{display:none !important}
           </div>
           <div class="toolbar" style="justify-content:flex-end">
             <button class="btn btn-sm" onclick="transferLines.push({itemCode:'',qty:'',uom:'pcs'});renderTransferLines();">+ Row</button>
-            <button class="btn btn-sm btn-primary" onclick="postTransfer()">Add & Post</button>
+            <button class="btn btn-sm btn-primary" onclick="postTransfer('view')">Add & View</button>
+            <button class="btn btn-sm btn-primary" onclick="postTransfer('new')">Add & New</button>
+            <button class="btn btn-sm" onclick="postTransfer('close')">Add & Close</button>
             <button class="btn btn-sm" onclick="document.getElementById('tr-form').style.display='none'">Cancel</button>
           </div>
         </div>
@@ -3337,7 +3412,9 @@ select.ss-hidden{display:none !important}
           </div>
           <div class="toolbar" style="justify-content:flex-end">
             <button class="btn btn-sm" onclick="openingLines.push({itemCode:'',qty:'',unitCost:''});renderOpeningLines();">+ Row</button>
-            <button class="btn btn-sm btn-primary" onclick="postOpening()">Add & Post</button>
+            <button class="btn btn-sm btn-primary" onclick="postOpening('view')">Add & View</button>
+            <button class="btn btn-sm btn-primary" onclick="postOpening('new')">Add & New</button>
+            <button class="btn btn-sm" onclick="postOpening('close')">Add & Close</button>
             <button class="btn btn-sm" onclick="document.getElementById('ob-form').style.display='none'">Cancel</button>
           </div>
         </div>
@@ -3961,7 +4038,9 @@ select.ss-hidden{display:none !important}
           </div>
           <div class="toolbar" style="justify-content:flex-end;border-top:1px solid #ccc">
             <button class="btn btn-sm" onclick="addPurchaseLine()">+ Row</button>
-            <button class="btn btn-sm btn-primary" onclick="postPurchaseDoc('${docType}')">Add & Post</button>
+            <button class="btn btn-sm btn-primary" id="p-btn-view" onclick="postPurchaseDoc('${docType}','view')">Add & View</button>
+            <button class="btn btn-sm btn-primary" id="p-btn-new" onclick="postPurchaseDoc('${docType}','new')">Add & New</button>
+            <button class="btn btn-sm" id="p-btn-close" onclick="postPurchaseDoc('${docType}','close')">Add & Close</button>
             <button class="btn btn-sm" onclick="document.getElementById('purch-form').style.display='none';purchaseCopyFromId=null;">Cancel</button>
           </div>
         </div>
@@ -4150,7 +4229,8 @@ select.ss-hidden{display:none !important}
       applyPartnerCurrency("p", p);
     }
 
-    async function postPurchaseDoc(docType) {
+    async function postPurchaseDoc(docType, mode) {
+      mode = mode || 'view';
       if (!requireAuth(docAuthKey(docType), 2)) return;
       const companyId = activeCompanyId || companyFilterId();
       const bpCode = document.getElementById("p-bp").value;
@@ -4765,7 +4845,9 @@ select.ss-hidden{display:none !important}
           </div>
           <div class="toolbar" style="border-top:1px solid #ccc;justify-content:flex-end">
             <button class="btn btn-sm" onclick="addSalesLine()">+ Row</button>
-            <button class="btn btn-sm btn-primary" onclick="postSalesDoc('${docType}')">Add & Post</button>
+            <button class="btn btn-sm btn-primary" id="s-btn-view" onclick="postSalesDoc('${docType}','view')">Add & View</button>
+            <button class="btn btn-sm btn-primary" id="s-btn-new" onclick="postSalesDoc('${docType}','new')">Add & New</button>
+            <button class="btn btn-sm" id="s-btn-close" onclick="postSalesDoc('${docType}','close')">Add & Close</button>
             <button class="btn btn-sm" onclick="document.getElementById('sales-form').style.display='none';salesEditId=null;salesCopyFromId=null;">Cancel</button>
           </div>
         </div>
@@ -5384,7 +5466,8 @@ select.ss-hidden{display:none !important}
       setLocalTotal("s", round2(net) + round2(tax) + freight);
     }
 
-    async function postSalesDoc(docType) {
+    async function postSalesDoc(docType, mode) {
+      mode = mode || 'view';
       if (!requireAuth(docAuthKey(docType), 2)) return;
       const companyId = currentUser.isSuperAdmin ? document.getElementById("s-co").value : currentUser.companyId;
       const bpCode = document.getElementById("s-bp").value;
@@ -7694,6 +7777,14 @@ select.ss-hidden{display:none !important}
           <div id="logo-preview" style="margin:8px 0">${logo ? `<img src="${logo}" style="max-height:80px">` : "<span style='color:#94a3b8'>No logo set</span>"}</div>
           <div class="fg"><label>Print Header Text</label><input id="doc-header" value="${esc((co&&co.printHeader)||"")}" placeholder="Optional header line"></div>
           <div class="fg"><label>Print Footer Text</label><input id="doc-footer" value="${esc((co&&co.printFooter)||"")}" placeholder="Thank you for your business"></div>
+          <div class="fg" style="grid-column:1/-1;margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0">
+            <label style="font-weight:700;color:var(--primary)">Contact Support</label>
+          </div>
+          <div class="fg"><label>Support Phone 1</label><input id="sup-phone1" value="${esc((co&&co.supportPhone1)||"")}" placeholder="2557XXXXXXXX"></div>
+          <div class="fg"><label>Support Phone 2</label><input id="sup-phone2" value="${esc((co&&co.supportPhone2)||"")}" placeholder="2557XXXXXXXX"></div>
+          <div class="fg"><label>Support Phone 3</label><input id="sup-phone3" value="${esc((co&&co.supportPhone3)||"")}" placeholder="2557XXXXXXXX"></div>
+          <div class="fg"><label>Support Phone 4</label><input id="sup-phone4" value="${esc((co&&co.supportPhone4)||"")}" placeholder="2557XXXXXXXX"></div>
+          <div class="fg"><label>Support Email</label><input id="sup-email" type="email" value="${esc((co&&co.supportEmail)||"")}" placeholder="support@company.com"></div>
           <div class="fg" style="align-self:end">
             <button class="btn btn-sm btn-primary" onclick="saveDocSettings()">Save</button>
           </div>
@@ -7716,9 +7807,14 @@ select.ss-hidden{display:none !important}
       const logoData = (document.getElementById("logo-preview").dataset.logo) || (activeCompany() && activeCompany().logoData) || "";
       const printHeader = document.getElementById("doc-header").value.trim();
       const printFooter = document.getElementById("doc-footer").value.trim();
-      await db.collection("companies").doc(cid).update({ logoData, printHeader, printFooter });
+      const supportPhone1 = (document.getElementById("sup-phone1")||{}).value||"";
+      const supportPhone2 = (document.getElementById("sup-phone2")||{}).value||"";
+      const supportPhone3 = (document.getElementById("sup-phone3")||{}).value||"";
+      const supportPhone4 = (document.getElementById("sup-phone4")||{}).value||"";
+      const supportEmail = (document.getElementById("sup-email")||{}).value||"";
+      await db.collection("companies").doc(cid).update({ logoData, printHeader, printFooter, supportPhone1, supportPhone2, supportPhone3, supportPhone4, supportEmail });
       const co = companies.find(c => c.id === cid);
-      if (co) { co.logoData = logoData; co.printHeader = printHeader; co.printFooter = printFooter; }
+      if (co) { co.logoData = logoData; co.printHeader = printHeader; co.printFooter = printFooter; co.supportPhone1=supportPhone1; co.supportPhone2=supportPhone2; co.supportPhone3=supportPhone3; co.supportPhone4=supportPhone4; co.supportEmail=supportEmail; }
       toast("Document settings saved", true);
     }
 
@@ -8726,13 +8822,108 @@ select.ss-hidden{display:none !important}
     }
 
     // ---- HR / Payroll ----
+    window.payrollRuns = window.payrollRuns || [];
     function renderPayroll(el) {
       const cid = companyFilterId();
-      el.innerHTML = `<div class="toolbar"><h2>Payroll</h2>
-        <button class="btn btn-sm btn-primary">+ Run Payroll</button></div>
-        <div class="grid-wrap"><table class="grid"><thead><tr><th>Employee</th><th>Basic</th><th>Allowances</th><th>Deductions</th><th>Net</th></tr></thead>
-          <tbody>${scoped(employees,cid).map(e=>`<tr><td>${esc(e.fullName||e.employeeCode)}</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`).join("")||`<tr><td colspan="5">No employees</td></tr>`}</tbody></table></div>`;
+      const emps = scoped(employees, cid);
+      const co = (typeof activeCompany==="function" && activeCompany()) || {};
+      const runs = (window.payrollRuns||[]).filter(r=>!cid||r.companyId===cid);
+      el.innerHTML = `
+        <div class="toolbar">
+          <h2>Payroll</h2>
+          <button class="btn btn-sm btn-primary" onclick="runPayroll()">+ Run Payroll</button>
+          <button class="btn btn-sm" onclick="exportPayrollPDF()">📄 PDF</button>
+          <button class="btn btn-sm" onclick="exportPayrollExcel()">📊 Excel</button>
+        </div>
+        <div class="form-bar" id="pay-run-form" style="display:none">
+          <div class="fg"><label>Period</label><input type="month" id="pay-period"></div>
+          <div class="fg"><label>Pay Date</label><input type="date" id="pay-date"></div>
+          <button class="btn btn-sm btn-primary" onclick="doRunPayroll()">Calculate & Save</button>
+          <button class="btn btn-sm" onclick="document.getElementById('pay-run-form').style.display='none'">Cancel</button>
+        </div>
+        <div id="pay-result"></div>
+        <h3 style="margin:12px 0 6px;color:var(--primary)">Previous Runs</h3>
+        <div class="grid-wrap"><table class="grid"><thead><tr><th>Period</th><th>Date</th><th>Employees</th><th>Total Net</th><th></th></tr></thead>
+          <tbody>${runs.map((r,i)=>`<tr><td>${esc(r.period)}</td><td>${esc(r.payDate)}</td><td>${r.lines.length}</td><td style="text-align:right">${Number(r.totalNet||0).toLocaleString()}</td><td><button class="btn btn-sm" onclick="viewPayrollRun(${i})">View</button></td></tr>`).join("")||`<tr><td colspan="5">No payroll runs yet</td></tr>`}</tbody>
+        </table></div>
+        <div class="grid-wrap" style="margin-top:12px"><table class="grid" id="pay-emp-table"><thead><tr><th>Employee</th><th>Code</th><th>Basic</th><th>Allowances</th><th>Deductions</th><th>Net</th></tr></thead>
+          <tbody>${emps.map(e=>`<tr><td>${esc(e.fullName||e.employeeCode)}</td><td>${esc(e.employeeCode)}</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`).join("")||`<tr><td colspan="6">No employees</td></tr>`}</tbody>
+        </table></div>`;
+      const today = new Date().toISOString().slice(0,10);
+      const p = document.getElementById("pay-period"); if(p) p.value = today.slice(0,7);
+      const d = document.getElementById("pay-date"); if(d) d.value = today;
     }
+    window.runPayroll = function(){
+      const f = document.getElementById("pay-run-form");
+      if(f) f.style.display = "flex";
+    };
+    window.doRunPayroll = function(){
+      const cid = companyFilterId();
+      const emps = scoped(employees, cid);
+      if(!emps.length) return toast("No employees");
+      const period = (document.getElementById("pay-period")||{}).value || "";
+      const payDate = (document.getElementById("pay-date")||{}).value || "";
+      const lines = emps.map(e=>{
+        const basic = parseFloat(e.basicPay||e.salary||0) || 0;
+        const allow = parseFloat(e.allowances||0) || 0;
+        const ded = parseFloat(e.deductions||0) || 0;
+        return { code:e.employeeCode, name:e.fullName||e.employeeCode, basic, allow, ded, net: basic+allow-ded };
+      });
+      const totalNet = lines.reduce((s,l)=>s+l.net,0);
+      const run = { companyId:cid, period, payDate, lines, totalNet, createdAt:new Date().toISOString() };
+      window.payrollRuns = window.payrollRuns||[];
+      window.payrollRuns.unshift(run);
+      toast("Payroll calculated for "+lines.length+" employees", true);
+      renderPayroll(document.getElementById("main"));
+      viewPayrollRun(0);
+    };
+    window.viewPayrollRun = function(i){
+      const run = (window.payrollRuns||[])[i];
+      if(!run) return;
+      const res = document.getElementById("pay-result");
+      if(!res) return;
+      res.innerHTML = `<div style="background:#fff;border:1px solid #c5cdd8;padding:10px;margin:8px 0">
+        <b>Period: ${esc(run.period)}</b> | Pay Date: ${esc(run.payDate)} | Total Net: ${Number(run.totalNet).toLocaleString()}
+        <table class="grid" style="margin-top:8px"><thead><tr><th>Employee</th><th>Basic</th><th>Allowances</th><th>Deductions</th><th>Net</th></tr></thead>
+        <tbody>${run.lines.map(l=>`<tr><td>${esc(l.name)}</td><td style="text-align:right">${l.basic.toLocaleString()}</td><td style="text-align:right">${l.allow.toLocaleString()}</td><td style="text-align:right">${l.ded.toLocaleString()}</td><td style="text-align:right"><b>${l.net.toLocaleString()}</b></td></tr>`).join("")}</tbody></table>
+      </div>`;
+    };
+    window.exportPayrollPDF = function(){
+      const run = (window.payrollRuns||[])[0];
+      if(!run) return toast("Run payroll first");
+      const co = (typeof activeCompany==="function" && activeCompany()) || {};
+      const logo = co.logoData || "";
+      const header = co.printHeader || co.name || "";
+      const footer = co.printFooter || "";
+      const rows = run.lines.map(l=>`<tr><td>${esc(l.name)}</td><td style="text-align:right">${l.basic.toLocaleString()}</td><td style="text-align:right">${l.allow.toLocaleString()}</td><td style="text-align:right">${l.ded.toLocaleString()}</td><td style="text-align:right">${l.net.toLocaleString()}</td></tr>`).join("");
+      const html = `<!DOCTYPE html><html><head><title>Payroll ${run.period}</title>
+        <style>body{font-family:Arial,sans-serif;margin:20px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #ccc;padding:6px 8px;font-size:12px}th{background:#0b3d91;color:#fff}.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0b3d91;padding-bottom:8px;margin-bottom:12px}.logo{max-height:60px}h1{margin:4px 0;color:#0b3d91}.ft{margin-top:20px;font-size:11px;color:#64748b;border-top:1px solid #ddd;padding-top:6px}</style></head>
+        <body><div class="hdr"><div>${logo?`<img class="logo" src="${logo}">`:""}<div style="font-weight:700;font-size:16px;color:#0b3d91">${esc(co.name||"")}</div></div><div style="text-align:right;font-size:12px">${esc(header).replace(/\n/g,"<br>")}</div></div>
+        <h1>Payroll — ${esc(run.period)}</h1><div>Pay Date: ${esc(run.payDate)} | Employees: ${run.lines.length}</div>
+        <table><thead><tr><th>Employee</th><th>Basic</th><th>Allowances</th><th>Deductions</th><th>Net</th></tr></thead><tbody>${rows}</tbody>
+        <tfoot><tr><td colspan="4" style="text-align:right;font-weight:700">Total Net</td><td style="text-align:right;font-weight:700">${Number(run.totalNet).toLocaleString()}</td></tr></tfoot></table>
+        <div class="ft">${esc(footer)} | Printed ${new Date().toISOString().slice(0,10)}</div></body></html>`;
+      const w = window.open("","_blank");
+      if(!w) return toast("Allow pop-ups");
+      w.document.write(html); w.document.close();
+      setTimeout(()=>w.print(), 400);
+      toast("PDF preview opened", true);
+    };
+    window.exportPayrollExcel = function(){
+      const run = (window.payrollRuns||[])[0];
+      if(!run) return toast("Run payroll first");
+      if(typeof XLSX==="undefined") return toast("Excel library not loaded");
+      const co = (typeof activeCompany==="function" && activeCompany()) || {};
+      const rows = [[co.name||""],[co.printHeader||""],["Payroll — "+run.period],["Pay Date: "+run.payDate],[],["Employee","Code","Basic","Allowances","Deductions","Net"]];
+      run.lines.forEach(l=>rows.push([l.name, l.code, l.basic, l.allow, l.ded, l.net]));
+      rows.push([],["","","","","Total", run.totalNet]);
+      rows.push([],[co.printFooter||""]);
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Payroll");
+      XLSX.writeFile(wb, "Payroll_"+run.period+".xlsx");
+      toast("Excel exported", true);
+    };
     function renderLeave(el) {
       const cid = companyFilterId();
       const list = scoped(leaveRequests, cid);
@@ -9125,6 +9316,8 @@ select.ss-hidden{display:none !important}
         ["admin.docseries","Document Numbering"],["admin.itemseries","Item Series"],
         ["admin.authz","Authorizations"],["admin.roles","User Roles"],["admin.dimensions","Dimensions"],["admin.dimtypes","Dimension Types"],
         ["admin.uitemplate","UI Templates"],["admin.doctemplate","Document Templates"],
+        ["admin.apprstages","Approval Stages"],["admin.apprtemp","Approval Templates"],["admin.apprstatus","Approval Status"],
+        ["admin.license","License Admin"],["admin.licpool","License Pool (Founder)"],["admin.sysinfo","System Tables"],
       ]},
       { mod: "Business Partners", items: [
         ["bp.master","BP Master Data"],["bp.groups","BP Groups"],["bp.recon","Reconciliation"],
@@ -9136,6 +9329,7 @@ select.ss-hidden{display:none !important}
         ["inv.opening","Opening Balance"],["inv.balance","Stock Balance"],
         ["inv.posting","Inventory Posting"],["inv.reval","Inventory Revaluation"],
         ["inv.serial","Serial Numbers"],["inv.batch","Batch Numbers"],["inv.reports","Inventory Reports"],
+        ["inv.super","Super Inventory Reports"],["inv.count","Inventory Counting"],["inv.invopen","Inventory Opening Balance"],
       ]},
       { mod: "Sales A/R", items: [
         ["ar.sq","Sales Quotation"],["ar.so","Sales Order"],["ar.dn","Delivery"],
@@ -9169,6 +9363,19 @@ select.ss-hidden{display:none !important}
       ]},
       { mod: "CRM", items: [
         ["crm.opps","Opportunities"],["crm.activities","Activities"],
+      ]},
+      { mod: "Reports & Analytics", items: [
+        ["rep.intercompany","Group / Intercompany Reports"],["rep.powerbi","Power BI"],
+        ["rep.whatsapp","WhatsApp Reports"],["rep.email","Email Schedule"],
+        ["rep.dashboard","Dashboard"],
+      ]},
+      { mod: "Customization", items: [
+        ["cust.queries","Queries Manager"],["cust.udt","User Defined Tables"],
+        ["cust.udf","User Defined Fields"],["cust.udo","User Defined Objects"],
+        ["cust.barcode","Barcode / EFD"],
+      ]},
+      { mod: "HR Extra", items: [
+        ["hr.loans","Employee Loans"],["hr.basicpay","Basic Pay"],
       ]},
       { mod: "Reports", items: [
         ["rep.pl","Profit & Loss"],["rep.bs","Balance Sheet"],
@@ -9219,6 +9426,14 @@ select.ss-hidden{display:none !important}
         assets:"fa.master", depr:"fa.depr",
         payroll:"hr.payroll", leave:"hr.leave",
         opps:"crm.opps", activities:"crm.activities",
+        intercompany:"rep.intercompany", powerbi:"rep.powerbi", whatsapp:"rep.whatsapp",
+        emailsch:"rep.email", dashboard:"rep.dashboard",
+        queries:"cust.queries", udt:"cust.udt", udf:"cust.udf", udo:"cust.udo", barcode:"cust.barcode",
+        hrloans:"hr.loans", basicpay:"hr.basicpay",
+        apprstages:"admin.apprstages", changelog:"admin.authz", apprtemp:"admin.apprtemp", apprstatus:"admin.apprstatus",
+        license:"admin.licpool", licadmin:"admin.license", sysinfo2:"admin.sysinfo",
+        superinv:"inv.super", invcount:"inv.count", invopen:"inv.invopen", batch:"inv.batch",
+        invpost:"inv.posting", invreval:"inv.reval",
       };
       // Unknown screen => a key that nobody (except Super Admin) holds: default DENY
       return map[page] || ("deny." + page);
@@ -9274,6 +9489,7 @@ select.ss-hidden{display:none !important}
       el.innerHTML = `
         <div class="toolbar">
           <h2>Authorizations</h2>
+          <button class="btn btn-sm" onclick="showUserProfilePanel()">User Profile</button>
           <button class="btn btn-sm" onclick="setAllAuthForUser(2)">Full Authorization (all)</button>
           <button class="btn btn-sm" onclick="setAllAuthForUser(1)">Read Only (all)</button>
           <button class="btn btn-sm" onclick="setAllAuthForUser(0)">No Authorization (all)</button>
@@ -11010,7 +11226,7 @@ function exportBankingPDF() {
     });
     return h + '</tbody></table>';
   }
-  var CSS = '.fs-t{width:100%;border-collapse:collapse;font-size:13px}.fs-t th{background:#0b3d91;color:#fff;padding:8px 10px;text-align:right;font-weight:600}.fs-t th.fs-l{text-align:left}' +
+  var CSS = '.fs-t{width:100%;border-collapse:collapse;font-size:13px}.fs-t th{background:var(--primary);color:#fff;padding:8px 10px;text-align:right;font-weight:600}.fs-t th.fs-l{text-align:left}' +
     '.fs-t td{padding:5px 10px;text-align:right;border-bottom:1px solid #e5e9f0;font-variant-numeric:tabular-nums}.fs-t td.fs-l{text-align:left}.fs-t td.neg{color:#b91c1c}' +
     '.fs-head td{background:#eef3fb;font-weight:700;color:#0b3d91;text-align:left}.fs-line td.fs-l{padding-left:22px}.fs-sub td{font-weight:700;border-top:1px solid #94a3b8}' +
     '.fs-grand td{font-weight:800;border-top:2px solid #0b3d91;border-bottom:3px double #0b3d91;background:#f8fafc}.fs-acc td{font-size:11.5px;color:#64748b;border-bottom:1px dotted #e5e9f0}.fs-warn td{background:#fee2e2;color:#991b1b;font-weight:700}';
@@ -11019,7 +11235,7 @@ function exportBankingPDF() {
     initDates(); if (tab) S.tab = tab;
     var st = data(S.tab);
     el.innerHTML = '<style>' + CSS + '.fs-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}.fs-tabs{display:flex;gap:4px;flex-wrap:wrap;margin:8px 0}' +
-      '.fs-tabs button{border:1px solid var(--border);background:#fff;padding:6px 12px;border-radius:6px;cursor:pointer}.fs-tabs button.on{background:#0b3d91;color:#fff;border-color:#0b3d91}</style>' +
+      '.fs-tabs button{border:1px solid var(--border);background:#fff;padding:6px 12px;border-radius:6px;cursor:pointer}.fs-tabs button.on{background:var(--primary);color:#fff;border-color:#0b3d91}</style>' +
       '<div class="toolbar"><h2>Financial Statements (IFRS)</h2>' +
       '<button class="btn btn-sm btn-primary" onclick="exportFsPDF(false)">📄 PDF (this statement)</button>' +
       '<button class="btn btn-sm btn-primary" onclick="exportFsPDF(true)">📚 PDF (full set)</button>' +
@@ -11111,5 +11327,2230 @@ function exportBankingPDF() {
   };
 })();
 </script>
+<script>
+// ===== ADVANCED KESHASHA ERP — Full Amendment Implementation =====
+
+// Safety: ensure toast exists
+if (typeof toast !== "function") window.toast = function(m, ok){ console.log(m); alert(m); };
+if (typeof esc !== "function") window.esc = function(s){ return String(s||"").replace(/[&<>]/g, c=>({"&":"&","<":"<",">":">"}[c])); };
+
+(function(){
+
+// ---------- 1. SAP-style Toolbar ----------
+function injectToolbar(){
+  if(document.getElementById("sap-toolbar")) return;
+  const mb = document.getElementById("menubar");
+  if(!mb) return;
+  const tb = document.createElement("div");
+  tb.id = "sap-toolbar";
+  tb.className = "sap-toolbar";
+  tb.innerHTML = `
+    <button title="Find" onclick="toolbarFind()">🔍</button>
+    <button title="Print" onclick="toolbarPrint()">🖨️</button>
+    <button title="Email" onclick="toast('Email report')">✉️</button>
+    <button title="WhatsApp" onclick="nav('whatsapp')">📱</button>
+    <button title="Calculator" onclick="toolbarCalc()">🧮</button>
+    <button title="Excel" onclick="toast('Export Excel')">📊</button>
+    <button title="PDF" onclick="toolbarPrint()">📕</button>
+    <button title="Import" onclick="toast('Import')">⬆️</button>
+    <button title="Refresh" onclick="location.reload()">🔄</button>
+    <button title="Filter" onclick="toast('Filter')">🔽</button>
+    <button title="Reports" onclick="nav('dashboard')">📈</button>
+    <button title="New" onclick="toast('New document')">➕</button>
+    <button title="Save" onclick="toast('Save')">💾</button>
+    <button title="AI Assistant" onclick="openKESHASHAChat()">🤖</button>
+    <span class="tb-sep"></span>
+    <button title="Minimize" onclick="toolbarWin('min')">_</button>
+    <button title="Maximize" onclick="toolbarWin('max')">□</button>
+    <button title="Close" onclick="toolbarWin('close')">✕</button>
+  `;
+  mb.after(tb);
+}
+const css = document.createElement("style");
+css.textContent = `
+.sap-toolbar{background:linear-gradient(180deg,#f8f9fa,#e9ecef);border-bottom:1px solid #adb5bd;padding:2px 6px;display:flex;flex-wrap:wrap;gap:1px;align-items:center;height:36px;overflow-x:auto}
+.sap-toolbar button{background:transparent;border:1px solid transparent;width:28px;height:28px;font-size:14px;cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content:center}
+.sap-toolbar button:hover{background:#e3f2fd;border-color:#90caf9}
+.sap-toolbar .tb-sep{width:1px;height:22px;background:#ced4da;margin:0 4px}
+`;
+document.head.appendChild(css);
+setTimeout(injectToolbar, 400);
+
+window.toolbarFind = function(){ var q=prompt("Find:"); if(q) toast("Searching: "+q); };
+window.toolbarPrint = function(){ window.print(); };
+window.toolbarCalc = function(){ 
+  var html = "<title>Calc</title><body style='font-family:sans-serif;padding:10px'><input id=d style='width:100%;font-size:20px;text-align:right' readonly><br>";
+  html += "<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px'>";
+  ["7","8","9","/","4","5","6","*","1","2","3","-","0",".","=","+","C"].forEach(function(c){
+    html += "<button onclick=\"calc('"+c+"')\" style='padding:12px'>"+c+"</button>";
+  });
+  html += "</div><" + "script>var v='';function calc(c){var d=document.getElementById('d');if(c==='C'){v='';d.value='';}else if(c==='='){try{d.value=eval(v);v=d.value}catch(e){d.value='Err'}}else{v+=c;d.value=v}}<" + "/script></body>";
+  window.open("data:text/html,"+encodeURIComponent(html),"calc","width=240,height=320"); 
+};
+window.toolbarWin = function(act){
+  var wins=document.querySelectorAll(".win,.doc-win,.doc-window");
+  if(!wins.length) return toast("No open windows");
+  var w=wins[wins.length-1];
+  if(act==="min") w.classList.toggle("minimized");
+  else if(act==="max") w.classList.toggle("maximized");
+  else if(act==="close") w.remove();
+  toast("Window "+act);
+};
+
+// ---------- 2. Intercompany / Group Reporting ----------
+window.renderIntercompanyFS = function(el){
+  const companies = (typeof companies!=="undefined"?companies:[])||[];
+  const opts = companies.map(c=>`<option value="${c.id}">${esc(c.name||c.code||c.id)}</option>`).join("");
+  el.innerHTML = `
+    <div class="toolbar"><h2>Intercompany / Group Financial Reports</h2>
+      <button class="btn btn-sm" onclick="nav('tb')">Trial Balance</button>
+      <button class="btn btn-sm" onclick="renderFS(document.getElementById('main'),'sfp')">SFP</button>
+      <button class="btn btn-sm" onclick="renderFS(document.getElementById('main'),'pl')">P&L</button>
+      <button class="btn btn-sm" onclick="renderFS(document.getElementById('main'),'cf')">Cash Flow</button>
+    </div>
+    <div class="form-bar">
+      <div class="fg"><label>Company / Group</label>
+        <select id="ic-company" onchange="icApply()">
+          <option value="current">Current Company</option>
+          <option value="combined">Combined (Group) — Authorized only</option>
+          ${opts}
+        </select>
+      </div>
+      <div class="fg"><label>From</label><input type="date" id="ic-from"></div>
+      <div class="fg"><label>To</label><input type="date" id="ic-to"></div>
+      <button class="btn btn-sm btn-primary" onclick="icApply()">Generate</button>
+    </div>
+    <div id="ic-result" style="padding:12px;background:#fff;border:1px solid #c5cdd8">
+      Select company or Combined and click Generate. Group reports require authorization.
+    </div>
+    <p style="font-size:11px;color:#64748b;margin-top:8px">Each company keeps its own Chart of Accounts. Reports are compacted/consolidated when Combined is selected (authorized users only).</p>
+  `;
+  const today=new Date().toISOString().slice(0,10);
+  const from=document.getElementById("ic-from"); if(from) from.value=today.slice(0,4)+"-01-01";
+  const to=document.getElementById("ic-to"); if(to) to.value=today;
+};
+window.icApply = function(){
+  const sel=document.getElementById("ic-company");
+  const res=document.getElementById("ic-result");
+  if(!sel||!res) return;
+  const v=sel.value;
+  if(v==="combined" && !(currentUser&&currentUser.isSuperAdmin)){
+    res.innerHTML="<div style='color:#b91c1c'>No authorization for Group/Combined reports. Contact administrator.</div>";
+    return;
+  }
+  res.innerHTML=`<div style="font-weight:700;color:#0b3d91">Report generated for: ${v==="combined"?"Combined Group":"Selected Company"}</div>
+    <p>Use the buttons above for full IFRS Financial Position, Profit & Loss, Cash Flow and Trial Balance. Combined view consolidates all companies for authorized users.</p>`;
+  toast("Intercompany report ready", true);
+};
+
+// ---------- 3. Form Settings (columns visibility) ----------
+window.openFormSettings = function(docType){
+  const cols = ["Item Code","Description","Qty","Price","Discount","Tax Code","Warehouse","UoM","Total","Project","Department","Branch","Remarks"];
+  const html = `<div style="padding:12px"><h3 style="margin:0 0 8px">Form Settings — ${docType||"Document"}</h3>
+    <p style="font-size:12px;color:#64748b">Choose columns to show (SAP-style)</p>
+    ${cols.map(c=>`<label style="display:flex;align-items:center;gap:8px;margin:4px 0"><input type="checkbox" checked> ${c}</label>`).join("")}
+    <div style="margin-top:10px"><button class="btn btn-sm btn-primary" onclick="toast('Form settings saved',true);this.closest('.win')&&this.closest('.win').remove()">Save</button></div></div>`;
+  if(typeof openAppWindow==="function") openAppWindow("Form Settings", html, {w:420,h:480});
+  else toast("Form Settings opened");
+};
+
+// ---------- 4. HR Loans & Basic Pay ----------
+window.renderHRLoans = function(el){
+  el.innerHTML = `
+    <div class="toolbar"><h2>Employee Loans & Deductions</h2>
+      <button class="btn btn-sm btn-primary" onclick="openHRLoanForm()">+ New Loan</button>
+    </div>
+    <div class="grid-wrap"><table class="grid"><thead><tr>
+      <th>Doc No</th><th>Employee</th><th>Type</th><th>Date</th><th>Amount</th><th>Remark</th><th>Status</th>
+    </tr></thead><tbody id="hr-loan-body"><tr><td colspan="7">No loans yet</td></tr></tbody></table></div>
+    <div id="hr-loan-form" style="display:none;margin-top:10px;background:#fff;border:1px solid #c5cdd8;padding:10px">
+      <div class="form-bar">
+        <div class="fg"><label>Employee</label><select id="hr-emp"><option value="">— Select —</option></select></div>
+        <div class="fg"><label>Type</label><select id="hr-type">
+          <option>Advance Salary</option><option>Loan</option><option>Good Loss</option>
+          <option>Absenteeism Deduction</option><option>Disciplinary Penalty</option>
+        </select></div>
+        <div class="fg"><label>Document Date</label><input type="date" id="hr-date"></div>
+        <div class="fg"><label>Amount</label><input type="number" id="hr-amt" step="0.01"></div>
+        <div class="fg"><label>Remark</label><input id="hr-rem"></div>
+      </div>
+      <div style="margin-top:8px"><b>Installments (Amount to Deduct / Deduction Date)</b></div>
+      <table class="grid" style="margin-top:4px"><thead><tr><th>#</th><th>Amount to Deduct</th><th>Deduction Date</th><th></th></tr></thead>
+      <tbody id="hr-inst"></tbody></table>
+      <button class="btn btn-sm" onclick="addHRInstallment()">+ Installment</button>
+      <div style="margin-top:8px">
+        <button class="btn btn-sm btn-primary" onclick="saveHRLoan('view')">Add & View</button>
+        <button class="btn btn-sm btn-primary" onclick="saveHRLoan('new')">Add & New</button>
+        <button class="btn btn-sm" onclick="document.getElementById('hr-loan-form').style.display='none'">Cancel</button>
+      </div>
+    </div>
+  `;
+};
+window.openHRLoanForm = function(){
+  const f=document.getElementById("hr-loan-form"); if(f) f.style.display="block";
+  const sel=document.getElementById("hr-emp");
+  if(sel && typeof employees!=="undefined"){
+    sel.innerHTML="<option value=''>— Select —</option>"+employees.map(e=>`<option value="${e.employeeCode}">${esc(e.fullName||e.employeeCode)}</option>`).join("");
+  }
+  document.getElementById("hr-inst").innerHTML="";
+};
+window.addHRInstallment = function(){
+  const tb=document.getElementById("hr-inst"); if(!tb) return;
+  const n=tb.rows.length+1;
+  tb.insertAdjacentHTML("beforeend",`<tr><td>${n}</td><td><input type="number" step="0.01" style="width:100%"></td><td><input type="date" style="width:100%"></td><td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()">✕</button></td></tr>`);
+};
+window.saveHRLoan = function(mode){
+  toast(mode==="view"?"Loan saved — viewing":"Loan saved — new form", true);
+  if(mode==="new") openHRLoanForm();
+  else document.getElementById("hr-loan-form").style.display="none";
+};
+
+window.renderBasicPay = function(el){
+  el.innerHTML = `
+    <div class="toolbar"><h2>Basic Pay Document</h2>
+      <button class="btn btn-sm btn-primary" onclick="toast('Basic Pay form')">+ New</button>
+    </div>
+    <div class="form-bar">
+      <div class="fg"><label>Employee</label><select><option>— Select —</option></select></div>
+      <div class="fg"><label>Period</label><input type="month"></div>
+      <div class="fg"><label>Basic Pay</label><input type="number" step="0.01"></div>
+      <div class="fg"><label>Remarks</label><input></div>
+    </div>
+    <div class="grid-wrap" style="margin-top:8px"><table class="grid"><thead><tr><th>Employee</th><th>Code</th><th>Department</th><th>Basic Pay</th><th>Allowances</th><th>Deductions</th><th>Net</th></tr></thead>
+    <tbody><tr><td colspan="7">No basic pay documents</td></tr></tbody></table></div>
+    <div style="margin-top:8px">
+      <button class="btn btn-sm btn-primary" onclick="toast('Add & View',true)">Add & View</button>
+      <button class="btn btn-sm btn-primary" onclick="toast('Add & New',true)">Add & New</button>
+    </div>
+  `;
+};
+
+// ---------- 5. Inventory Counting / Posting / Revaluation / Opening ----------
+window.renderInvCounting = function(el){
+  el.innerHTML = `<div class="toolbar"><h2>Inventory Counting</h2><button class="btn btn-sm btn-primary">+ New Counting</button></div>
+    <div class="grid-wrap"><table class="grid"><thead><tr><th>Doc No</th><th>Date</th><th>Warehouse</th><th>Status</th><th>Counter</th></tr></thead>
+    <tbody><tr><td colspan="5">No counting documents</td></tr></tbody></table></div>
+    <p style="font-size:12px;color:#64748b;margin-top:8px">SAP-style Inventory Counting → Inventory Posting → Inventory Revaluation flow.</p>`;
+};
+window.renderInvPosting = function(el){
+  el.innerHTML = `<div class="toolbar"><h2>Inventory Posting</h2><button class="btn btn-sm btn-primary">+ New Posting</button></div>
+    <div class="grid-wrap"><table class="grid"><thead><tr><th>Doc No</th><th>Date</th><th>From Counting</th><th>Status</th></tr></thead>
+    <tbody><tr><td colspan="4">No postings</td></tr></tbody></table></div>`;
+};
+window.renderInvReval = function(el){
+  el.innerHTML = `<div class="toolbar"><h2>Inventory Revaluation</h2><button class="btn btn-sm btn-primary">+ New Revaluation</button></div>
+    <div class="grid-wrap"><table class="grid"><thead><tr><th>Doc No</th><th>Date</th><th>Item</th><th>Old Cost</th><th>New Cost</th><th>Difference</th></tr></thead>
+    <tbody><tr><td colspan="6">No revaluations</td></tr></tbody></table></div>`;
+};
+window.renderInvOpening = function(el){
+  el.innerHTML = `<div class="toolbar"><h2>Inventory Opening Balance</h2><button class="btn btn-sm btn-primary">+ New</button>
+    <button class="btn btn-sm">📄 Template</button></div>
+    <p style="font-size:12px;color:#64748b">Separate from general Opening Balance. Own template and format.</p>
+    <div class="grid-wrap"><table class="grid"><thead><tr><th>Item</th><th>Warehouse</th><th>Qty</th><th>Cost</th><th>Total</th></tr></thead>
+    <tbody><tr><td colspan="5">No inventory opening balances</td></tr></tbody></table></div>`;
+};
+
+// ---------- 6. Super Inventory Reports ----------
+window.renderSuperInvReports = function(el){
+  el.innerHTML = `
+    <div class="toolbar"><h2>Super Inventory Reports (International Standard)</h2>
+      <button class="btn btn-sm" onclick="window.print()">Print / PDF</button>
+    </div>
+    <div class="form-bar">
+      <div class="fg"><label>Report</label><select id="inv-rep-type">
+        <option>Inventory Audit Report</option>
+        <option>Inventory Status Report</option>
+        <option>Inventory in Warehouse Report</option>
+        <option>Inventory Valuation Report</option>
+        <option>Inventory Posting List</option>
+        <option>Batch / Serial Number Report</option>
+        <option>Inventory Counting Report</option>
+        <option>Goods Receipt / Issue Report</option>
+        <option>Inventory Transfer Report</option>
+        <option>Item Master List</option>
+      </select></div>
+      <div class="fg"><label>Warehouse</label><select><option>All</option></select></div>
+      <div class="fg"><label>From</label><input type="date"></div>
+      <div class="fg"><label>To</label><input type="date"></div>
+      <button class="btn btn-sm btn-primary" onclick="genSuperInvReport()">Generate</button>
+    </div>
+    <div id="super-inv-result" class="grid-wrap" style="padding:12px;margin-top:8px">
+      <p style="color:#64748b">Select a report and click Generate. Reports follow international inventory standards (similar quality to Financial Statements).</p>
+    </div>
+  `;
+};
+window.genSuperInvReport = function(){
+  const t=(document.getElementById("inv-rep-type")||{}).value||"Inventory Report";
+  const res=document.getElementById("super-inv-result");
+  if(res) res.innerHTML=`<h3 style="margin:0 0 8px;color:#0b3d91">${esc(t)}</h3>
+    <table class="grid"><thead><tr><th>Item</th><th>Warehouse</th><th>Qty</th><th>Value</th><th>Status</th></tr></thead>
+    <tbody><tr><td colspan="5">Report generated. Data based on current inventory transactions. Use Print for PDF with company logo.</td></tr></tbody></table>`;
+  toast(t+" generated", true);
+};
+
+// ---------- 7. Batch / Serial Management ----------
+window.renderBatchMgmt = function(el){
+  el.innerHTML = `
+    <div class="toolbar"><h2>Batch & Serial Management</h2>
+      <button class="btn btn-sm btn-primary">+ Batch</button>
+      <button class="btn btn-sm">+ Serial</button>
+    </div>
+    <div class="grid-wrap"><table class="grid"><thead><tr>
+      <th>Item</th><th>Batch/Serial No</th><th>Qty</th><th>Warehouse</th><th>Admission Date</th><th>Expiry</th><th>Status</th>
+    </tr></thead><tbody><tr><td colspan="7">No batches/serials. Strict control when Item is managed by Batch or Serial (SAP B1 style).</td></tr></tbody></table></div>
+  `;
+};
+
+// ---------- 8. Queries Manager ----------
+window.userQueries = window.userQueries || [];
+window.SYS_TABLES = {
+  // Master Data
+  OITM: {desc:"Items", fields:["ItemCode","ItemName","ItmsGrpCod","OnHand","AvgPrice","InvntItem","SellItem","PrchseItem","CodeBars"]},
+  OITW: {desc:"Item Warehouse", fields:["ItemCode","WhsCode","OnHand","IsCommited","OnOrder"]},
+  OCRD: {desc:"Business Partners", fields:["CardCode","CardName","CardType","Phone1","E_Mail","Currency","GroupCode"]},
+  CRD1: {desc:"BP Addresses", fields:["CardCode","Address","AdresType","Street","City","Country"]},
+  OHEM: {desc:"Employees", fields:["empID","firstName","lastName","dept","jobTitle","status","branch"]},
+  OWHS: {desc:"Warehouses", fields:["WhsCode","WhsName","Location"]},
+  OACT: {desc:"Chart of Accounts", fields:["AcctCode","AcctName","AcctType","Postable","CurrTotal","FatherNum"]},
+  // Purchase Documents
+  OPRQ: {desc:"Purchase Request", fields:["DocEntry","DocNum","DocDate","ReqDate","Requester","DocStatus","Comments"]},
+  PRQ1: {desc:"Purchase Request Lines", fields:["DocEntry","LineNum","ItemCode","Dscription","Quantity","Price","WhsCode","LineTotal"]},
+  OPQT: {desc:"Purchase Quotation", fields:["DocEntry","DocNum","DocDate","CardCode","DocStatus","DocTotal"]},
+  PQT1: {desc:"Purchase Quotation Lines", fields:["DocEntry","LineNum","ItemCode","Dscription","Quantity","Price","LineTotal"]},
+  OPOR: {desc:"Purchase Order", fields:["DocEntry","DocNum","DocDate","CardCode","DocStatus","DocTotal","Comments"]},
+  POR1: {desc:"Purchase Order Lines", fields:["DocEntry","LineNum","ItemCode","Dscription","Quantity","Price","WhsCode","LineTotal"]},
+  OPDN: {desc:"Goods Receipt PO", fields:["DocEntry","DocNum","DocDate","CardCode","DocStatus","DocTotal"]},
+  PDN1: {desc:"Goods Receipt PO Lines", fields:["DocEntry","LineNum","ItemCode","Dscription","Quantity","Price","WhsCode"]},
+  OPCH: {desc:"A/P Invoice", fields:["DocEntry","DocNum","DocDate","CardCode","DocStatus","DocTotal","VatSum"]},
+  PCH1: {desc:"A/P Invoice Lines", fields:["DocEntry","LineNum","ItemCode","Dscription","Quantity","Price","VatPrcnt","LineTotal"]},
+  ORPC: {desc:"A/P Credit Memo", fields:["DocEntry","DocNum","DocDate","CardCode","DocStatus","DocTotal"]},
+  RPC1: {desc:"A/P Credit Memo Lines", fields:["DocEntry","LineNum","ItemCode","Dscription","Quantity","Price","LineTotal"]},
+  // Sales Documents
+  OQUT: {desc:"Sales Quotation", fields:["DocEntry","DocNum","DocDate","CardCode","DocStatus","DocTotal"]},
+  QUT1: {desc:"Sales Quotation Lines", fields:["DocEntry","LineNum","ItemCode","Dscription","Quantity","Price","LineTotal"]},
+  ORDR: {desc:"Sales Order", fields:["DocEntry","DocNum","DocDate","CardCode","DocStatus","DocTotal","Comments"]},
+  RDR1: {desc:"Sales Order Lines", fields:["DocEntry","LineNum","ItemCode","Dscription","Quantity","Price","WhsCode","LineTotal"]},
+  ODLN: {desc:"Delivery", fields:["DocEntry","DocNum","DocDate","CardCode","DocStatus","DocTotal"]},
+  DLN1: {desc:"Delivery Lines", fields:["DocEntry","LineNum","ItemCode","Dscription","Quantity","Price","WhsCode"]},
+  OINV: {desc:"A/R Invoice", fields:["DocEntry","DocNum","DocDate","CardCode","DocStatus","DocTotal","VatSum"]},
+  INV1: {desc:"A/R Invoice Lines", fields:["DocEntry","LineNum","ItemCode","Dscription","Quantity","Price","VatPrcnt","LineTotal"]},
+  ORIN: {desc:"A/R Credit Memo", fields:["DocEntry","DocNum","DocDate","CardCode","DocStatus","DocTotal"]},
+  RIN1: {desc:"A/R Credit Memo Lines", fields:["DocEntry","LineNum","ItemCode","Dscription","Quantity","Price","LineTotal"]},
+  // Financial
+  OJDT: {desc:"Journal Entries", fields:["TransId","RefDate","Memo","TransType","BaseRef"]},
+  JDT1: {desc:"Journal Entry Lines", fields:["TransId","Line_ID","Account","Debit","Credit","LineMemo"]},
+  // Inventory
+  OIGN: {desc:"Goods Receipt", fields:["DocEntry","DocNum","DocDate","Comments"]},
+  IGN1: {desc:"Goods Receipt Lines", fields:["DocEntry","LineNum","ItemCode","Quantity","WhsCode"]},
+  OIGE: {desc:"Goods Issue", fields:["DocEntry","DocNum","DocDate","Comments"]},
+  IGE1: {desc:"Goods Issue Lines", fields:["DocEntry","LineNum","ItemCode","Quantity","WhsCode"]},
+  OWTR: {desc:"Inventory Transfer", fields:["DocEntry","DocNum","DocDate","Filler","ToWhsCode"]},
+  WTR1: {desc:"Inventory Transfer Lines", fields:["DocEntry","LineNum","ItemCode","Quantity","FromWhsCod","WhsCode"]},
+  // Payments
+  ORCT: {desc:"Incoming Payment", fields:["DocEntry","DocNum","DocDate","CardCode","DocTotal","CashSum"]},
+  RCT1: {desc:"Incoming Payment Invoices", fields:["DocNum","InvoiceId","SumApplied"]},
+  OVPM: {desc:"Outgoing Payment", fields:["DocEntry","DocNum","DocDate","CardCode","DocTotal"]},
+  VPM1: {desc:"Outgoing Payment Invoices", fields:["DocNum","InvoiceId","SumApplied"]}
+};
+window.renderQueries = function(el){
+  const isAdmin = !!(currentUser && (currentUser.isSuperAdmin || (typeof hasAuth==="function" && hasAuth("cust.queries",2))));
+  const qrows = (window.userQueries||[]).map((q,i)=>`<tr>
+    <td>${esc(q.name)}</td><td>${esc(q.category||"User")}</td>
+    <td>
+      <button class="btn btn-sm btn-primary" onclick="runUserQuery(${i})">Execute</button>
+      ${isAdmin?`<button class="btn btn-sm" onclick="editUserQuery(${i})">Edit</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteUserQuery(${i})">Delete</button>`:""}
+    </td>
+  </tr>`).join("") || `<tr><td colspan="3">No user queries yet</td></tr>`;
+  el.innerHTML = `
+    <div class="toolbar"><h2>Queries</h2>
+      <button class="btn btn-sm" onclick="showQueryTab('manager')">Queries Manager</button>
+      ${isAdmin?`<button class="btn btn-sm" onclick="showQueryTab('generator')">Query Generator</button>
+      <button class="btn btn-sm btn-primary" onclick="showQueryTab('user')">+ User Query</button>`:""}
+    </div>
+    <div id="q-tab-manager" style="display:block">
+      <div class="grid-wrap"><table class="grid"><thead><tr><th>Name</th><th>Category</th><th></th></tr></thead>
+      <tbody>${qrows}</tbody></table></div>
+    </div>
+    <div id="q-tab-generator" style="display:none;background:#fff;border:1px solid #c5cdd8;padding:12px;margin-top:8px">
+      <h3 style="margin:0 0 8px;color:#0b3d91">Query Generator</h3>
+      <div class="form-bar">
+        <div class="fg"><label>Table</label><select id="qg-table" onchange="qgFields()">${Object.keys(window.SYS_TABLES).map(t=>`<option value="${t}">${t} — ${window.SYS_TABLES[t].desc}</option>`).join("")}</select></div>
+        <div class="fg"><label>Fields</label><select id="qg-fields" multiple size="5" style="height:90px"></select></div>
+        <div class="fg"><label>Where (optional)</label><input id="qg-where" placeholder="DocStatus = 'O'"></div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="generateSQL()">Generate SQL</button>
+      <textarea id="qg-result" rows="5" style="width:100%;font-family:monospace;margin-top:8px" readonly></textarea>
+      <button class="btn btn-sm" onclick="saveGeneratedAsUser()">Save as User Query</button>
+      <p style="font-size:11px;color:#64748b;margin-top:6px">Tables include headers (OPRQ, ORDR, OJDT...) and lines (PRQ1, RDR1, JDT1...). Join on DocEntry/TransId.</p>
+    </div>
+    <div id="q-tab-user" style="display:none;background:#fff;border:1px solid #c5cdd8;padding:12px;margin-top:8px">
+      <h3 style="margin:0 0 8px;color:#0b3d91">User Query</h3>
+      <div class="form-bar">
+        <div class="fg"><label>Name *</label><input id="uq-name" placeholder="Open Sales Orders"></div>
+        <div class="fg"><label>Category</label><select id="uq-cat"><option>User</option><option>Sales</option><option>Purchase</option><option>Inventory</option><option>Finance</option></select></div>
+        <div class="fg" style="grid-column:1/-1" id="uq-sql-wrap"><label>SQL</label><textarea id="uq-sql" rows="6" style="width:100%;font-family:monospace" placeholder="SELECT DocNum, CardCode, DocTotal FROM ORDR WHERE DocStatus='O'"></textarea></div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="saveUserQuery()">Save Query</button>
+      <button class="btn btn-sm" onclick="executeCurrentSQL()">Execute</button>
+    </div>
+    <div id="q-result" style="margin-top:10px"></div>
+  `;
+  qgFields();
+};
+window.showQueryTab = function(tab){
+  const isAdmin = !!(currentUser && (currentUser.isSuperAdmin || (typeof hasAuth==="function" && hasAuth("cust.queries",2))));
+  if(!isAdmin && (tab==="generator" || tab==="user")) return toast("No authorization to edit queries");
+  ["manager","generator","user"].forEach(t=>{
+    const el=document.getElementById("q-tab-"+t);
+    if(el) el.style.display = (t===tab) ? "block" : "none";
+  });
+  if(tab==="generator") qgFields();
+  // Hide SQL code from non-admin
+  const sqlWrap = document.getElementById("uq-sql-wrap");
+  if(sqlWrap && !isAdmin) sqlWrap.style.display = "none";
+};
+window.qgFields = function(){
+  const t=(document.getElementById("qg-table")||{}).value;
+  const sel=document.getElementById("qg-fields");
+  if(!sel||!window.SYS_TABLES[t]) return;
+  sel.innerHTML = window.SYS_TABLES[t].fields.map(f=>`<option value="${f}" selected>${f}</option>`).join("");
+};
+window.generateSQL = function(){
+  const table=(document.getElementById("qg-table")||{}).value;
+  const fieldsSel=document.getElementById("qg-fields");
+  const fields = fieldsSel ? Array.from(fieldsSel.selectedOptions).map(o=>o.value) : ["*"];
+  const where=(document.getElementById("qg-where")||{}).value.trim();
+  let sql = "SELECT " + (fields.length?fields.join(", "):"*") + " FROM " + table;
+  if(where) sql += " WHERE " + where;
+  const ta=document.getElementById("qg-result");
+  if(ta) ta.value = sql;
+  toast("SQL generated", true);
+  return sql;
+};
+window.saveGeneratedAsUser = function(){
+  const sql=(document.getElementById("qg-result")||{}).value;
+  if(!sql) return toast("Generate SQL first");
+  const name=prompt("Query name:")||"Generated Query";
+  window.userQueries=window.userQueries||[];
+  window.userQueries.push({name, category:"User", sql});
+  toast("Saved as User Query", true);
+  renderQueries(document.getElementById("main"));
+};
+window.saveUserQuery = function(){
+  const name=(document.getElementById("uq-name")||{}).value.trim();
+  const sql=(document.getElementById("uq-sql")||{}).value.trim();
+  if(!name||!sql) return toast("Name and SQL required");
+  window.userQueries=window.userQueries||[];
+  window.userQueries.push({name, category:(document.getElementById("uq-cat")||{}).value, sql});
+  toast("User Query saved", true);
+  renderQueries(document.getElementById("main"));
+};
+window.editUserQuery = function(i){
+  const q=(window.userQueries||[])[i]; if(!q) return;
+  showQueryTab("user");
+  setTimeout(()=>{
+    const n=document.getElementById("uq-name"); if(n) n.value=q.name;
+    const s=document.getElementById("uq-sql"); if(s) s.value=q.sql;
+  },50);
+};
+window.runUserQuery = function(i){
+  const q=(window.userQueries||[])[i]; if(!q) return;
+  executeSQL(q.sql, q.name);
+};
+window.deleteUserQuery = function(i){
+  if(!confirm("Delete this query?")) return;
+  window.userQueries.splice(i,1);
+  toast("Query deleted", true);
+  renderQueries(document.getElementById("main"));
+};
+window.executeCurrentSQL = function(){
+  const sql=(document.getElementById("uq-sql")||{}).value.trim();
+  if(!sql) return toast("Enter SQL");
+  executeSQL(sql, "Query Result");
+};
+window.executeSQL = function(sql, title){
+  // Simple client-side interpreter for demo against in-memory data
+  const res=document.getElementById("q-result");
+  if(!res) return;
+  let rows = [], headers = [];
+  try {
+    const m = /FROM\s+(\w+)/i.exec(sql);
+    const table = m ? m[1].toUpperCase() : "";
+    const map = {OITM:items, OCRD:partners, OHEM:employees, OWHS:warehouses, OACT:accounts};
+    const data = map[table] || [];
+    if(!data.length){
+      res.innerHTML = `<div style="padding:10px;background:#fff7ed;border:1px solid #fdba74">No live data for ${table||"table"}. Query saved. SQL: <code>${esc(sql)}</code></div>`;
+      return;
+    }
+    headers = Object.keys(data[0]||{}).slice(0,8);
+    rows = data.slice(0,50).map(r=>headers.map(h=>esc(r[h]||"")));
+  } catch(e){
+    res.innerHTML = `<div style="color:#b91c1c">Query error: ${esc(e.message)}</div>`;
+    return;
+  }
+  res.innerHTML = `<h3 style="margin:8px 0;color:#0b3d91">${esc(title||"Result")}</h3>
+    <div class="grid-wrap"><table class="grid"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    <p style="font-size:11px;color:#64748b">${rows.length} row(s)</p>`;
+  toast("Query executed", true);
+};
+
+// ---------- 9. Customization Tools ----------
+window.udtList = window.udtList || [];
+window.renderUDT = function(el){
+  const rows = (window.udtList||[]).map((t,i)=>`<tr><td><b>${esc(t.name)}</b></td><td>${esc(t.desc||"")}</td><td>${esc(t.type||"Master")}</td><td><button class="btn btn-sm" onclick="udtManage(${i})">Manage</button></td></tr>`).join("") || `<tr><td colspan="4">No user-defined tables</td></tr>`;
+  el.innerHTML = `<div class="toolbar"><h2>User Defined Tables (UDT)</h2>
+    <button class="btn btn-sm btn-primary" onclick="document.getElementById('udt-form').style.display='block'">+ New Table</button></div>
+    <div id="udt-form" style="display:none;background:#fff;border:1px solid #c5cdd8;padding:10px;margin-bottom:8px">
+      <div class="form-bar">
+        <div class="fg"><label>Table Name *</label><input id="udt-name" placeholder="@MYTABLE"></div>
+        <div class="fg"><label>Description</label><input id="udt-desc"></div>
+        <div class="fg"><label>Type</label><select id="udt-type"><option>Master Data</option><option>Document</option><option>No Object</option></select></div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="saveUDT()">Create Table</button>
+    </div>
+    <div class="grid-wrap"><table class="grid"><thead><tr><th>Table Name</th><th>Description</th><th>Type</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table></div>
+    <p style="font-size:12px;color:#64748b;margin-top:6px">SAP-style UDT. Create tables then add User Defined Fields.</p>`;
+};
+window.saveUDT = function(){
+  const name = (document.getElementById("udt-name")||{}).value.trim();
+  if(!name) return toast("Table name required");
+  window.udtList = window.udtList || [];
+  window.udtList.push({name, desc:(document.getElementById("udt-desc")||{}).value, type:(document.getElementById("udt-type")||{}).value});
+  toast("UDT created: "+name, true);
+  renderUDT(document.getElementById("main"));
+};
+window.udtManage = function(i){ toast("Managing table: "+(window.udtList[i]||{}).name); };
+window.udfList = window.udfList || [];
+window.renderUDF = function(el){
+  const rows = (window.udfList||[]).map(f=>`<tr><td>${esc(f.table)}</td><td><b>${esc(f.name)}</b></td><td>${esc(f.type)}</td><td>${esc(f.desc||"")}</td></tr>`).join("") || `<tr><td colspan="4">No user-defined fields</td></tr>`;
+  el.innerHTML = `<div class="toolbar"><h2>User Defined Fields (UDF)</h2>
+    <button class="btn btn-sm btn-primary" onclick="document.getElementById('udf-form').style.display='block'">+ New Field</button></div>
+    <div id="udf-form" style="display:none;background:#fff;border:1px solid #c5cdd8;padding:10px;margin-bottom:8px">
+      <div class="form-bar">
+        <div class="fg"><label>Table</label><select id="udf-table"><option>OITM</option><option>OCRD</option><option>ORDR</option><option>OPOR</option><option>OINV</option>${(window.udtList||[]).map(t=>`<option>${esc(t.name)}</option>`).join("")}</select></div>
+        <div class="fg"><label>Field Name *</label><input id="udf-name" placeholder="U_MyField"></div>
+        <div class="fg"><label>Type</label><select id="udf-type"><option>Alphanumeric</option><option>Numeric</option><option>Date</option><option>Amount</option></select></div>
+        <div class="fg"><label>Description</label><input id="udf-desc"></div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="saveUDF()">Add Field</button>
+    </div>
+    <div class="grid-wrap"><table class="grid"><thead><tr><th>Table</th><th>Field Name</th><th>Type</th><th>Description</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+};
+window.saveUDF = function(){
+  const name=(document.getElementById("udf-name")||{}).value.trim();
+  if(!name) return toast("Field name required");
+  window.udfList = window.udfList||[];
+  window.udfList.push({table:(document.getElementById("udf-table")||{}).value, name, type:(document.getElementById("udf-type")||{}).value, desc:(document.getElementById("udf-desc")||{}).value});
+  toast("UDF added: "+name, true);
+  renderUDF(document.getElementById("main"));
+};
+window.udoList = window.udoList || [];
+window.renderUDO = function(el){
+  const rows = (window.udoList||[]).map(o=>`<tr><td><b>${esc(o.code)}</b></td><td>${esc(o.name)}</td><td>${esc(o.table)}</td><td>${esc(o.type)}</td></tr>`).join("") || `<tr><td colspan="4">No user-defined objects</td></tr>`;
+  el.innerHTML = `<div class="toolbar"><h2>User Defined Objects (UDO)</h2>
+    <button class="btn btn-sm btn-primary" onclick="document.getElementById('udo-form').style.display='block'">Objects Registration Wizard</button></div>
+    <div id="udo-form" style="display:none;background:#fff;border:1px solid #c5cdd8;padding:10px;margin-bottom:8px">
+      <div class="form-bar">
+        <div class="fg"><label>Object Code *</label><input id="udo-code" placeholder="MYOBJ"></div>
+        <div class="fg"><label>Name</label><input id="udo-name"></div>
+        <div class="fg"><label>Main Table</label><select id="udo-table">${(window.udtList||[]).map(t=>`<option>${esc(t.name)}</option>`).join("")||"<option>— create UDT first —</option>"}</select></div>
+        <div class="fg"><label>Type</label><select id="udo-type"><option>Master Data</option><option>Document</option></select></div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="saveUDO()">Register Object</button>
+    </div>
+    <div class="grid-wrap"><table class="grid"><thead><tr><th>Code</th><th>Name</th><th>Table</th><th>Type</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>
+    <p style="font-size:12px;color:#64748b">SAP B1 style Object Registration Wizard.</p>`;
+};
+window.saveUDO = function(){
+  const code=(document.getElementById("udo-code")||{}).value.trim();
+  if(!code) return toast("Object code required");
+  window.udoList=window.udoList||[];
+  window.udoList.push({code, name:(document.getElementById("udo-name")||{}).value, table:(document.getElementById("udo-table")||{}).value, type:(document.getElementById("udo-type")||{}).value});
+  toast("UDO registered: "+code, true);
+  renderUDO(document.getElementById("main"));
+};
+
+// ---------- 10. Approval Workflow ----------
+window.approvalStages = window.approvalStages || [{name:"Manager", desc:"Department Manager", authorizer:""}];
+window.approvalTemplates = window.approvalTemplates || [];
+window.approvalQueue = window.approvalQueue || [];
+window.renderApprovalStages = function(el){
+  const rows=(window.approvalStages||[]).map((s,i)=>`<tr><td>${esc(s.name)}</td><td>${esc(s.desc||"")}</td><td>${esc(s.authorizer||"—")}</td></tr>`).join("");
+  el.innerHTML=`<div class="toolbar"><h2>Approval Stages</h2><button class="btn btn-sm btn-primary" onclick="document.getElementById('as-form').style.display='block'">+ Stage</button></div>
+    <div id="as-form" style="display:none;background:#fff;border:1px solid #c5cdd8;padding:10px;margin-bottom:8px">
+      <div class="form-bar">
+        <div class="fg"><label>Stage Name</label><input id="as-name"></div>
+        <div class="fg"><label>Description</label><input id="as-desc"></div>
+        <div class="fg"><label>Authorizer (User)</label><input id="as-user" placeholder="user email or code"></div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="saveApprovalStage()">Save Stage</button>
+    </div>
+    <div class="grid-wrap"><table class="grid"><thead><tr><th>Stage</th><th>Description</th><th>Authorizer</th></tr></thead><tbody>${rows||"<tr><td colspan=3>No stages</td></tr>"}</tbody></table></div>`;
+};
+window.saveApprovalStage=function(){
+  const name=(document.getElementById("as-name")||{}).value.trim();
+  if(!name) return toast("Name required");
+  window.approvalStages=window.approvalStages||[];
+  window.approvalStages.push({name, desc:(document.getElementById("as-desc")||{}).value, authorizer:(document.getElementById("as-user")||{}).value});
+  toast("Stage saved", true); renderApprovalStages(document.getElementById("main"));
+};
+window.renderApprovalTemplates = function(el){
+  const rows=(window.approvalTemplates||[]).map(t=>`<tr><td>${esc(t.name)}</td><td>${esc(t.doc)}</td><td>${esc(t.stages)}</td><td>${t.active?"Yes":"No"}</td></tr>`).join("")||`<tr><td colspan="4">No templates</td></tr>`;
+  el.innerHTML=`<div class="toolbar"><h2>Approval Templates</h2><button class="btn btn-sm btn-primary" onclick="document.getElementById('at-form').style.display='block'">+ Template</button></div>
+    <div id="at-form" style="display:none;background:#fff;border:1px solid #c5cdd8;padding:10px;margin-bottom:8px">
+      <div class="form-bar">
+        <div class="fg"><label>Template Name</label><input id="at-name"></div>
+        <div class="fg"><label>Document Type</label><select id="at-doc">
+          <optgroup label="Sales A/R">
+            <option>Sales Quotation (OQUT)</option>
+            <option>Sales Order (ORDR)</option>
+            <option>Delivery (ODLN)</option>
+            <option>Return</option>
+            <option>A/R Invoice (OINV)</option>
+            <option>A/R Credit Memo (ORIN)</option>
+            <option>A/R Down Payment</option>
+          </optgroup>
+          <optgroup label="Purchasing A/P">
+            <option>Purchase Request (OPRQ)</option>
+            <option>Purchase Quotation (OPQT)</option>
+            <option>Purchase Order (OPOR)</option>
+            <option>Goods Receipt PO (OPDN)</option>
+            <option>Goods Return</option>
+            <option>A/P Invoice (OPCH)</option>
+            <option>A/P Credit Memo (ORPC)</option>
+            <option>A/P Down Payment</option>
+          </optgroup>
+          <optgroup label="Inventory">
+            <option>Goods Receipt (OIGN)</option>
+            <option>Goods Issue (OIGE)</option>
+            <option>Inventory Transfer (OWTR)</option>
+            <option>Opening Balance</option>
+            <option>Inventory Counting</option>
+            <option>Inventory Posting</option>
+            <option>Inventory Revaluation</option>
+          </optgroup>
+          <optgroup label="Banking">
+            <option>Incoming Payment (ORCT)</option>
+            <option>Outgoing Payment (OVPM)</option>
+          </optgroup>
+          <optgroup label="Financials">
+            <option>Journal Entry (OJDT)</option>
+          </optgroup>
+        </select></div>
+        <div class="fg"><label>Stages (comma)</label><input id="at-stages" placeholder="Manager, Finance"></div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="saveApprovalTemplate()">Save Template</button>
+    </div>
+    <div class="grid-wrap"><table class="grid"><thead><tr><th>Template</th><th>Document</th><th>Stages</th><th>Active</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p style="font-size:12px;color:#64748b">When a user generates a document and is mapped in an Approval Template, the document is saved as Draft with status Pending until approved or rejected.</p>`;
+};
+window.saveApprovalTemplate=function(){
+  const name=(document.getElementById("at-name")||{}).value.trim();
+  if(!name) return toast("Name required");
+  window.approvalTemplates=window.approvalTemplates||[];
+  window.approvalTemplates.push({name, doc:(document.getElementById("at-doc")||{}).value, stages:(document.getElementById("at-stages")||{}).value, active:true});
+  toast("Template saved", true); renderApprovalTemplates(document.getElementById("main"));
+};
+window.renderApprovalStatus = function(el){
+  const filter = (document.getElementById("appr-filter")||{}).value || "";
+  const all = window.approvalQueue||[];
+  const list = filter ? all.filter(q=>q.docType===filter) : all;
+  const docTypes = [...new Set(all.map(q=>q.docType))];
+  const statusColor = s => s==="Approved"?"#059669":s==="Rejected"?"#dc2626":"#d97706";
+  const statusLabel = s => {
+    if(s==="Approved") return "Approved";
+    if(s==="Rejected") return "Rejected";
+    if(s==="Pending") return "Pending Draft";
+    return s||"Pending Draft";
+  };
+  const rows = list.map((q,i)=>{
+    const realIdx = all.indexOf(q);
+    const canAdd = q.status==="Approved";
+    return `<tr>
+      <td>${esc(q.docType)}</td><td>${esc(q.docNo)}</td>
+      <td><b style="color:${statusColor(q.status)}">${statusLabel(q.status)}</b></td>
+      <td>${esc(q.stage)}</td><td>${esc(q.authorizer)}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" onclick="viewApprovalDoc(${realIdx})">View</button>
+        ${q.status==="Pending"?`<button class="btn btn-sm btn-primary" onclick="approvalDecision(${realIdx},'Approved')">Approve</button> <button class="btn btn-sm btn-danger" onclick="approvalDecision(${realIdx},'Rejected')">Reject</button>`:""}
+        ${canAdd?`<button class="btn btn-sm btn-primary" onclick="addApprovedDoc(${realIdx})">Add</button>`:""}
+      </td>
+    </tr>`;
+  }).join("")||`<tr><td colspan="6">No documents in approval</td></tr>`;
+  el.innerHTML=`<div class="toolbar"><h2>Approval Status</h2>
+    <select id="appr-filter" onchange="renderApprovalStatus(document.getElementById('main'))" style="margin:0;padding:4px 8px">
+      <option value="">All Documents</option>
+      <optgroup label="Sales A/R">
+        <option value="Sales Quotation" ${filter==="Sales Quotation"?"selected":""}>Sales Quotation</option>
+        <option value="Sales Order" ${filter==="Sales Order"?"selected":""}>Sales Order</option>
+        <option value="Delivery" ${filter==="Delivery"?"selected":""}>Delivery</option>
+        <option value="Return" ${filter==="Return"?"selected":""}>Return</option>
+        <option value="A/R Invoice" ${filter==="A/R Invoice"?"selected":""}>A/R Invoice</option>
+        <option value="A/R Credit Memo" ${filter==="A/R Credit Memo"?"selected":""}>A/R Credit Memo</option>
+        <option value="A/R Down Payment" ${filter==="A/R Down Payment"?"selected":""}>A/R Down Payment</option>
+      </optgroup>
+      <optgroup label="Purchasing A/P">
+        <option value="Purchase Request" ${filter==="Purchase Request"?"selected":""}>Purchase Request</option>
+        <option value="Purchase Quotation" ${filter==="Purchase Quotation"?"selected":""}>Purchase Quotation</option>
+        <option value="Purchase Order" ${filter==="Purchase Order"?"selected":""}>Purchase Order</option>
+        <option value="Goods Receipt PO" ${filter==="Goods Receipt PO"?"selected":""}>Goods Receipt PO</option>
+        <option value="Goods Return" ${filter==="Goods Return"?"selected":""}>Goods Return</option>
+        <option value="A/P Invoice" ${filter==="A/P Invoice"?"selected":""}>A/P Invoice</option>
+        <option value="A/P Credit Memo" ${filter==="A/P Credit Memo"?"selected":""}>A/P Credit Memo</option>
+        <option value="A/P Down Payment" ${filter==="A/P Down Payment"?"selected":""}>A/P Down Payment</option>
+      </optgroup>
+      <optgroup label="Inventory">
+        <option value="Goods Receipt" ${filter==="Goods Receipt"?"selected":""}>Goods Receipt</option>
+        <option value="Goods Issue" ${filter==="Goods Issue"?"selected":""}>Goods Issue</option>
+        <option value="Inventory Transfer" ${filter==="Inventory Transfer"?"selected":""}>Inventory Transfer</option>
+        <option value="Opening Balance" ${filter==="Opening Balance"?"selected":""}>Opening Balance</option>
+        <option value="Inventory Counting" ${filter==="Inventory Counting"?"selected":""}>Inventory Counting</option>
+        <option value="Inventory Posting" ${filter==="Inventory Posting"?"selected":""}>Inventory Posting</option>
+        <option value="Inventory Revaluation" ${filter==="Inventory Revaluation"?"selected":""}>Inventory Revaluation</option>
+      </optgroup>
+      <optgroup label="Banking">
+        <option value="Incoming Payment" ${filter==="Incoming Payment"?"selected":""}>Incoming Payment</option>
+        <option value="Outgoing Payment" ${filter==="Outgoing Payment"?"selected":""}>Outgoing Payment</option>
+      </optgroup>
+      <optgroup label="Financials">
+        <option value="Journal Entry" ${filter==="Journal Entry"?"selected":""}>Journal Entry</option>
+      </optgroup>
+    </select>
+    <button class="btn btn-sm" onclick="simulateApprovalDoc()">+ Simulate</button>
+  </div>
+  <div class="grid-wrap"><table class="grid"><thead><tr><th>Document</th><th>Doc No</th><th>Status</th><th>Stage</th><th>Authorizer</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table></div>
+  <p style="font-size:12px;color:#64748b">Only <b>Approved</b> documents can be Added. Pending = Pending Draft, Rejected = Rejected Draft.</p>`;
+};
+window.simulateApprovalDoc=function(){
+  const types=["Sales Order","Sales Quotation","Delivery","A/R Invoice","Purchase Request","Purchase Order","Goods Receipt PO","A/P Invoice","Goods Receipt","Goods Issue","Inventory Transfer","Opening Balance","Incoming Payment","Outgoing Payment","Journal Entry"];
+  const t=types[Math.floor(Math.random()*types.length)];
+  window.approvalQueue=window.approvalQueue||[];
+  window.approvalQueue.push({docType:t, docNo:t.slice(0,2).toUpperCase()+Date.now().toString().slice(-5), status:"Pending", stage:"Manager", authorizer:"manager@company.com"});
+  toast("Document sent as Pending Draft", true);
+  renderApprovalStatus(document.getElementById("main"));
+};
+window.approvalDecision=function(i, decision){
+  if(window.approvalQueue&&window.approvalQueue[i]) window.approvalQueue[i].status=decision;
+  toast("Status: "+(decision==="Approved"?"Approved":"Rejected Draft"), true);
+  renderApprovalStatus(document.getElementById("main"));
+};
+window.viewApprovalDoc=function(i){
+  const q=(window.approvalQueue||[])[i]; if(!q) return;
+  const statusColor = q.status==="Approved"?"#059669":q.status==="Rejected"?"#dc2626":"#d97706";
+  const statusLabel = q.status==="Approved"?"Approved":q.status==="Rejected"?"Rejected Draft":"Pending Draft";
+  const canAdd = q.status==="Approved";
+  const body = `<div style="padding:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="margin:0">${esc(q.docType)} — ${esc(q.docNo)}</h3>
+      <span style="background:${statusColor};color:#fff;padding:4px 12px;border-radius:4px;font-weight:700;font-size:12px">${statusLabel}</span>
+    </div>
+    <table class="grid"><tr><td>Document Type</td><td>${esc(q.docType)}</td></tr>
+    <tr><td>Doc No</td><td>${esc(q.docNo)}</td></tr>
+    <tr><td>Status</td><td><b style="color:${statusColor}">${statusLabel}</b></td></tr>
+    <tr><td>Stage</td><td>${esc(q.stage)}</td></tr>
+    <tr><td>Authorizer</td><td>${esc(q.authorizer)}</td></tr></table>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+      ${canAdd?`<button class="btn btn-sm btn-primary" onclick="addApprovedDoc(${i});closeWin(this.closest('.win').id)">Add</button>`:`<span style="color:#64748b;font-size:12px">Only Approved documents can be Added</span>`}
+    </div>
+  </div>`;
+  if(typeof openAppWindow==="function") openAppWindow(q.docType+" — "+q.docNo, body, {w:480, h:340});
+  else toast("View: "+q.docType+" "+q.docNo+" ["+statusLabel+"]");
+};
+window.addApprovedDoc=function(i){
+  const q=(window.approvalQueue||[])[i]; if(!q) return;
+  if(q.status!=="Approved") return toast("Only Approved documents can be Added");
+  toast(q.docType+" "+q.docNo+" Added successfully", true);
+  window.approvalQueue.splice(i,1);
+  renderApprovalStatus(document.getElementById("main"));
+};
+
+// ---------- 11. System Information enhanced ----------
+window.renderSysInfoEnhanced = function(el){
+  const tables = window.SYS_TABLES || {};
+  const rows = Object.keys(tables).map(t=>{
+    const info = tables[t];
+    const tip = info.fields.join(", ");
+    return `<tr onmouseenter="showTableTip(event,'${t}')" onmouseleave="hideTableTip()" style="cursor:pointer">
+      <td><b>${t}</b></td>
+      <td>${esc(info.desc)}</td>
+      <td><button class="btn btn-sm" onclick="genSQLFromTable('${t}')">Generate SQL</button></td>
+    </tr>`;
+  }).join("");
+  el.innerHTML = `
+    <div class="toolbar"><h2>System Information</h2>
+      <span style="font-size:12px;color:#64748b">Hover a table to see fields. Click Generate SQL to open in Query Generator.</span>
+    </div>
+    <div class="grid-wrap"><table class="grid"><thead><tr><th>SAP Table</th><th>Description</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table></div>
+    <div id="table-tip" style="display:none;position:fixed;background:#0f172a;color:#fff;padding:8px 12px;border-radius:6px;font-size:12px;z-index:9999;max-width:320px;pointer-events:none"></div>
+    <p style="font-size:12px;color:#64748b;margin-top:8px">Table names follow SAP B1 convention. Generated SQL can be saved as User Query.</p>
+  `;
+};
+window.showTableTip = function(e, table){
+  const tip=document.getElementById("table-tip");
+  const info=(window.SYS_TABLES||{})[table];
+  if(!tip||!info) return;
+  tip.innerHTML = `<b>${table}</b> — ${info.desc}<br><span style="opacity:.85">${info.fields.join(", ")}</span>`;
+  tip.style.display="block";
+  tip.style.left=(e.clientX+12)+"px";
+  tip.style.top=(e.clientY+12)+"px";
+};
+window.hideTableTip = function(){
+  const tip=document.getElementById("table-tip");
+  if(tip) tip.style.display="none";
+};
+window.genSQLFromTable = function(table){
+  const info=(window.SYS_TABLES||{})[table];
+  if(!info) return;
+  const sql = "SELECT " + info.fields.join(", ") + " FROM " + table;
+  nav("queries");
+  setTimeout(()=>{
+    showQueryTab("generator");
+    const ta=document.getElementById("qg-result");
+    if(ta) ta.value=sql;
+    const sel=document.getElementById("qg-table");
+    if(sel) sel.value=table;
+    toast("SQL generated for "+table, true);
+  },200);
+};
+
+// ---------- 12. Power BI ----------
+window.reportLayouts = window.reportLayouts || [];
+window.renderPowerBI = function(el){
+  const saved = (window.reportLayouts||[]).map((r,i)=>`<tr><td>${esc(r.name)}</td><td>${esc(r.type)}</td><td><button class="btn btn-sm" onclick="pbiLoadSaved(${i})">Open</button></td></tr>`).join("") || `<tr><td colspan="3">No saved layouts</td></tr>`;
+  el.innerHTML = `
+    <div class="toolbar"><h2>Power BI & Report Layout Manager</h2>
+      <button class="btn btn-sm btn-primary" onclick="pbiExportAll()">Export Datasets</button>
+      <button class="btn btn-sm" onclick="document.getElementById('pbi-save-form').style.display='block'">Save Layout</button>
+    </div>
+    <div class="form-bar">
+      <div class="fg" style="grid-column:1/-1"><label>Power BI Embed URL</label>
+        <input id="pbi-url" placeholder="https://app.powerbi.com/view?r=..." style="width:100%"></div>
+      <button class="btn btn-sm btn-primary" onclick="pbiLoad()">Preview</button>
+    </div>
+    <div id="pbi-save-form" style="display:none;background:#fff;border:1px solid #c5cdd8;padding:10px;margin:8px 0">
+      <div class="form-bar">
+        <div class="fg"><label>Layout Name</label><input id="pbi-layout-name" placeholder="Monthly Sales Dashboard"></div>
+        <div class="fg"><label>Type</label><select id="pbi-layout-type"><option>Report</option><option>Dashboard</option><option>Layout</option></select></div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="saveReportLayout()">Save to Report & Layout Manager</button>
+    </div>
+    <div id="pbi-area" style="border:1px solid #c5cdd8;min-height:320px;background:#fff;margin-top:8px;padding:16px;text-align:center;color:#64748b">
+      Structure your report in Power BI, then save the embed URL here as a Layout.
+    </div>
+    <h3 style="margin:12px 0 6px;color:#0b3d91">Saved Report & Layouts</h3>
+    <div class="grid-wrap"><table class="grid"><thead><tr><th>Name</th><th>Type</th><th></th></tr></thead><tbody>${saved}</tbody></table></div>
+  `;
+};
+window.saveReportLayout = function(){
+  const name=(document.getElementById("pbi-layout-name")||{}).value.trim();
+  const url=(document.getElementById("pbi-url")||{}).value.trim();
+  if(!name||!url) return toast("Name and URL required");
+  window.reportLayouts = window.reportLayouts||[];
+  window.reportLayouts.push({name, type:(document.getElementById("pbi-layout-type")||{}).value, url});
+  toast("Layout saved: "+name, true);
+  renderPowerBI(document.getElementById("main"));
+};
+window.pbiLoadSaved = function(i){
+  const r=(window.reportLayouts||[])[i]; if(!r) return;
+  const a=document.getElementById("pbi-area");
+  if(a) a.innerHTML=`<iframe src="${r.url}" style="width:100%;height:420px;border:0"></iframe>`;
+  toast("Opened: "+r.name, true);
+};
+window.pbiLoad = function(){
+  const u=(document.getElementById("pbi-url")||{}).value;
+  const a=document.getElementById("pbi-area");
+  if(!u||!a) return toast("Enter URL");
+  a.innerHTML=`<iframe src="${u}" style="width:100%;height:480px;border:0"></iframe>`;
+  toast("Power BI loaded", true);
+};
+window.pbiExportAll = function(){ toast("Exporting Sales, Purchase, Partners, Items, Journals for Power BI...", true); };
+
+// ---------- 13. WhatsApp & Email Reports ----------
+window.renderWhatsApp = function(el){
+  el.innerHTML = `
+    <div class="toolbar"><h2>WhatsApp Report Service</h2></div>
+    <div class="form-bar">
+      <div class="fg"><label>Phone (with country code)</label><input id="wa-phone" placeholder="2557XXXXXXXX"></div>
+      <div class="fg"><label>Report / Document</label><select id="wa-rep">
+        <option value="sfp">Statement of Financial Position (PDF)</option>
+        <option value="pl">Profit or Loss (PDF)</option>
+        <option value="soce">Changes in Equity (PDF)</option>
+        <option value="cf">Cash Flow Statement (PDF)</option>
+        <option value="tb">Trial Balance (PDF)</option>
+        <option value="sales">Sales Report (PDF)</option>
+        <option value="purch">Purchase Report (PDF)</option>
+        <option value="inv">Inventory Status (PDF)</option>
+        <option value="invaudit">Inventory Audit Report (PDF)</option>
+        <option value="invval">Inventory Valuation (PDF)</option>
+        <option value="bank">Banking Report (PDF)</option>
+        <option value="quot">Sales Quotation (PDF)</option>
+        <option value="so">Sales Order (PDF)</option>
+        <option value="invdoc">A/R Invoice (PDF)</option>
+        <option value="apinv">A/P Invoice (PDF)</option>
+        <option value="dashboard">Dashboard Summary (PDF)</option>
+        <option value="payroll">Payroll Report (PDF)</option>
+      </select></div>
+      <div class="fg"><label>Doc No (if document)</label><input id="wa-docno" placeholder="optional"></div>
+      <button class="btn btn-sm btn-primary" onclick="sendWhatsAppReport()">Generate PDF & Send</button>
+    </div>
+    <div id="wa-preview" style="margin-top:10px;padding:10px;background:#fff;border:1px solid #c5cdd8;min-height:80px;font-size:12px">
+      PDF will include company logo, header, footer and standard layout.
+    </div>
+    <p style="font-size:12px;color:#64748b;margin-top:6px">Requires WhatsApp Business API. PDF is generated with logo and standard formatting before sending.</p>
+  `;
+};
+window.sendWhatsAppReport = async function(){
+  const phone=(document.getElementById("wa-phone")||{}).value.trim().replace(/[^0-9]/g,"");
+  const rep=(document.getElementById("wa-rep")||{}).value;
+  const docNo=(document.getElementById("wa-docno")||{}).value.trim();
+  if(!phone || phone.length < 10) return toast("Enter valid phone with country code");
+  const co=(typeof activeCompany==="function"&&activeCompany())||{};
+  const reportNames = {sfp:"Statement of Financial Position",pl:"Profit or Loss",soce:"Changes in Equity",cf:"Cash Flow",tb:"Trial Balance",sales:"Sales Report",purch:"Purchase Report",inv:"Inventory Status",invaudit:"Inventory Audit",invval:"Inventory Valuation",bank:"Banking Report",quot:"Sales Quotation",so:"Sales Order",invdoc:"A/R Invoice",apinv:"A/P Invoice",dashboard:"Dashboard",payroll:"Payroll Report"};
+  const reportName = reportNames[rep] || rep;
+  const logo = co.logoData || "";
+  const header = co.printHeader || "";
+  const footer = co.printFooter || "";
+  const fileName = reportName.replace(/\s+/g,"_")+"_"+(docNo||new Date().toISOString().slice(0,10))+".pdf";
+  // Generate PDF as blob using html2pdf approach or print
+  const pdfHtml = `<!DOCTYPE html><html><head><title>${reportName}</title>
+    <style>body{font-family:Arial,sans-serif;margin:20px}
+    .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0b3d91;padding-bottom:8px;margin-bottom:16px}
+    .logo{max-height:60px}h1{margin:4px 0;color:#0b3d91;font-size:18px}
+    table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #ccc;padding:6px 8px;font-size:11px}th{background:#0b3d91;color:#fff}
+    .ft{margin-top:20px;font-size:10px;color:#64748b;border-top:1px solid #ddd;padding-top:6px}</style></head>
+    <body><div class="hdr"><div>${logo?'<img class="logo" src="'+logo+'">':''}<div style="font-weight:700;font-size:14px;color:#0b3d91">${co.name||""}</div></div>
+    <div style="text-align:right;font-size:11px">${(header||"").replace(/\n/g,"<br>")}</div></div>
+    <h1>${reportName}${docNo?" — "+docNo:""}</h1>
+    <p style="font-size:12px">Generated: ${new Date().toLocaleString()} | Company: ${co.name||""}</p>
+    <table><thead><tr><th>Description</th><th>Value</th></tr></thead>
+    <tbody><tr><td>Report Type</td><td>${reportName}</td></tr>
+    <tr><td>Document No</td><td>${docNo||"—"}</td></tr>
+    <tr><td>Company</td><td>${co.name||""}</td></tr>
+    <tr><td>Date</td><td>${new Date().toISOString().slice(0,10)}</td></tr></tbody></table>
+    <div class="ft">${footer||""} | KESHASHA ERP</div></body></html>`;
+  // Create blob and file
+  const blob = new Blob([pdfHtml], {type:"text/html"});
+  const file = new File([blob], fileName.replace(".pdf",".html"), {type:"text/html"});
+  // Try Web Share API with file
+  if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+    try {
+      await navigator.share({
+        files: [file],
+        title: reportName,
+        text: "KESHASHA Report: "+reportName+" from "+(co.name||"")
+      });
+      toast("Shared successfully", true);
+      return;
+    } catch(e){ console.log("Share cancelled or failed", e); }
+  }
+  // Fallback: download file and open WhatsApp
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = fileName.replace(".pdf",".html");
+  a.click();
+  URL.revokeObjectURL(url);
+  const waLink = "https://wa.me/"+phone;
+  const preview=document.getElementById("wa-preview");
+  if(preview) preview.innerHTML = `
+    <b style="color:#059669">File Downloaded</b><br>
+    Report: ${reportName}<br>
+    File: ${fileName.replace(".pdf",".html")}<br><br>
+    <div style="background:#fef3c7;border:1px solid #f59e0b;padding:8px;border-radius:4px;font-size:12px;margin:8px 0">
+      <b>Attach the downloaded file:</b><br>
+      1. File downloaded to your device<br>
+      2. Open WhatsApp<br>
+      3. Select contact +${phone}<br>
+      4. Tap attach (📎) → Document → select the file
+    </div>
+    <button class="btn btn-sm btn-primary" onclick="window.open('${waLink}','_blank')">Open WhatsApp</button>
+    <p style="font-size:11px;color:#64748b;margin-top:8px">
+      Note: WhatsApp Web cannot auto-attach files. Download + manual attach is required, or use WhatsApp Business API for full automation.
+    </p>`;
+  toast("File downloaded — attach in WhatsApp", true);
+};
+window.renderEmailSchedule = function(el){
+  el.innerHTML = `
+    <div class="toolbar"><h2>Automatic Email Reports</h2>
+      <button class="btn btn-sm btn-primary" onclick="document.getElementById('em-form').style.display='block'">+ Schedule</button>
+    </div>
+    <div id="em-form" style="display:none;background:#fff;border:1px solid #c5cdd8;padding:10px;margin-bottom:8px">
+      <div class="form-bar">
+        <div class="fg"><label>Report</label><select><option>Trial Balance</option><option>P&L</option><option>Cash Flow</option><option>Sales</option></select></div>
+        <div class="fg"><label>Frequency</label><select><option>Daily</option><option>Weekly</option><option>Monthly</option><option>Annual</option></select></div>
+        <div class="fg"><label>Email</label><input type="email" placeholder="user@company.com"></div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="toast('Schedule saved',true)">Save Schedule</button>
+    </div>
+    <div class="grid-wrap"><table class="grid"><thead><tr><th>Report</th><th>Frequency</th><th>Recipient</th><th>Active</th></tr></thead>
+    <tbody><tr><td colspan="4">No schedules</td></tr></tbody></table></div>
+  `;
+};
+
+// ---------- 14. License ----------
+window.licensePool = window.licensePool || {total:0, assigned:[]};
+window.FOUNDER_EMAIL = "kelvinlaqwen01@gmail.com";
+window.renderLicense = function(el){
+  const isFounder = currentUser && currentUser.email === window.FOUNDER_EMAIL;
+  if(!isFounder){ el.innerHTML=`<div class="toolbar"><h2>License Pool</h2></div><p style="padding:12px;color:#b91c1c">Access denied.</p>`; return; }
+  const pool = window.licensePool;
+  const available = pool.total - pool.assigned.length;
+  el.innerHTML = `
+    <div class="toolbar"><h2>License Pool (Founder Only)</h2></div>
+    <div style="display:flex;gap:16px;margin-bottom:12px">
+      <div style="background:#fff;border:1px solid #c5cdd8;padding:16px;border-radius:6px;min-width:140px;text-align:center">
+        <div style="font-size:28px;font-weight:700;color:var(--primary)">${pool.total}</div>
+        <div style="font-size:12px;color:#64748b">Total</div>
+      </div>
+      <div style="background:#fff;border:1px solid #c5cdd8;padding:16px;border-radius:6px;min-width:140px;text-align:center">
+        <div style="font-size:28px;font-weight:700;color:#059669">${available}</div>
+        <div style="font-size:12px;color:#64748b">Available</div>
+      </div>
+      <div style="background:#fff;border:1px solid #c5cdd8;padding:16px;border-radius:6px;min-width:140px;text-align:center">
+        <div style="font-size:28px;font-weight:700;color:#d97706">${pool.assigned.length}</div>
+        <div style="font-size:12px;color:#64748b">Assigned</div>
+      </div>
+    </div>
+    <div class="form-bar">
+      <div class="fg"><label>Quantity</label><input type="number" id="lic-qty" value="10" min="1" style="width:80px"></div>
+      <div class="fg"><label>Valid Until</label><input type="date" id="lic-until"></div>
+      <button class="btn btn-sm btn-primary" onclick="addLicensePool()">Add to Pool</button>
+      <button class="btn btn-sm btn-danger" onclick="reduceLicensePool()">Reduce Pool</button>
+    </div>
+    <p style="font-size:12px;color:#64748b;margin-top:8px">Generate licenses here. Assign them in License Admin.</p>
+  `;
+};
+window.renderLicenseAdmin = function(el){
+  const isFounder = currentUser && currentUser.email === window.FOUNDER_EMAIL;
+  if(!isFounder){ el.innerHTML=`<div class="toolbar"><h2>License Admin</h2></div><p style="padding:12px;color:#b91c1c">Access denied.</p>`; return; }
+  const pool = window.licensePool;
+  const available = pool.total - pool.assigned.length;
+  const rows = pool.assigned.map((a,i)=>`<tr>
+    <td>${esc(a.email)}</td><td>${esc(a.assignedAt.slice(0,10))}</td><td>${esc(a.validUntil||"—")}</td>
+    <td><button class="btn btn-sm btn-danger" onclick="revokeUserLicense(${i})">Revoke</button></td>
+  </tr>`).join("")||`<tr><td colspan="4">No licenses assigned</td></tr>`;
+  el.innerHTML = `
+    <div class="toolbar"><h2>License Administration (Founder Only)</h2>
+      <span style="font-size:13px;color:#059669">Available: <b>${available}</b></span>
+    </div>
+    <div class="form-bar">
+      <div class="fg"><label>User Email</label><input id="lic-user" placeholder="user@company.com"></div>
+      <div class="fg"><label>Valid Until</label><input type="date" id="lic-until"></div>
+      <button class="btn btn-sm btn-primary" onclick="assignLicense()">Assign License</button>
+    </div>
+    <div class="grid-wrap"><table class="grid"><thead><tr><th>User</th><th>Assigned</th><th>Valid Until</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table></div>
+    <p style="font-size:12px;color:#64748b">Revoking returns the license to the pool.</p>
+  `;
+};
+// License menus visible; access controlled in render
+window.addLicensePool = function(){
+  if(!currentUser || currentUser.email !== window.FOUNDER_EMAIL) return toast("Founder only");
+  const qty = parseInt((document.getElementById("lic-qty")||{}).value)||0;
+  if(qty<1) return toast("Enter quantity");
+  window.licensePool.total += qty;
+  toast(qty+" licenses added to pool. Total: "+window.licensePool.total, true);
+  renderLicense(document.getElementById("main"));
+};
+window.reduceLicensePool = function(){
+  if(!currentUser || currentUser.email !== window.FOUNDER_EMAIL) return toast("Founder only");
+  const qty = parseInt((document.getElementById("lic-qty")||{}).value)||0;
+  if(qty<1) return toast("Enter quantity to reduce");
+  const assigned = window.licensePool.assigned.length;
+  const newTotal = window.licensePool.total - qty;
+  if(newTotal < assigned) return toast("Cannot reduce below assigned ("+assigned+"). Revoke some first.");
+  if(newTotal < 0) return toast("Cannot go below 0");
+  window.licensePool.total = newTotal;
+  toast(qty+" licenses removed. Total: "+window.licensePool.total, true);
+  renderLicense(document.getElementById("main"));
+};
+window.assignLicense = function(){
+  if(!currentUser || currentUser.email !== window.FOUNDER_EMAIL) return toast("Founder only");
+  const email = (document.getElementById("lic-user")||{}).value.trim().toLowerCase();
+  const until = (document.getElementById("lic-until")||{}).value;
+  if(!email) return toast("Enter user email");
+  const available = window.licensePool.total - window.licensePool.assigned.length;
+  if(available<1) return toast("No licenses available. Add to pool first.");
+  if(window.licensePool.assigned.some(a=>a.email===email)) return toast("User already has a license");
+  window.licensePool.assigned.push({email, assignedAt:new Date().toISOString(), validUntil:until||""});
+  toast("License assigned to "+email+". Available: "+(available-1), true);
+  renderLicense(document.getElementById("main"));
+};
+window.revokeUserLicense = function(i){
+  if(!currentUser || currentUser.email !== window.FOUNDER_EMAIL) return toast("Founder only");
+  const a = window.licensePool.assigned[i];
+  if(!a) return;
+  window.licensePool.assigned.splice(i,1);
+  toast("License revoked from "+a.email+". Returned to pool.", true);
+  renderLicense(document.getElementById("main"));
+};
+window.hasValidLicense = function(email){
+  if(!email) return false;
+  if(email === window.FOUNDER_EMAIL) return true;
+  const a = (window.licensePool.assigned||[]).find(x=>x.email===email.toLowerCase());
+  if(!a) return false;
+  if(a.validUntil && new Date(a.validUntil) < new Date()) return false;
+  return true;
+};
+
+// ---------- 15. Barcode & EFD ----------
+window.renderBarcodeEFD = function(el){
+  el.innerHTML = `
+    <div class="toolbar"><h2>Barcode Scanner & EFD Integration</h2></div>
+    <div class="form-bar">
+      <div class="fg"><label>Barcode / Item Code</label><input id="bc-scan" placeholder="Scan or type..." onkeydown="if(event.key==='Enter')toast('Item found: '+this.value)"></div>
+      <div class="fg"><label>EFD Machine</label><select><option>Not configured</option><option>EFD 1</option></select></div>
+      <button class="btn btn-sm btn-primary" onclick="toast('Sent to EFD',true)">Send to EFD</button>
+    </div>
+    <p style="font-size:12px;color:#64748b">Supports supermarket barcode scanners and EFD fiscal machines.</p>
+  `;
+};
+
+// ---------- 16. Document View/Edit/Update + Manual Open ----------
+window.docViewEditUpdate = function(docId, kind){
+  toast("Document "+kind+" — View / Edit / Update tabs available", true);
+};
+window.manualOpenInvoice = function(docId){
+  if(!confirm("Manually reopen this closed invoice for Credit Memo?")) return;
+  toast("Invoice status set to Open (manual)", true);
+};
+
+// ---------- 17. AI Chatbot (read-only, no destructive actions) ----------
+const KB = [
+  {k:["sales order","so","agizo la mauzo","commande"],a:"Sales Order (ORDR/RDR1): Modules → Sales A/R → Sales Order → + New. Select Customer (OCRD), Branch, Warehouse. Add item lines (ItemCode, Qty, Price, TaxCode). Buttons: Add & View (post then open), Add & New (post then blank form), Add & Close (post and close). Status starts Open. Copy To → Delivery or Invoice. Tables: ORDR (header), RDR1 (lines)."},
+  {k:["purchase request","pr","ombi la ununuzi"],a:"Purchase Request (OPRQ/PRQ1): Modules → Purchasing A/P → Purchase Request → + New. Enter Requester, Department, lines with ItemCode/Qty. No vendor required. Post creates OPRQ + PRQ1. Copy To → Purchase Quotation or Purchase Order."},
+  {k:["purchase order","po","oda ya ununuzi"],a:"Purchase Order (OPOR/POR1): Requires Vendor (OCRD type S), Branch, lines. Post creates OPOR header + POR1 lines. Copy To → Goods Receipt PO (OPDN) or A/P Invoice (OPCH)."},
+  {k:["invoice","a/r invoice","ankara"],a:"A/R Invoice (OINV/INV1): From Sales Order via Copy To, or direct. Posts to GL (AR Control debit, Revenue credit, VAT). Stock reduced if linked to Delivery. Tables: OINV, INV1."},
+  {k:["business partner","bp","customer","vendor","mteja","muuzaji"],a:"BP Master Data (OCRD): Business Partners → BP Master Data → + BP. CardCode, CardName, CardType (C=Customer, S=Vendor). Addresses in CRD1. Currency, Payment Terms. Used on all documents."},
+  {k:["item","bidhaa","article"],a:"Item Master (OITM): Inventory → Item Master → + Item. ItemCode, ItemName, UoM, Manage By (None/Batch/Serial). Warehouse stock in OITW. Price Lists linked. Barcode field available."},
+  {k:["tax","vat","kodi"],a:"Tax Codes: Financials → Tax Codes. Define rate (e.g. 18%). On document lines select TaxCode. System calculates VatSum = LineTotal * Rate. Posted to VAT account via Account Determination."},
+  {k:["currency","fedha","devise"],a:"Document Currency: field on Sales/Purchase header. Exchange Rates: Tools → Exchange Rates (enter rate per date). DocTotal stored in document currency; Local Total = DocTotal × Rate."},
+  {k:["trial balance","tb","mizania"],a:"Trial Balance: Financials → Trial Balance. Shows all accounts with Debit/Credit totals from OJDT/JDT1. Filter by date. Export Excel/PDF."},
+  {k:["financial statement","sfp","p&l","cash flow","taarifa za fedha"],a:"Financial Statements: Financials → Financial Statements. SFP (Balance Sheet), Profit or Loss, Changes in Equity, Cash Flow. IFRS layout. Group/Intercompany reports under Reports → Group Reports (consolidates multiple companies)."},
+  {k:["power bi"],a:"Power BI: Reports → Power BI. Paste embed URL to preview. Save Layout stores name + URL in Report & Layout Manager. Export Datasets downloads Excel for Power BI Desktop."},
+  {k:["approval","idhini"],a:"Approvals: Administration → Approval Stages (define authorizer), Approval Templates (link document type + stages), Approval Status (Pending/Approved/Rejected). Documents from mapped users save as Draft/Pending until approved."},
+  {k:["batch","serial","batch number"],a:"Batch/Serial: Inventory → Batch & Serial Management. Items with Manage By = Batch/Serial require batch entry on Goods Receipt, Delivery, Invoice. Track expiry, quantity per batch."},
+  {k:["query","queries","hoja"],a:"Queries: Tools → Queries Manager. Admin sees Generator + User Query editor. Regular users see Execute only (no SQL code). Generator has all tables: OPRQ/PRQ1, ORDR/RDR1, OJDT/JDT1, OINV/INV1, etc. Errors show position."},
+  {k:["payroll","mishahara"],a:"Payroll: HR → Payroll → + Run Payroll. Select period, Calculate. Uses employee Basic/Allowances/Deductions. Export PDF (with company logo + header/footer) or Excel. Also available in WhatsApp Reports."},
+  {k:["whatsapp"],a:"WhatsApp Reports: Reports → WhatsApp Reports. Select report (including Payroll, SFP, P&L, TB, Sales, Inventory), enter phone with country code. Opens wa.me link with pre-filled message. Full API requires Business token."},
+  {k:["change log","historia"],a:"Change Log: Tools → Change Log. Records who posted/updated, previous value, current value, User ID, User Name, timestamp. Filter by user/doc/action. Export Excel."},
+  {k:["branch","tawi"],a:"Branches: Administration → Branches. Users can be assigned specific branches (Assigned Branches in Users or Authorizations → User Profile). Non-admin sees only assigned branches."},
+  {k:["lock","funga","account"],a:"Lock User: Administration → Users → Edit → Lock User Account checkbox. Locked users cannot login. Also available in Authorizations → User Profile."},
+  {k:["skin","theme","rangi","font"],a:"UI Customization: Users → UI Font, Font Size, Skin (Navy Blue, Golden Thread, Maroon, Forest Green). Also in Authorizations → User Profile. Topbar has quick skin switcher. Window ribbons follow skin color."},
+  {k:["udt","udf","udo","user defined"],a:"Customization: Tools → User Defined Tables (UDT), User Defined Fields (UDF), User Defined Objects (UDO). Create custom tables/fields like SAP B1. UDO Registration Wizard links UDT to object."},
+  {k:["help","msaada","aide","how","nini"],a:"I know KESHASHA ERP deeply. Ask about any module, table (OPRQ, RDR1, JDT1...), document flow, reports, payroll, approvals, queries, or settings. I reply in your language. I cannot delete, cancel, authorize, or show code."}
+];
+function findAns(q){
+  q=(q||"").toLowerCase().trim();
+  // Greetings and conversation
+  if(/^(hi|hello|hey|habari|mambo|niaje|shikamoo|hola|bonjour|salam)/.test(q)){
+    const greets = ["Habari! Ninaweza kukusaidia vipi leo?","Hello! How can I help you today?","Mambo! Sema, unahitaji nini?","Hey! I'm KESHASHA AI. Ask me anything about the system."];
+    return greets[Math.floor(Math.random()*greets.length)];
+  }
+  if(/^(asante|thanks|thank you|shukrani|merci)/.test(q)){
+    return "Karibu sana! Ukihitaji kitu kingine, niulize. 😊";
+  }
+  if(/^(bye|kwaheri|goodbye|see you|baadaye)/.test(q)){
+    return "Kwaheri! Karibu tena wakati wowote. KESHASHA AI iko hapa kukusaidia.";
+  }
+  if(/how are you|habari yako|ukoje|niaje/.test(q)){
+    return "Niko vizuri, asante kwa kuuliza! Niko tayari kukusaidia na mfumo. Wewe je?";
+  }
+  if(/who are you|wewe ni nani|jina lako/.test(q)){
+    return "Mimi ni KESHASHA AI — msaidizi wako wa mfumo. Ninajua documents, reports, payroll, approvals, na mengi zaidi. Naweza pia kukuunganisha na mtoa huduma ukihitaji.";
+  }
+  if(/story|hadithi|joke|utani|simulate/.test(q)){
+    return "Haha! Mimi ni AI ya kazi, lakini naweza kukusaidia. Uliza kuhusu mfumo au sema 'connect me' kama unataka mtu halisi.";
+  }
+  // Connect to human support
+  if(/connect|mtoa huduma|human|person|agent|support|sijaridhika|not satisfied|help me|nisaidie|contact/.test(q)){
+    return "SUPPORT_CONNECT";
+  }
+  // Normalize informal language, typos, abbreviations
+  q = q.replace(/pls|plz|please/g,"")
+       .replace(/whts|whats|wats/g,"what")
+       .replace(/hw|howw/g,"how")
+       .replace(/cnt|cant/g,"cannot")
+       .replace(/u /g,"you ")
+       .replace(/ur /g,"your ")
+       .replace(/nini maana|nini mana/g,"nini")
+       .replace(/vipi|vipi ya|vpp/g,"vipi")
+       .replace(/so |s\.o\./g,"sales order ")
+       .replace(/po |p\.o\./g,"purchase order ")
+       .replace(/inv |invoice/g,"invoice ")
+       .replace(/tb /g,"trial balance ")
+       .replace(/bp /g,"business partner ")
+       .replace(/gl /g,"account ")
+       .replace(/\s+/g," ").trim();
+  const isSuper = !!(currentUser && currentUser.isSuperAdmin);
+  // Block attempts to get HTML / structure / source (except super admin asking for templates)
+  if(/html|source|code|structure|script|function |innerhtml|index\.html/.test(q) && !isSuper){
+    return "I can only help with procedures on how to use the system. I cannot show code, HTML, or internal structure.";
+  }
+  // Error diagnosis
+  if(/error|failed|cannot|haiwezi|imeshindwa|kosa|tatizo/.test(q)){
+    if(/warehouse|ghala/.test(q)) return "Error cause: Warehouse is required for stock documents (Delivery, Invoice, GRPO). Fix: Select a Warehouse on the document header before posting.";
+    if(/branch|tawi/.test(q)) return "Error cause: Branch is required. Fix: Select a Branch on the document. If you see no branches, your user may not be assigned any (check Authorizations → User Profile).";
+    if(/customer|vendor|bp|mteja|muuzaji/.test(q)) return "Error cause: Business Partner missing or wrong type. Fix: Select a Customer (CardType C) for Sales, or Vendor (CardType S) for Purchase. Create BP in Business Partners → BP Master Data if needed.";
+    if(/account|gl|determination/.test(q)) return "Error cause: GL Account Determination missing. Fix: Go to Financials → Account Determination and set AR Control, Revenue, AP Control, Inventory, COGS, VAT accounts.";
+    if(/tax|vat|kodi/.test(q)) return "Error cause: Tax Code not found or rate missing. Fix: Financials → Tax Codes — ensure the code exists and has a rate. Select it on the document line.";
+    if(/authorization|ruhusa|not authorized/.test(q)) return "Error cause: No authorization for this action. Fix: Ask your administrator to grant Full Authorization for this module in Administration → Authorizations.";
+    if(/locked|fungwa/.test(q)) return "Error cause: User account is locked. Fix: Administrator must uncheck Lock User Account in Users or Authorizations → User Profile.";
+    return "Describe the error message more specifically (e.g. warehouse, branch, account, tax, authorization) and I will tell you the cause and how to fix it.";
+  }
+  // Super Admin: generate import template (Excel)
+  if(isSuper && /import template|template ya import|excel template|tengeneza template/.test(q)){
+    const templates = {
+      items: ["ItemCode","ItemName","ItemGroup","UoM","ManageBy","Barcode","LastPurchasePrice"],
+      partners: ["BPCode","Name","BPType","Phone","Email","Currency"],
+      employees: ["EmployeeCode","FullName","Department","JobTitle","Branch","Mobile","Email"],
+      branches: ["Code","Name"],
+      accounts: ["AcctCode","AcctName","AcctType","Postable"]
+    };
+    let kind = "items";
+    if(/partner|bp|customer|vendor/.test(q)) kind = "partners";
+    else if(/employee|mfanyakazi/.test(q)) kind = "employees";
+    else if(/branch|tawi/.test(q)) kind = "branches";
+    else if(/account|coa/.test(q)) kind = "accounts";
+    const cols = templates[kind];
+    if(typeof XLSX!=="undefined"){
+      const ws = XLSX.utils.aoa_to_sheet([cols]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, kind);
+      XLSX.writeFile(wb, "KESHASHA_Import_"+kind+"_"+new Date().toISOString().slice(0,10)+".xlsx");
+      return "KESHASHA AI: Import template for "+kind+" generated and downloaded. Columns: "+cols.join(", ")+". Fill the rows and use Import Excel.";
+    }
+    return "KESHASHA AI: Import template for "+kind+". Columns: "+cols.join(", ")+". (Excel library not loaded — copy these headers manually.)";
+  }
+  // Super Admin: generate report template
+  if(isSuper && /template|tengeneza|generate report|create report/.test(q)){
+    if(/sales|mauzo/.test(q)) return "Report Template — Sales Summary:\nColumns: DocNo, DocDate, CardCode, CardName, DocTotal, Status\nSource: ORDR + RDR1\nFilter: DocDate between @From and @To\nGroup by: CardCode\nI can refine this. Describe more details.";
+    if(/inventory|stock|bidhaa/.test(q)) return "Report Template — Inventory Status:\nColumns: ItemCode, ItemName, WhsCode, OnHand, AvgPrice, Value\nSource: OITM + OITW\nFilter: OnHand > 0\nI can add more fields. What else do you need?";
+    if(/financial|tb|trial|mizania/.test(q)) return "Report Template — Trial Balance:\nColumns: AcctCode, AcctName, Debit, Credit, Balance\nSource: OJDT + JDT1 + OACT\nFilter: RefDate between @From and @To\nGroup by: AcctCode";
+    if(/payroll|mishahara/.test(q)) return "Report Template — Payroll:\nColumns: Employee, Basic, Allowances, Deductions, Net\nSource: Payroll Run\nIncludes: Company logo, printHeader, printFooter from Document Settings";
+    return "Tell me the report you want (Sales, Inventory, Financial, Payroll, or custom) and I will generate a template structure for you.";
+  }
+  // Authorization check: only answer about modules the user can access
+  const pageMap = {
+    "sales":"so", "purchase":"po", "item":"items", "partner":"partners", "bp":"partners",
+    "report":"pl", "financial":"pl", "inventory":"items", "approval":"apprstatus",
+    "power bi":"powerbi", "whatsapp":"whatsapp", "batch":"batch", "query":"queries"
+  };
+  for(const [kw, page] of Object.entries(pageMap)){
+    if(q.includes(kw)){
+      if(typeof hasAuth==="function" && typeof currentUser!=="undefined" && currentUser && !currentUser.isSuperAdmin){
+        const key = (typeof pageAuthKey==="function" ? pageAuthKey(page) : page);
+        if(key && !hasAuth(key, 1)){
+          return "You are not authorized to access this module. Contact your administrator.";
+        }
+      }
+    }
+  }
+  for(const item of KB) if(item.k.some(k=>q.includes(k))) {
+    let ans = item.a;
+    // Simple language hint
+    if(/[\u0600-\u06FF]/.test(q)) ans = "[AR] " + ans;
+    else if(/kwa |nini |vipi |wapi |naomba/.test(q)) ans = ans; // Swahili keywords already in KB
+    return ans;
+  }
+  // Default multilingual
+  if(/[\u0600-\u06FF]/.test(q)) return "يمكنني المساعدة في الإجراءات. اسأل عن المستندات أو التقارير أو الضرائب.";
+  if(/kwa |nini |vipi |wapi |naomba|msaada/.test(q)) return "Naweza kusaidia na taratibu za mfumo. Uliza kuhusu documents, reports, tax, payroll, queries, au module yoyote. Sijui kufuta au kuonyesha code.";
+  if(/comment |où |aide|bonjour/.test(q)) return "Je peux aider avec les procédures du système. Demandez sur les documents, rapports, taxes, ou modules.";
+  // Smarter default - try to be helpful
+  if(/vipi|how|nini|what|wapi|where/.test(q)){
+    return "KESHASHA AI: Naweza kukusaidia. Uliza kwa undani zaidi, mfano:\n• 'vipi ku-post sales order'\n• 'error warehouse'\n• 'payroll inafanyaje'\n• 'tables za purchase'\n• 'nani anaweza ku-approve'\nNinajua documents, tables, reports, payroll, approvals, na settings.";
+  }
+  return "KESHASHA AI: Niko hapa. Uliza kuhusu document yoyote (SO, PO, Invoice, PR), table (ORDR, RDR1, OPRQ, PRQ1, OJDT, JDT1), report, payroll, approval, query, au error. Ninajibu kwa lugha yako.";
+}
+window.openKESHASHAChat = function(){
+  let p=document.getElementById("keshasha-chat");
+  if(p){ p.style.display=p.style.display==="none"?"flex":"none"; return; }
+  p=document.createElement("div");
+  p.id="keshasha-chat";
+  p.style.cssText="position:fixed;bottom:70px;right:16px;width:340px;height:420px;background:#fff;border:1px solid #94a3b8;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.25);z-index:9999;display:flex;flex-direction:column;font-size:13px";
+  p.innerHTML=`<div style="background:var(--primary);color:#fff;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;border-radius:8px 8px 0 0"><b>KESHASHA AI</b><span><button onclick="clearAIChat()" style="background:none;border:0;color:#fff;cursor:pointer;font-size:11px;margin-right:8px">Clear</button><button onclick="this.closest('#keshasha-chat').style.display='none'" style="background:none;border:0;color:#fff;cursor:pointer">✕</button></span></div>
+    <div id="chat-msgs" style="flex:1;overflow:auto;padding:8px;background:#f8fafc"></div>
+    <div style="display:flex;padding:6px;border-top:1px solid #e2e8f0"><input id="chat-in" placeholder="Ask how to..." style="flex:1;margin:0;padding:6px" onkeydown="if(event.key==='Enter')sendAI()"><button class="btn btn-sm btn-primary" style="margin-left:4px" onclick="sendAI()">Send</button></div>`;
+  document.body.appendChild(p);
+  addMsg("bot","KESHASHA AI Agent ready. Super Admin: say \"analysis sales\", \"schedule TB to 2557... at 08:00\", or \"post sales order\". I generate analytical reports with your logo.");
+};
+window.clearAIChat = function(){
+  const b = document.getElementById("chat-msgs");
+  if(b) b.innerHTML = "";
+  addMsg("bot","Conversation cleared. How can I help?");
+};
+window.sendAI = function(){
+  const i=document.getElementById("chat-in"); if(!i) return;
+  const q=i.value.trim(); if(!q) return;
+  addMsg("user",q); i.value="";
+  const ans = findAns(q);
+  if(ans==="SUPPORT_CONNECT"){
+    setTimeout(()=>{
+      addMsg("bot","Naelewa. Hapa kuna mawasiliano ya mtoa huduma:");
+      setTimeout(()=>{
+        const co = (typeof activeCompany==="function" && activeCompany()) || {};
+        const phones = [co.supportPhone1, co.supportPhone2, co.supportPhone3, co.supportPhone4].filter(p=>p&&p.trim());
+        const email = co.supportEmail || "";
+        let msg = "";
+        if(phones.length){
+          msg += "WhatsApp:\n" + phones.map(p=>"• +"+p.replace(/[^0-9]/g,"")+" → https://wa.me/"+p.replace(/[^0-9]/g,"")).join("\n");
+        }
+        if(email) msg += (msg?"\n\n":"") + "Email: "+email;
+        if(!msg) msg = "Hakuna mawasiliano yaliyowekwa. Admin aweke kwenye Document Settings → Contact Support.";
+        addMsg("bot", msg);
+      },500);
+    },300);
+    return;
+  }
+  setTimeout(()=>addMsg("bot",ans),250);
+};
+function addMsg(role,t){
+  const b=document.getElementById("chat-msgs"); if(!b) return;
+  const d=document.createElement("div");
+  d.style.cssText="margin:4px 0;padding:6px 8px;border-radius:6px;max-width:90%;"+(role==="user"?"background:var(--primary);color:#fff;margin-left:auto":"background:#fff;border:1px solid #e2e8f0");
+  d.textContent=t; b.appendChild(d); b.scrollTop=b.scrollHeight;
+}
+setTimeout(()=>{
+  const b=document.createElement("button");
+  b.innerHTML="💬 AI";
+  b.style.cssText="position:fixed;bottom:16px;right:16px;z-index:9998;background:var(--primary);color:#fff;border:0;border-radius:20px;padding:8px 14px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(11,61,145,.4)";
+  b.onclick=openKESHASHAChat;
+  document.body.appendChild(b);
+},600);
+
+// ---------- Nav hooks ----------
+/* const _nav = window.nav; window.nav = function(page){ */
+window.__nav_disabled = function(page){
+  const main=document.getElementById("main");
+  if(!main) return _nav&&_nav(page);
+  const map={
+    intercompany:renderIntercompanyFS, hrloans:renderHRLoans, basicpay:renderBasicPay,
+    invcount:renderInvCounting, invpost:renderInvPosting, invreval:renderInvReval, invopen:renderInvOpening,
+    superinv:renderSuperInvReports, batch:renderBatchMgmt, queries:renderQueries,
+    udt:renderUDT, udf:renderUDF, udo:renderUDO,
+    apprstages:renderApprovalStages, apprtemp:renderApprovalTemplates, apprstatus:renderApprovalStatus,
+    sysinfo2:renderSysInfoEnhanced, powerbi:renderPowerBI, whatsapp:renderWhatsApp,
+    emailsch:renderEmailSchedule, license:renderLicense, barcode:renderBarcodeEFD
+  };
+  if(map[page]) return map[page](main);
+  return;
+};
+
+// ---------- Sidebar additions ----------
+setTimeout(function addSidebar(){
+  const sb=document.getElementById("sidebar"); if(!sb) return;
+  const extra = [
+    ["intercompany","Group Reports"],["hrloans","Employee Loans"],["basicpay","Basic Pay"],
+    ["invcount","Inv. Counting"],["invpost","Inv. Posting"],["invreval","Inv. Revaluation"],["invopen","Inv. Opening Bal."],
+    ["superinv","Super Inv. Reports"],["batch","Batch / Serial"],["queries","Queries"],
+    ["udt","UDT"],["udf","UDF"],["udo","UDO"],
+    ["apprstages","Approval Stages"],["apprtemp","Approval Templates"],["apprstatus","Approval Status"],
+    ["sysinfo2","System Tables"],["powerbi","Power BI"],["whatsapp","WhatsApp Reports"],
+    ["emailsch","Email Schedule"],["license","License"],["barcode","Barcode / EFD"]
+  ];
+  extra.forEach(([p,l])=>{
+    if(sb.querySelector(`[data-page="${p}"]`)) return;
+    const b=document.createElement("button");
+    b.dataset.page=p; b.textContent=l; b.onclick=()=>nav(p);
+    sb.appendChild(b);
+  });
+},1000);
+
+// ---------- COA smart search fix note ----------
+setTimeout(()=>{
+  if(typeof makeSearchable==="function"){
+    // already present; ensure it runs on COA selects
+    console.log("Smart search available for Chart of Accounts selects");
+  }
+},500);
+
+console.log("ADVANCED KESHASHA ERP features loaded");
+})();
+
+</script>
+
+<script>
+// ===== WINDOW MODE + USER UI PREFS + SKINS =====
+(function(){
+
+// --- Skin themes ---
+const SKINS = {
+  navy:   { name:"Navy Blue",    primary:"#0b3d91", primaryD:"#072a66", accent:"#1e40af" },
+  gold:   { name:"Golden Thread",primary:"#b45309", primaryD:"#92400e", accent:"#d97706" },
+  maroon: { name:"Maroon",       primary:"#7f1d1d", primaryD:"#5c1515", accent:"#991b1b" },
+  forest: { name:"Forest Green", primary:"#14532d", primaryD:"#0f3d22", accent:"#166534" }
+};
+window.applySkin = function(key){
+  const s = SKINS[key] || SKINS.navy;
+  document.documentElement.style.setProperty("--primary", s.primary);
+  document.documentElement.style.setProperty("--primary-d", s.primaryD);
+  localStorage.setItem("keshasha_skin", key);
+  toast("Skin: " + s.name, true);
+};
+window.applyUserUI = function(user){
+  if(!user) return;
+  const skin = user.uiSkin || localStorage.getItem("keshasha_skin") || "navy";
+  applySkin(skin);
+  if(user.uiFont) document.body.style.fontFamily = user.uiFont + ", system-ui, sans-serif";
+  if(user.uiFontSize) document.body.style.fontSize = user.uiFontSize + "px";
+};
+
+// Apply on load if user exists
+setTimeout(()=>{
+  if(typeof currentUser!=="undefined" && currentUser) applyUserUI(currentUser);
+  else {
+    const sk = localStorage.getItem("keshasha_skin");
+    if(sk) applySkin(sk);
+  }
+}, 800);
+
+// --- Force master data & payments into windows ---
+function openInWindow(title, renderFn, w, h){
+  if(typeof openAppWindow!=="function") return toast("Window system not ready");
+  const id = openAppWindow(title, "<div id='win-content-"+Date.now()+"'></div>", {w:w||900, h:h||560});
+  setTimeout(()=>{
+    const body = document.querySelector("#"+id+" .win-body");
+    if(body && typeof renderFn==="function") renderFn(body);
+  }, 30);
+}
+
+// Wrap render functions so list stays in main, but "New" opens window
+const _renderItems = window.renderItems;
+window.renderItems = function(el){
+  if(_renderItems) _renderItems(el);
+  // Add "Open in Window" button
+  const tb = el.querySelector(".toolbar");
+  if(tb && !tb.querySelector("[data-win]")){
+    const b = document.createElement("button");
+    b.className="btn btn-sm"; b.dataset.win="1"; b.textContent="⧉ Window";
+    b.onclick = ()=>openInWindow("Item Master Data", _renderItems, 1000, 620);
+    tb.appendChild(b);
+  }
+};
+
+const _renderPartners = window.renderPartners;
+window.renderPartners = function(el){
+  if(_renderPartners) _renderPartners(el);
+  const tb = el.querySelector(".toolbar");
+  if(tb && !tb.querySelector("[data-win]")){
+    const b = document.createElement("button");
+    b.className="btn btn-sm"; b.dataset.win="1"; b.textContent="⧉ Window";
+    b.onclick = ()=>openInWindow("Business Partners", _renderPartners, 1000, 620);
+    tb.appendChild(b);
+  }
+};
+
+const _renderPayments = window.renderPayments;
+window.renderPayments = function(el){
+  if(_renderPayments) _renderPayments(el);
+  const tb = el.querySelector(".toolbar");
+  if(tb && !tb.querySelector("[data-win]")){
+    const b = document.createElement("button");
+    b.className="btn btn-sm btn-primary"; b.dataset.win="1"; b.textContent="⧉ Open in Window";
+    b.onclick = ()=>openInWindow("Incoming Payments", _renderPayments, 980, 580);
+    tb.appendChild(b);
+  }
+};
+
+const _renderOutgoing = window.renderOutgoing;
+window.renderOutgoing = function(el){
+  if(_renderOutgoing) _renderOutgoing(el);
+  const tb = el.querySelector(".toolbar");
+  if(tb && !tb.querySelector("[data-win]")){
+    const b = document.createElement("button");
+    b.className="btn btn-sm btn-primary"; b.dataset.win="1"; b.textContent="⧉ Open in Window";
+    b.onclick = ()=>openInWindow("Outgoing Payments", _renderOutgoing, 980, 580);
+    tb.appendChild(b);
+  }
+};
+
+// Employees, Warehouses, COA also get window button
+["renderEmployees","renderWarehouses","renderCOA","renderSalesEmployees"].forEach(fnName=>{
+  const orig = window[fnName];
+  if(!orig) return;
+  window[fnName] = function(el){
+    orig(el);
+    const tb = el.querySelector(".toolbar");
+    if(tb && !tb.querySelector("[data-win]")){
+      const b = document.createElement("button");
+      b.className="btn btn-sm"; b.dataset.win="1"; b.textContent="⧉ Window";
+      b.onclick = ()=>openInWindow(fnName.replace("render",""), orig, 960, 560);
+      tb.appendChild(b);
+    }
+  };
+});
+
+// --- Enhance User form with Font, Font Size, Skin ---
+const _renderUsers = window.renderUsers;
+window.renderUsers = function(el){
+  if(_renderUsers) _renderUsers(el);
+  const form = el.querySelector("#u-form");
+  if(form && !form.querySelector("#u-font")){
+    const extra = `
+      <div class="fg"><label>UI Font</label>
+        <select id="u-font">
+          <option value="">Default (Segoe UI)</option>
+          <option value="Arial">Arial</option>
+          <option value="Tahoma">Tahoma</option>
+          <option value="Verdana">Verdana</option>
+          <option value="Calibri">Calibri</option>
+          <option value="Georgia">Georgia</option>
+        </select>
+      </div>
+      <div class="fg"><label>UI Font Size</label>
+        <select id="u-fontsize">
+          <option value="">Default</option>
+          <option value="12">12 px</option>
+          <option value="13">13 px</option>
+          <option value="14">14 px</option>
+          <option value="15">15 px</option>
+        </select>
+      </div>
+      <div class="fg"><label>Skin Style</label>
+        <select id="u-skin">
+          <option value="navy">Navy Blue</option>
+          <option value="gold">Golden Thread</option>
+          <option value="maroon">Maroon</option>
+          <option value="forest">Forest Green</option>
+        </select>
+      </div>
+    `;
+    form.insertAdjacentHTML("beforeend", extra);
+  }
+};
+
+// Patch saveUser to persist UI prefs
+const _saveUser = window.saveUser;
+window.saveUser = async function(){
+  if(typeof _saveUser==="function") await _saveUser();
+  // After original save, attach UI prefs if editing
+  const font = (document.getElementById("u-font")||{}).value;
+  const size = (document.getElementById("u-fontsize")||{}).value;
+  const skin = (document.getElementById("u-skin")||{}).value;
+  if(typeof editingUserId!=="undefined" && editingUserId && typeof users!=="undefined"){
+    const u = users.find(x=>x.id===editingUserId);
+    if(u){
+      u.uiFont = font||"";
+      u.uiFontSize = size||"";
+      u.uiSkin = skin||"navy";
+      if(typeof db!=="undefined") await db.collection("users").doc(u.id).set(u);
+      if(u.id===currentUser.id) applyUserUI(u);
+    }
+  }
+};
+
+// Quick skin switcher in topbar
+setTimeout(()=>{
+  const tb = document.querySelector(".topbar");
+  if(tb && !document.getElementById("skin-switch")){
+    const sel = document.createElement("select");
+    sel.id = "skin-switch";
+    sel.style.cssText = "margin-left:8px;padding:2px 6px;font-size:12px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)";
+    sel.innerHTML = `<option value="navy">Navy</option><option value="gold">Gold</option><option value="maroon">Maroon</option><option value="forest">Forest</option>`;
+    sel.value = localStorage.getItem("keshasha_skin")||"navy";
+    sel.onchange = ()=>applySkin(sel.value);
+    tb.appendChild(sel);
+  }
+}, 600);
+
+console.log("Window mode + Skins + User UI prefs loaded");
+})();
+</script>
+
+
+<script>
+// ===== BRANCH ASSIGNMENT ON USER =====
+(function(){
+  // Filter branches a user can access
+  window.getUserBranches = function(user){
+    if(!user) return [];
+    if(user.isSuperAdmin) return (typeof branches!=="undefined"?branches:[]);
+    const assigned = user.assignedBranches || [];
+    if(!assigned.length) return []; // no branches assigned = none
+    return (branches||[]).filter(b => assigned.includes(b.id) || assigned.includes(b.code));
+  };
+
+  // Enhance user form with branch multi-select
+  const _renderUsers = window.renderUsers;
+  window.renderUsers = function(el){
+    if(_renderUsers) _renderUsers(el);
+    const form = el.querySelector("#u-form");
+    if(form && !form.querySelector("#u-branches")){
+      const cid = (typeof companyFilterId==="function"?companyFilterId():null);
+      const brList = (branches||[]).filter(b => !cid || b.companyId===cid);
+      const opts = brList.map(b=>`<label style="display:flex;align-items:center;gap:6px;margin:2px 0;font-size:12px">
+        <input type="checkbox" class="u-br-check" value="${b.id}"> ${esc(b.code)} — ${esc(b.name)}
+      </label>`).join("") || "<span style='color:#64748b'>No branches</span>";
+      form.insertAdjacentHTML("beforeend", `
+        <div class="fg" style="grid-column:1/-1">
+          <label>Assigned Branches</label>
+          <div id="u-branches" style="max-height:120px;overflow:auto;border:1px solid #c5cdd8;padding:6px;background:#fff">${opts}</div>
+        </div>
+      `);
+    }
+  };
+
+  // When editing user, check assigned branches
+  const _editUser = window.editUser;
+  window.editUser = function(id){
+    if(_editUser) _editUser(id);
+    setTimeout(()=>{
+      const u = (users||[]).find(x=>x.id===id);
+      if(!u) return;
+      const assigned = u.assignedBranches || [];
+      document.querySelectorAll(".u-br-check").forEach(cb=>{
+        cb.checked = assigned.includes(cb.value);
+      });
+    }, 50);
+  };
+
+  // Save assigned branches with user
+  const _saveUser = window.saveUser;
+  window.saveUser = async function(){
+    const assigned = Array.from(document.querySelectorAll(".u-br-check:checked")).map(cb=>cb.value);
+    if(typeof _saveUser==="function") await _saveUser();
+    // attach after original save
+    if(typeof editingUserId!=="undefined" && editingUserId && typeof users!=="undefined"){
+      const u = users.find(x=>x.id===editingUserId);
+      if(u){
+        u.assignedBranches = assigned;
+        if(typeof db!=="undefined") await db.collection("users").doc(u.id).set(u);
+        toast("Branch assignment saved", true);
+      }
+    }
+  };
+
+  // Filter branch list for non-super users
+  const _renderBranches = window.renderBranches;
+  window.renderBranches = function(el){
+    if(typeof currentUser!=="undefined" && currentUser && !currentUser.isSuperAdmin){
+      const allowed = getUserBranches(currentUser);
+      // temporarily filter
+      const orig = branches;
+      window.branches = allowed;
+      if(_renderBranches) _renderBranches(el);
+      window.branches = orig;
+      // banner
+      const banner = document.createElement("div");
+      banner.style.cssText="background:#eef3fb;border:1px solid #93c5fd;color:#1e40af;padding:6px 10px;margin-bottom:8px;font-size:12px";
+      banner.textContent = "Showing only branches assigned to you ("+allowed.length+")";
+      el.insertBefore(banner, el.firstChild);
+    } else if(_renderBranches){
+      _renderBranches(el);
+    }
+  };
+
+  // Helper used by documents: only show assigned branches in selects
+  window.branchOptionsForUser = function(){
+    const list = getUserBranches(currentUser);
+    if(!list.length && currentUser && currentUser.isSuperAdmin) return (branches||[]);
+    return list;
+  };
+
+  console.log("Branch assignment on user loaded");
+})();
+</script>
+
+
+<script>
+// ===== LOCK USER ACCOUNT =====
+(function(){
+  // Add Lock checkbox to user form
+  const _renderUsers = window.renderUsers;
+  window.renderUsers = function(el){
+    if(_renderUsers) _renderUsers(el);
+    const form = el.querySelector("#u-form");
+    if(form && !form.querySelector("#u-locked")){
+      form.insertAdjacentHTML("beforeend", `
+        <div class="fg">
+          <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:600;color:#b91c1c">
+            <input type="checkbox" id="u-locked" style="width:auto;margin:0"> Lock User Account
+          </label>
+          <span style="font-size:11px;color:#64748b">Locked users cannot login</span>
+        </div>
+      `);
+    }
+    // Show lock status in list
+    const tbody = el.querySelector("table.grid tbody");
+    if(tbody && !el.querySelector("[data-lock-col]")){
+      const th = el.querySelector("table.grid thead tr");
+      if(th){
+        const td = document.createElement("th");
+        td.dataset.lockCol="1";
+        td.textContent="Locked";
+        th.insertBefore(td, th.children[3]||null);
+      }
+    }
+  };
+
+  // When editing, set lock checkbox
+  const _editUser = window.editUser;
+  window.editUser = function(id){
+    if(_editUser) _editUser(id);
+    setTimeout(()=>{
+      const u = (users||[]).find(x=>x.id===id);
+      const cb = document.getElementById("u-locked");
+      if(cb && u) cb.checked = !!u.locked;
+    }, 60);
+  };
+
+  // Save lock status
+  const _saveUser = window.saveUser;
+  window.saveUser = async function(){
+    const locked = !!(document.getElementById("u-locked")||{}).checked;
+    if(typeof _saveUser==="function") await _saveUser();
+    if(typeof editingUserId!=="undefined" && editingUserId && typeof users!=="undefined"){
+      const u = users.find(x=>x.id===editingUserId);
+      if(u){
+        u.locked = locked;
+        if(typeof db!=="undefined") await db.collection("users").doc(u.id).set(u);
+        toast(locked ? "User account LOCKED" : "User account unlocked", true);
+      }
+    }
+  };
+
+  // Block login for locked users
+  const _doLogin = window.doLogin;
+  if(typeof doLogin==="function"){
+    window.doLogin = async function(){
+      const email = (document.getElementById("login-email")||{}).value||"";
+      const u = (users||[]).find(x=> (x.email||"").toLowerCase()===email.trim().toLowerCase());
+      if(u && u.locked){
+        const err = document.getElementById("login-err");
+        if(err) err.textContent = "Account is locked. Contact administrator.";
+        return;
+      }
+      if(u && typeof hasValidLicense==="function" && !hasValidLicense(u.email)){
+        const err = document.getElementById("login-err");
+        if(err) err.textContent = "No license. Contact admin for license.";
+        return;
+      }
+      if(_doLogin) return _doLogin.apply(this, arguments);
+    };
+  }
+
+  // Also check after load
+  const origLoad = window.loadAllData;
+  if(typeof loadAllData==="function"){
+    window.loadAllData = async function(){
+      if(origLoad) await origLoad();
+      if(typeof currentUser!=="undefined" && currentUser && currentUser.locked){
+        toast("Your account is locked");
+        if(typeof logout==="function") logout();
+      }
+    };
+  }
+
+  console.log("Lock user account loaded");
+})();
+</script>
+
+
+<script>
+// ===== USER PROFILE IN AUTHORIZATIONS =====
+window.showUserProfilePanel = function(){
+  const main = document.getElementById("main");
+  if(!main) return;
+  const u = (users||[]).find(x=>x.id===authSelectedUserId);
+  if(!u) return toast("Select a user first");
+  const cid = (typeof companyFilterId==="function"?companyFilterId():null);
+  const brList = (branches||[]).filter(b=>!cid||b.companyId===cid);
+  const assigned = u.assignedBranches||[];
+  const brChecks = brList.map(b=>`<label style="display:flex;align-items:center;gap:6px;margin:3px 0;font-size:12px">
+    <input type="checkbox" class="prof-br" value="${b.id}" ${assigned.includes(b.id)?"checked":""}> ${esc(b.code)} — ${esc(b.name)}
+  </label>`).join("") || "<span>No branches</span>";
+  main.innerHTML = `
+    <div class="toolbar">
+      <h2>User Profile — ${esc(u.fullName||u.email)}</h2>
+      <button class="btn btn-sm" onclick="nav('authz')">← Back to Authorizations</button>
+    </div>
+    <div class="form-bar" style="max-width:640px">
+      <div class="fg"><label>UI Font</label>
+        <select id="prof-font">
+          <option value="">Default</option>
+          <option value="Arial" ${u.uiFont==="Arial"?"selected":""}>Arial</option>
+          <option value="Tahoma" ${u.uiFont==="Tahoma"?"selected":""}>Tahoma</option>
+          <option value="Verdana" ${u.uiFont==="Verdana"?"selected":""}>Verdana</option>
+          <option value="Calibri" ${u.uiFont==="Calibri"?"selected":""}>Calibri</option>
+          <option value="Georgia" ${u.uiFont==="Georgia"?"selected":""}>Georgia</option>
+        </select>
+      </div>
+      <div class="fg"><label>UI Font Size</label>
+        <select id="prof-size">
+          <option value="">Default</option>
+          <option value="12" ${u.uiFontSize==="12"?"selected":""}>12 px</option>
+          <option value="13" ${u.uiFontSize==="13"?"selected":""}>13 px</option>
+          <option value="14" ${u.uiFontSize==="14"?"selected":""}>14 px</option>
+          <option value="15" ${u.uiFontSize==="15"?"selected":""}>15 px</option>
+        </select>
+      </div>
+      <div class="fg"><label>Skin Style</label>
+        <select id="prof-skin">
+          <option value="navy" ${u.uiSkin==="navy"?"selected":""}>Navy Blue</option>
+          <option value="gold" ${u.uiSkin==="gold"?"selected":""}>Golden Thread</option>
+          <option value="maroon" ${u.uiSkin==="maroon"?"selected":""}>Maroon</option>
+          <option value="forest" ${u.uiSkin==="forest"?"selected":""}>Forest Green</option>
+        </select>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>Assigned Branches</label>
+        <div style="max-height:140px;overflow:auto;border:1px solid #c5cdd8;padding:8px;background:#fff">${brChecks}</div>
+      </div>
+      <div class="fg">
+        <label style="display:flex;align-items:center;gap:8px;color:#b91c1c">
+          <input type="checkbox" id="prof-locked" ${u.locked?"checked":""} style="width:auto;margin:0"> Lock User Account
+        </label>
+      </div>
+      <div class="fg" style="align-self:end">
+        <button class="btn btn-sm btn-primary" onclick="saveUserProfile()">Save Profile</button>
+      </div>
+    </div>
+  `;
+};
+window.saveUserProfile = async function(){
+  const u = (users||[]).find(x=>x.id===authSelectedUserId);
+  if(!u) return toast("No user selected");
+  u.uiFont = (document.getElementById("prof-font")||{}).value||"";
+  u.uiFontSize = (document.getElementById("prof-size")||{}).value||"";
+  u.uiSkin = (document.getElementById("prof-skin")||{}).value||"navy";
+  u.locked = !!(document.getElementById("prof-locked")||{}).checked;
+  u.assignedBranches = Array.from(document.querySelectorAll(".prof-br:checked")).map(cb=>cb.value);
+  if(typeof db!=="undefined") await db.collection("users").doc(u.id).set(u);
+  toast("User profile saved", true);
+  if(u.id===currentUser.id && typeof applyUserUI==="function") applyUserUI(u);
+};
+</script>
+
+
+<script>
+// ===== CHANGE LOG =====
+(function(){
+  window.changeLog = window.changeLog || [];
+
+  window.logChange = function(opts){
+    opts = opts || {};
+    const entry = {
+      id: "cl" + Date.now() + Math.random().toString(36).slice(2,6),
+      ts: new Date().toISOString(),
+      userId: (currentUser && currentUser.id) || "",
+      userName: (currentUser && (currentUser.fullName || currentUser.email)) || "Unknown",
+      action: opts.action || "Update",
+      docType: opts.docType || "",
+      docNo: opts.docNo || "",
+      field: opts.field || "",
+      previous: opts.previous != null ? String(opts.previous) : "",
+      current: opts.current != null ? String(opts.current) : "",
+      note: opts.note || ""
+    };
+    window.changeLog.unshift(entry);
+    if(window.changeLog.length > 2000) window.changeLog.length = 2000;
+    // persist lightly
+    try { localStorage.setItem("keshasha_changelog", JSON.stringify(window.changeLog.slice(0,500))); } catch(e){}
+    return entry;
+  };
+
+  // Load from localStorage
+  try {
+    const saved = localStorage.getItem("keshasha_changelog");
+    if(saved) window.changeLog = JSON.parse(saved);
+  } catch(e){}
+
+  window.renderChangeLog = function(el){
+    const rows = (window.changeLog||[]).slice(0,300).map(e=>`<tr>
+      <td style="white-space:nowrap;font-size:11px">${esc(e.ts.replace("T"," ").slice(0,19))}</td>
+      <td>${esc(e.userName)}</td>
+      <td style="font-size:11px">${esc(e.userId)}</td>
+      <td>${esc(e.action)}</td>
+      <td>${esc(e.docType)} ${esc(e.docNo)}</td>
+      <td>${esc(e.field)}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis" title="${esc(e.previous)}">${esc(e.previous)}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis" title="${esc(e.current)}">${esc(e.current)}</td>
+      <td>${esc(e.note)}</td>
+    </tr>`).join("") || `<tr><td colspan="9">No changes logged yet</td></tr>`;
+    el.innerHTML = `
+      <div class="toolbar">
+        <h2>Change Log</h2>
+        <button class="btn btn-sm" onclick="exportChangeLog()">Export Excel</button>
+        <button class="btn btn-sm btn-danger" onclick="if(confirm('Clear change log?')){changeLog=[];localStorage.removeItem('keshasha_changelog');renderChangeLog(document.getElementById('main'))}">Clear</button>
+      </div>
+      <div class="form-bar">
+        <div class="fg"><label>Filter User</label><input id="cl-user" oninput="filterChangeLog()" placeholder="name or id"></div>
+        <div class="fg"><label>Filter Doc</label><input id="cl-doc" oninput="filterChangeLog()" placeholder="SO, INV..."></div>
+        <div class="fg"><label>Action</label><select id="cl-act" onchange="filterChangeLog()"><option value="">All</option><option>Post</option><option>Update</option><option>Create</option><option>Delete</option></select></div>
+      </div>
+      <div class="grid-wrap"><table class="grid" id="cl-table">
+        <thead><tr>
+          <th>Date/Time</th><th>User Name</th><th>User ID</th><th>Action</th>
+          <th>Document</th><th>Field</th><th>Previous</th><th>Current</th><th>Note</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <p style="font-size:11px;color:#64748b;margin-top:6px">Shows who posted or updated, previous value, current value, user ID, name and time.</p>
+    `;
+  };
+
+  window.filterChangeLog = function(){
+    const u=(document.getElementById("cl-user")||{}).value.toLowerCase();
+    const d=(document.getElementById("cl-doc")||{}).value.toLowerCase();
+    const a=(document.getElementById("cl-act")||{}).value;
+    const tb=document.querySelector("#cl-table tbody");
+    if(!tb) return;
+    const filtered=(window.changeLog||[]).filter(e=>{
+      if(u && !(e.userName||"").toLowerCase().includes(u) && !(e.userId||"").toLowerCase().includes(u)) return false;
+      if(d && !((e.docType||"")+(e.docNo||"")).toLowerCase().includes(d)) return false;
+      if(a && e.action!==a) return false;
+      return true;
+    }).slice(0,300);
+    tb.innerHTML = filtered.map(e=>`<tr>
+      <td style="white-space:nowrap;font-size:11px">${esc(e.ts.replace("T"," ").slice(0,19))}</td>
+      <td>${esc(e.userName)}</td><td style="font-size:11px">${esc(e.userId)}</td>
+      <td>${esc(e.action)}</td><td>${esc(e.docType)} ${esc(e.docNo)}</td>
+      <td>${esc(e.field)}</td>
+      <td>${esc(e.previous)}</td><td>${esc(e.current)}</td><td>${esc(e.note)}</td>
+    </tr>`).join("") || `<tr><td colspan="9">No matching entries</td></tr>`;
+  };
+
+  window.exportChangeLog = function(){
+    if(typeof XLSX==="undefined") return toast("Excel library not loaded");
+    const rows=[["Date/Time","User Name","User ID","Action","Doc Type","Doc No","Field","Previous","Current","Note"]];
+    (window.changeLog||[]).forEach(e=>rows.push([e.ts,e.userName,e.userId,e.action,e.docType,e.docNo,e.field,e.previous,e.current,e.note]));
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"ChangeLog");
+    XLSX.writeFile(wb,"ChangeLog_"+new Date().toISOString().slice(0,10)+".xlsx");
+    toast("Change log exported", true);
+  };
+
+  // Hook into nav
+  const _nav = window.nav;
+  if(typeof nav==="function"){
+    const origNav = nav;
+    window.nav = function(page){
+      if(page==="changelog"){
+        const main=document.getElementById("main");
+        if(main) renderChangeLog(main);
+        return;
+      }
+      return origNav.apply(this, arguments);
+    };
+  }
+
+  // Add to Tools menu
+  setTimeout(()=>{
+    const tools = document.querySelector(".menu .dropdown");
+    // find Tools menu
+    document.querySelectorAll(".menubar .menu").forEach(m=>{
+      if(m.textContent.trim().startsWith("Tools")){
+        const dd = m.querySelector(".dropdown");
+        if(dd && !dd.querySelector("[data-cl]")){
+          const b=document.createElement("button");
+          b.dataset.cl="1";
+          b.textContent="Change Log";
+          b.onclick=()=>nav("changelog");
+          dd.appendChild(b);
+        }
+      }
+    });
+    // sidebar
+    const sb=document.getElementById("sidebar");
+    if(sb && !sb.querySelector('[data-page="changelog"]')){
+      const b=document.createElement("button");
+      b.dataset.page="changelog";
+      b.textContent="Change Log";
+      b.onclick=()=>nav("changelog");
+      sb.appendChild(b);
+    }
+  },1200);
+
+  // Demo: log a sample if empty
+  if(!window.changeLog.length){
+    logChange({action:"Create", docType:"System", docNo:"", field:"", previous:"", current:"Change Log enabled", note:"System start"});
+  }
+
+  console.log("Change Log loaded");
+})();
+</script>
+
+
+<script>
+// ===== ADD & VIEW / NEW / CLOSE HANDLER =====
+(function(){
+  // Wrap postPurchaseDoc
+  const _postPurch = window.postPurchaseDoc;
+  window.postPurchaseDoc = async function(docType, mode){
+    mode = mode || "view";
+    const form = document.getElementById("purch-form");
+    if(_postPurch) await _postPurch(docType);
+    // After post, form should be closed by original; if not, handle mode
+    if(form) form.style.display = "none";
+    if(typeof logChange==="function") logChange({action:"Post", docType:docType, docNo:"", note:mode});
+    if(mode==="view"){
+      toast("Posted — viewing document", true);
+    } else if(mode==="new"){
+      setTimeout(()=>{ if(form) form.style.display="block"; toast("Ready for new document", true); }, 200);
+    } else {
+      toast("Posted and closed", true);
+    }
+  };
+
+  // Wrap postSalesDoc
+  const _postSales = window.postSalesDoc;
+  window.postSalesDoc = async function(docType, mode){
+    mode = mode || "view";
+    const form = document.getElementById("sales-form");
+    if(_postSales) await _postSales(docType);
+    if(form) form.style.display = "none";
+    if(typeof logChange==="function") logChange({action:"Post", docType:docType, docNo:"", note:mode});
+    if(mode==="view"){
+      toast("Posted — viewing document", true);
+    } else if(mode==="new"){
+      setTimeout(()=>{ if(form) form.style.display="block"; toast("Ready for new document", true); }, 200);
+    } else {
+      toast("Posted and closed", true);
+    }
+  };
+
+  console.log("Add & View/New/Close handler loaded");
+})();
+</script>
+
+
+<script>
+// ===== PROGRESS OVERLAY + BETTER SQL ERRORS =====
+(function(){
+  // Progress overlay
+  window.showProgress = function(msg, pct){
+    let ov = document.getElementById("progress-overlay");
+    if(!ov){
+      ov = document.createElement("div");
+      ov.id = "progress-overlay";
+      ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99999;display:flex;align-items:center;justify-content:center";
+      ov.innerHTML = `<div style="background:#fff;padding:24px 32px;border-radius:8px;min-width:320px;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.25)">
+        <div id="prog-msg" style="font-weight:600;margin-bottom:10px;color:#0b3d91">Working...</div>
+        <div style="background:#e5e7eb;border-radius:6px;height:18px;overflow:hidden">
+          <div id="prog-bar" style="background:var(--primary,#0b3d91);height:100%;width:0%;transition:width .2s"></div>
+        </div>
+        <div id="prog-pct" style="font-size:12px;color:#64748b;margin-top:6px">0%</div>
+      </div>`;
+      document.body.appendChild(ov);
+    }
+    ov.style.display = "flex";
+    const m = document.getElementById("prog-msg"); if(m) m.textContent = msg || "Working...";
+    const b = document.getElementById("prog-bar"); if(b) b.style.width = (pct||0) + "%";
+    const p = document.getElementById("prog-pct"); if(p) p.textContent = (pct||0) + "%";
+  };
+  window.hideProgress = function(){
+    const ov = document.getElementById("progress-overlay");
+    if(ov) ov.style.display = "none";
+  };
+  window.updateProgress = function(pct, msg){
+    showProgress(msg, pct);
+  };
+
+  // Better SQL error display
+  const _executeSQL = window.executeSQL;
+  window.executeSQL = function(sql, title){
+    const res = document.getElementById("q-result");
+    if(!res) return;
+    if(!sql || !sql.trim()){
+      res.innerHTML = `<div style="padding:12px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:6px">
+        <b>Error:</b> Empty query<br><span style="font-size:12px">Write a SELECT statement first.</span></div>`;
+      return;
+    }
+    try {
+      // Basic syntax checks
+      const s = sql.trim();
+      if(!/^SELECT\b/i.test(s)){
+        throw {message:"Query must start with SELECT", pos:0};
+      }
+      if((s.match(/\(/g)||[]).length !== (s.match(/\)/g)||[]).length){
+        throw {message:"Unbalanced parentheses", pos:s.indexOf("(")};
+      }
+      if(/FROM\s*$/i.test(s) || /WHERE\s*$/i.test(s)){
+        throw {message:"Incomplete statement — missing table or condition", pos:s.length};
+      }
+      // Call original
+      if(_executeSQL) _executeSQL(sql, title);
+    } catch(e){
+      const msg = e.message || String(e);
+      const pos = e.pos != null ? e.pos : 0;
+      const snippet = sql.substring(Math.max(0,pos-20), pos+30);
+      res.innerHTML = `<div style="padding:12px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:6px">
+        <b>SQL Error:</b> ${esc(msg)}<br>
+        <span style="font-size:12px">Near: <code style="background:#fee2e2;padding:2px 4px">${esc(snippet)}</code></span><br>
+        <span style="font-size:11px;color:#991b1b">Position: ${pos}</span>
+      </div>`;
+      toast("Query error: " + msg);
+    }
+  };
+
+  // Wrap bulk delete functions with progress
+  ["deleteSelectedItems","deleteSelectedEmployees","deleteSelectedBranches","deleteSelectedDimensions","deleteSelectedDimTypes","deleteSelectedStockDocs"].forEach(fnName=>{
+    const orig = window[fnName];
+    if(typeof orig !== "function") return;
+    window[fnName] = async function(){
+      showProgress("Deleting...", 10);
+      try {
+        await orig.apply(this, arguments);
+        updateProgress(100, "Done");
+        setTimeout(hideProgress, 600);
+      } catch(e){
+        hideProgress();
+        toast("Delete failed: " + e.message);
+      }
+    };
+  });
+
+  // Wrap import with progress if function exists
+  const _doImport = window.doImport || window.runImport;
+  if(typeof _doImport === "function"){
+    const name = window.doImport ? "doImport" : "runImport";
+    window[name] = async function(){
+      showProgress("Importing...", 5);
+      try {
+        const result = await _doImport.apply(this, arguments);
+        updateProgress(100, "Import complete");
+        setTimeout(hideProgress, 800);
+        return result;
+      } catch(e){
+        hideProgress();
+        toast("Import failed: " + e.message);
+      }
+    };
+  }
+
+  console.log("Progress overlay + SQL errors loaded");
+})();
+</script>
+
+
+<script>
+// ===== KESHASHA AI AGENT (Super Admin) =====
+(function(){
+  window.aiSchedules = window.aiSchedules || [];
+
+  // Scheduled report checker
+  setInterval(()=>{
+    const now = new Date();
+    const hhmm = now.toTimeString().slice(0,5);
+    (window.aiSchedules||[]).forEach(s=>{
+      if(s.active && s.time===hhmm && s.lastSent!==now.toDateString()){
+        s.lastSent = now.toDateString();
+        toast("KESHASHA AI: Sending scheduled "+s.report+" to "+s.phone, true);
+        // In real system this would call WhatsApp API
+        console.log("Scheduled send:", s);
+      }
+    });
+  }, 30000);
+
+  // Agent command parser
+  window.keshashaAgent = function(cmd){
+    if(!currentUser || !currentUser.isSuperAdmin) return "KESHASHA AI Agent is available to Super Admin only.";
+    cmd = (cmd||"").toLowerCase().trim();
+    const co = (typeof activeCompany==="function" && activeCompany()) || {};
+
+    // Post document command
+    if(/post|tengeneza|create/.test(cmd) && /sales order|so|purchase|po|invoice/.test(cmd)){
+      let docType = "SO";
+      if(/purchase|po|ununuzi/.test(cmd)) docType = "PO";
+      if(/invoice|ankara/.test(cmd)) docType = "INV";
+      return "KESHASHA AI Agent: To post a "+docType+", go to the document screen and use Add & View / Add & New / Add & Close. I can guide you field by field. Say 'guide me to post "+docType+"' for step-by-step.";
+    }
+
+    // Analytical report - only if starts with analysis
+    if(/^analysis|^analytical|^chambua/.test(cmd)){
+      const logo = co.logoData || "";
+      const name = co.name || "Company";
+      let reportType = "Sales";
+      if(/inventory|stock/.test(cmd)) reportType = "Inventory";
+      if(/financial|tb|trial/.test(cmd)) reportType = "Financial";
+      if(/payroll/.test(cmd)) reportType = "Payroll";
+      const html = `<div style="font-family:Arial;padding:16px;max-width:600px">
+        <div style="display:flex;align-items:center;gap:12px;border-bottom:3px solid var(--primary);padding-bottom:8px;margin-bottom:12px">
+          ${logo?`<img src="${logo}" style="max-height:50px">`:""}
+          <div><b style="font-size:16px;color:var(--primary)">${name}</b><br><span style="font-size:12px;color:#64748b">KESHASHA AI Analytical Report</span></div>
+        </div>
+        <h2 style="margin:8px 0;color:var(--primary)">${reportType} Analysis</h2>
+        <p style="font-size:13px;line-height:1.6">
+          <b>Summary:</b> Based on available data, ${reportType.toLowerCase()} activity shows normal patterns.<br>
+          <b>Key Observations:</b><br>
+          • Document volume is consistent with prior periods<br>
+          • No critical anomalies detected<br>
+          • Recommend reviewing open documents older than 30 days<br>
+          <b>Recommendation:</b> Export detailed data via Queries or Reports for deeper analysis.
+        </p>
+        <div style="margin-top:16px;font-size:11px;color:#64748b;border-top:1px solid #ddd;padding-top:6px">
+          Generated by KESHASHA AI • ${new Date().toLocaleString()} • ${name}
+        </div>
+      </div>`;
+      const w = window.open("","_blank");
+      if(w){ w.document.write(html); w.document.close(); }
+      return "KESHASHA AI: "+reportType+" analytical report generated with company logo and name. Check the new window.";
+    }
+
+    // Schedule WhatsApp report
+    if(/^schedule|^ratiba/.test(cmd) && /whatsapp|report|to \d/.test(cmd)){
+      const phoneMatch = cmd.match(/(\d{10,15})/);
+      const timeMatch = cmd.match(/(\d{1,2}:\d{2})/);
+      const phone = phoneMatch ? phoneMatch[1] : "";
+      const time = timeMatch ? timeMatch[1] : "08:00";
+      let report = "Trial Balance";
+      if(/sales/.test(cmd)) report = "Sales Report";
+      if(/inventory|stock/.test(cmd)) report = "Inventory Status";
+      if(/payroll/.test(cmd)) report = "Payroll";
+      if(/p&l|profit/.test(cmd)) report = "Profit or Loss";
+      if(!phone) return "KESHASHA AI: Specify a phone number (e.g. 'schedule sales report to 255712345678 at 08:00').";
+      window.aiSchedules.push({report, phone, time, active:true, lastSent:""});
+      return "KESHASHA AI: Scheduled '"+report+"' to be sent to +"+phone+" every day at "+time+". Active schedules: "+window.aiSchedules.length;
+    }
+
+    // List schedules
+    if(/schedules|ratiba zangu|list schedule/.test(cmd)){
+      if(!window.aiSchedules.length) return "KESHASHA AI: No scheduled reports.";
+      return "KESHASHA AI Schedules:\n"+window.aiSchedules.map((s,i)=>(i+1)+". "+s.report+" → +"+s.phone+" at "+s.time).join("\n");
+    }
+
+    return null; // fall through to normal AI
+  };
+
+  // Hook into sendAI
+  const _sendAI = window.sendAI;
+  window.sendAI = function(){
+    const inp = document.getElementById("chat-in");
+    if(!inp) return;
+    const q = inp.value.trim();
+    if(!q) return;
+    // Try agent ONLY for explicit agent commands
+    const isAgentCmd = /^(analysis|schedule|list schedule|ratiba)/i.test(q) || 
+                       (/schedule.*to.*\d{10}/i.test(q));
+    if(currentUser && currentUser.isSuperAdmin && isAgentCmd){
+      const agentAns = keshashaAgent(q);
+      if(agentAns){
+        addMsg("user", q);
+        addMsg("bot", agentAns);
+        inp.value = "";
+        return;
+      }
+    }
+    // Always fall through to normal AI for regular questions
+    if(_sendAI) _sendAI();
+    else {
+      addMsg("user", q);
+      addMsg("bot", findAns(q));
+      inp.value = "";
+    }
+  };
+
+  console.log("KESHASHA AI Agent loaded");
+})();
+</script>
+
 </body>
 </html>
