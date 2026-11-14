@@ -364,6 +364,16 @@
     .sidebar .mod-children.open { display: block; }
     .sidebar .mod-children button { padding-left: 22px; font-size: 12.5px; }
     .sidebar .mod-title .chev { font-size: 10px; opacity: .7; }
+    .sidebar .side-subtitle { width:100%; display:flex; justify-content:space-between; align-items:center; border:0; background:rgba(148,163,184,.10); color:#cbd5e1; padding:6px 12px 6px 18px; font-size:11.5px; text-align:left; cursor:pointer; }
+    .sidebar .side-subtitle:hover { background:rgba(148,163,184,.2); color:#fff; }
+    .sidebar .side-subtitle .subchev { font-size:10px; opacity:.8; }
+    .sidebar .side-subchildren { display:none; padding:2px 0 4px 8px; border-left:1px solid rgba(148,163,184,.25); margin-left:15px; }
+    .sidebar .side-subchildren.open { display:block; }
+    .sidebar .side-subchildren button { padding-left:18px !important; font-size:12px !important; }
+    .sidebar .tools-admin-title { background:#0f172a; color:#e2e8f0; border-bottom:1px solid rgba(148,163,184,.18); }
+    .sidebar .tools-admin-children { display:none; }
+    .sidebar .tools-admin-children.open { display:block; }
+
 
   
     .progress-bar-wrap {
@@ -777,6 +787,47 @@ select.ss-hidden{display:none !important}
       companies = co.docs.map(d => ({ id: d.id, ...d.data() }));
       users = us.docs.map(d => ({ id: d.id, ...d.data() }));
     }
+    // Normalize legacy/imported Item Master field names into the canonical ERP schema.
+    // This is read-only: it does not rewrite or delete Firestore documents.
+    function normalizeItemRecord(raw, id) {
+      const x = raw || {};
+      const nested = (x.item && typeof x.item === "object") ? x.item : ((x.data && typeof x.data === "object") ? x.data : {});
+      const pick = (...keys) => {
+        for (const source of [x, nested]) for (const k of keys)
+          if (source[k] !== undefined && source[k] !== null && String(source[k]).trim() !== "") return source[k];
+        return undefined;
+      };
+      const yn = (v, fallback=true) => {
+        if (v === undefined || v === null || v === "") return fallback;
+        return !(["N","NO","FALSE","0","OFF"].includes(String(v).trim().toUpperCase()));
+      };
+      const code = pick("itemCode","ItemCode","itemcode","item_code","Code","code","SKU","sku","Item No","ItemNo","Item Number");
+      const name = pick("name","Name","itemName","ItemName","itemname","Item Description","ItemDescription","Description","description");
+      const group = pick("itemGroup","ItemGroup","itemgroup","Group","group","ItmsGrpNam","GroupName","groupName","ItmsGrpCod");
+      const uom = pick("uom","UoM","UOM","InvntryUom","InventoryUoM","inventoryUom","InvUoM","Unit");
+      const manage = pick("manageBy","ManageBy","manageby","Manage Item By","ManBtchNum","ManSerNum","ManageItemBy");
+      let manageBy = manage || "None";
+      if (["Y","YES","TRUE","1","BATCH"].includes(String(manageBy).toUpperCase())) manageBy = "Batch";
+      else if (["SERIAL","S","SN"].includes(String(manageBy).toUpperCase())) manageBy = "Serial";
+      else if (!["Batch","Serial"].includes(manageBy)) manageBy = "None";
+      return {
+        ...x, id: id || x.id,
+        itemCode: code === undefined ? "" : String(code).trim(),
+        name: name === undefined ? "" : String(name).trim(),
+        itemGroup: group === undefined ? "" : String(group).trim(),
+        uom: uom === undefined ? "" : String(uom).trim(),
+        manageBy,
+        companyId: pick("companyId","CompanyId","company_id","companyID","CmpId") || x.companyId,
+        isInventory: yn(pick("isInventory","InvntItem","inventoryItem","Inv"), true),
+        isSales: yn(pick("isSales","SellItem","salesItem","Sales"), true),
+        isPurchase: yn(pick("isPurchase","PrchseItem","PurchaseItem","Purch"), true),
+        status: String(pick("status","Status","isActive") || "active").toLowerCase() === "false" ? "inactive" : String(pick("status","Status") || "active").toLowerCase()
+      };
+    }
+    function isUsableItemRecord(item) {
+      return !!(item && String(item.itemCode || "").trim() && String(item.name || "").trim());
+    }
+
     async function loadAll() {
       if (!db) throw new Error("Firebase config haijawekwa. Angalia index.html — firebaseConfig.");
       const scopeCid = (currentUser && !currentUser.isSuperAdmin && activeCompanyId) ? activeCompanyId : null;
@@ -796,7 +847,7 @@ select.ss-hidden{display:none !important}
         }
         return q.get();
       };
-      const [co, br, emp, se, us, dim, dimt, ds, it, bm, po, op, act, ast, lv, wh, st, bp, pl, sd, pd, py, ac, jn, am, pg, cu, tc, er, isd] = await Promise.all([
+      const [co, br, emp, se, us, ro, dim, dimt, ds, it, bm, po, op, act, ast, lv, wh, st, bp, pl, sd, pd, py, ac, jn, am, pg, cu, er, tc, isd] = await Promise.all([
         db.collection("companies").get(),
         __col("branches").get(),
         __col("employees").get(),
@@ -834,10 +885,11 @@ select.ss-hidden{display:none !important}
       employees = emp.docs.map(d => ({ id: d.id, ...d.data() }));
       salesEmployees = se.docs.map(d => ({ id: d.id, ...d.data() }));
       users = us.docs.map(d => ({ id: d.id, ...d.data() }));
+      roles = ro.docs.map(d => ({ id: d.id, ...d.data() }));
       dimensions = dim.docs.map(d => ({ id: d.id, ...d.data() }));
       dimensionTypes = dimt.docs.map(d => ({ id: d.id, ...d.data() }));
       docSeries = ds.docs.map(d => ({ id: d.id, ...d.data() }));
-      items = it.docs.map(d => ({ id: d.id, ...d.data() }));
+      items = it.docs.map(d => normalizeItemRecord(d.data(), d.id));
       boms = (bm && bm.docs) ? bm.docs.map(d => ({ id: d.id, ...d.data() })) : [];
       prodOrders = (po && po.docs) ? po.docs.map(d => ({ id: d.id, ...d.data() })) : [];
       opportunities = (op && op.docs) ? op.docs.map(d => ({ id: d.id, ...d.data() })) : [];
@@ -856,8 +908,8 @@ select.ss-hidden{display:none !important}
       accountMaps = am.docs.map(d => ({ id: d.id, ...d.data() }));
       partnerGroups = pg.docs.map(d => ({ id: d.id, ...d.data() }));
       currencies = cu.docs.map(d => ({ id: d.id, ...d.data() }));
-      taxCodes = tc.docs.map(d => ({ id: d.id, ...d.data() }));
       exchangeRates = er.docs.map(d => ({ id: d.id, ...d.data() }));
+      taxCodes = tc.docs.map(d => ({ id: d.id, ...d.data() }));
       itemSeriesDefs = isd.docs.map(d => ({ id: d.id, ...d.data() }));
       try {
         const ut = await __col("ui_templates").get();
@@ -1239,7 +1291,65 @@ select.ss-hidden{display:none !important}
           if (key && !hasAuth(key, 1)) btn.style.display = "none";
         });
       }
+      organizeSidebarLevels();
     }
+    function organizeSidebarLevels() {
+      const sb = document.getElementById("sidebar"); if (!sb) return;
+      // Place Administration and Customization under one Tools & Administration dropdown.
+      const adminTitle = sb.querySelector('.mod-title[onclick*="toggleSidebarGroup(\'admin\')"]');
+      const adminGroup = sb.querySelector('#grp-admin');
+      const customTitle = sb.querySelector('.mod-title[onclick*="toggleSidebarGroup(\'custom\')"]');
+      const customGroup = sb.querySelector('#grp-custom');
+      if ((adminTitle || customTitle) && !sb.querySelector('#grp-tools-admin')) {
+        const wrap = document.createElement('div');
+        wrap.innerHTML = `<div class="mod-title tools-admin-title" role="button" tabindex="0" onclick="toggleToolsAdmin()">Tools &amp; Administration <span class="chev" id="chev-tools-admin">${localStorage.getItem('keshasha_tools_admin_open')==='1'?'▼':'▶'}</span></div><div class="tools-admin-children ${localStorage.getItem('keshasha_tools_admin_open')==='1'?'open':''}" id="grp-tools-admin"></div>`;
+        const title = wrap.firstElementChild, children = wrap.lastElementChild;
+        sb.insertBefore(title, sb.firstChild); sb.insertBefore(children, title.nextSibling);
+        [adminTitle,adminGroup,customTitle,customGroup].filter(Boolean).forEach(n=>children.appendChild(n));
+      }
+      const groups = {
+        inventory: {"Master Data":["items","warehouses","pricelists"],"Inventory Transactions":["stock","transfer","invcount","invpost","invreval","invopen","batch"],"Reports & Analysis":["stockbal","invreports","superinv"]},
+        admin: {"Company & People":["companies","branches","employees","salesemp"],"Users & Security":["users","roles","authz","license","licadmin"],"System Setup":["dimtypes","dimensions","docseries","itemseries","exrates","docsettings","sysinfo2"],"Approvals":["apprstages","apprtemp","apprstatus","uitemplate"]},
+        custom: {"Development Tools":["queries","udt","udf","udo"],"Integration Tools":["barcode"]},
+        bp: {"Business Partner Setup":["partners","bpgroups"],"Account Management":["bprecon"]},
+        purchasing: {"Purchase Requests & Orders":["pr","pq","po"],"Goods & Invoices":["grpo","apinv","apcm"],"Reports":["purchrep"]},
+        sales: {"Sales Documents":["sq","so","dn","ret"],"Invoices & Credit Notes":["dpr","dpi","inv","cm"],"Reports":["salesrep"]},
+        banking: {"Payments":["pay","outgoing"],"Reports":["bankrep"]},
+        production: {"Production Setup & Orders":["bom","prodorder"]},
+        assets: {"Asset Management":["assets","depr"]},
+        hr: {"Employee Records & Loans":["hrloans","basicpay"],"Payroll & Leave":["payroll","leave"]},
+        crm: {"Customer Activities":["opps","activities"]},
+        reports: {"Financial & Management Reports":["pl","bs","intercompany","powerbi","whatsapp","emailsch"]},
+        finance: {"General Ledger":["coa","je","opening","acctmap"],"Financial Setup":["currencies","exrates","docsettings","taxcodes"],"Financial Reports":["tb"]}
+      };
+      Object.entries(groups).forEach(([name, buckets])=>{
+        const parent=sb.querySelector('#grp-'+name); if(!parent || parent.dataset.organized==='1') return;
+        const buttons=Array.from(parent.querySelectorAll(':scope > button[data-page]'));
+        const used=new Set();
+        Object.entries(buckets).forEach(([label,pages],idx)=>{
+          const picked=pages.map(id=>buttons.find(b=>b.dataset.page===id)).filter(Boolean);
+          if(!picked.length) return;
+          picked.forEach(b=>used.add(b));
+          const key='keshasha_sub_'+name+'_'+idx;
+          const open=localStorage.getItem(key)==='1';
+          const section=document.createElement('div'); section.className='side-subgroup';
+          const head=document.createElement('button'); head.type='button'; head.className='side-subtitle';
+          head.innerHTML=`<span>${label}</span><span class="subchev">${open?'▼':'▶'}</span>`;
+          const body=document.createElement('div'); body.className='side-subchildren'+(open?' open':'');
+          head.addEventListener('click',()=>{const now=body.classList.toggle('open');head.querySelector('.subchev').textContent=now?'▼':'▶';localStorage.setItem(key,now?'1':'0');});
+          picked.forEach(b=>body.appendChild(b)); section.append(head,body); parent.appendChild(section);
+        });
+        buttons.filter(b=>!used.has(b)).forEach(b=>parent.appendChild(b));
+        parent.dataset.organized='1';
+      });
+    }
+    function toggleToolsAdmin(){
+      const el=document.getElementById('grp-tools-admin'); if(!el)return;
+      const open=el.classList.toggle('open');
+      const ch=document.getElementById('chev-tools-admin'); if(ch)ch.textContent=open?'▼':'▶';
+      localStorage.setItem('keshasha_tools_admin_open',open?'1':'0');
+    }
+
     function toggleSidebarGroup(name) {
       const keyMap = { inventory: "inv", admin: "admin", bp: "bp", sales: "sales", finance: "finance" };
       const key = "keshasha_" + (keyMap[name] || name) + "_open";
@@ -1264,6 +1374,7 @@ select.ss-hidden{display:none !important}
     }
 
     function nav(page) {
+      if (page !== "invopen") window.__invOpeningOnly = false;
       const ak = pageAuthKey(page);
       if (!currentUser) return;
       if (!currentUser.isSuperAdmin && !hasAuth(ak, 1)) {
@@ -2238,7 +2349,7 @@ select.ss-hidden{display:none !important}
         </div>
         <div class="grid-wrap"><table class="grid">
           <thead><tr>
-            <th style="width:28px"><input type="checkbox" onclick="document.querySelectorAll('.dim-check').forEach(c=>c.checked=this.checked)"></th>
+            <th style="width:28px"><input type="checkbox" onclick="document.querySelectorAll('.pg-check').forEach(c=>c.checked=this.checked)"></th>
             <th>Type</th><th>Code</th><th>Name</th><th></th>
           </tr></thead>
           <tbody>
@@ -2353,6 +2464,7 @@ select.ss-hidden{display:none !important}
           </div>
           <div class="fg"><label>Prefix</label><input id="ds-prefix" placeholder="IN-26-"></div>
           <div class="fg"><label>Next No</label><input id="ds-next" type="number" value="1"></div>
+          <div class="fg"><label>Padding</label><input id="ds-pad" type="number" value="5" min="1" max="12"></div>
           <div class="fg" style="align-self:end"><button class="btn btn-sm btn-primary" onclick="saveSeries()">Save</button></div>
         </div>
         <div class="grid-wrap"><table class="grid">
@@ -2372,11 +2484,11 @@ select.ss-hidden{display:none !important}
       if (!cid) return toast("Company required");
       const yy = String(new Date().getFullYear()).slice(-2);
       const seeds = [];
-      const addSeed = (t, pfx) => { if (!seeds.some(x => x[0] === t)) seeds.push([t, pfx + "-" + yy + "-"]); };
+      const addSeed = (t, pfx) => { if (!seeds.some(x => x[0] === t)) seeds.push([t, ["BP-CUST","BP-VEND","BP-LEAD","EMP"].includes(t) ? pfx : pfx + "-" + yy + "-"]); };
       Object.keys(SALES_META).forEach(t => addSeed(t, SALES_META[t].prefix || t));      // Sales A/R: SQ SO DN RET DPR DPI INV CM
       Object.keys(PURCH_META).forEach(t => addSeed(t, PURCH_META[t].prefix || t));     // Purchasing A/P: PR PQ PO GRPO PDPR PDPI APINV APCM
-      [["GI","GI"],["IN","IN"],["OUT","OUT"],["TR","TR"],["OB","OB"],                  // Inventory
-       ["RC","RC"],["OP","OP"],["JE","JE"]].forEach(([t, p]) => addSeed(t, p));        // Banking + Journal
+      [["GI","GI"],["IN","IN"],["OUT","OUT"],["TR","TR"],["OB","OB"],["GR","GR"],["ADJ","ADJ"], // Inventory
+       ["RC","RC"],["OP","OP"],["JE","JE"],["BP-CUST","C"],["BP-VEND","S"],["BP-LEAD","L"],["EMP","EMP"],["ASSET","FA"],["PAY","PAY"],["LEAVE","LV"]].forEach(([t, p]) => addSeed(t, p));        // Banking + Journal
 
       let n = 0;
       for (const [docType, prefix] of seeds) {
@@ -2395,7 +2507,8 @@ select.ss-hidden{display:none !important}
       const prefix = document.getElementById("ds-prefix").value.trim();
       const nextNumber = parseInt(document.getElementById("ds-next").value, 10) || 1;
       if (!companyId) return toast("Company required");
-      const data = { companyId, docType, prefix, nextNumber, padLength: 3, yearReset: true, isActive: true };
+      const padLength = parseInt((document.getElementById("ds-pad")||{}).value,10)||5;
+      const data = { companyId, docType, prefix, nextNumber, padLength, yearReset: true, isActive: true };
       const ref = await db.collection("doc_series").add(data);
       docSeries.push({ id: ref.id, ...data });
       toast("Series saved", true);
@@ -2575,7 +2688,9 @@ select.ss-hidden{display:none !important}
     // ============================================================
     function renderItems(el) {
       const cid = companyFilterId();
-      let list = scoped(items, cid).sort((a,b)=>(a.itemCode||"").localeCompare(b.itemCode||""));
+      const companyItems = scoped(items, cid);
+      const invalidCount = companyItems.filter(i => !isUsableItemRecord(i)).length;
+      let list = companyItems.filter(isUsableItemRecord).sort((a,b)=>(a.itemCode||"").localeCompare(b.itemCode||""));
       el.innerHTML = `
         <div class="toolbar">
           <h2>Item Master</h2>
@@ -2643,6 +2758,7 @@ select.ss-hidden{display:none !important}
             <button class="btn btn-sm" onclick="document.getElementById('item-form').style.display='none';editingItemId=null;">Cancel</button>
           </div>
         </div>
+        ${invalidCount ? `<div style="margin:6px 0;padding:8px 10px;border:1px solid #f0c36d;background:#fff8e6;color:#7a4b00;border-radius:4px;font-size:12px">${invalidCount} item record(s) have no recognizable Item Code or Name. They are hidden from this list to prevent blank rows; original Firestore records have not been deleted.</div>` : ""}
         <div class="grid-wrap"><table class="grid">
           <thead><tr>
             <th style="width:28px"><input type="checkbox" id="item-check-all" onclick="toggleAllItemChecks(this.checked)" title="Select all"></th>
@@ -2806,7 +2922,20 @@ select.ss-hidden{display:none !important}
       if (!canDelete()) return toast("Not authorized to delete");
       const ids = [...document.querySelectorAll(".item-check:checked")].map(c => c.dataset.id);
       if (!ids.length) return toast("Select rows first");
+      // Refuse deletion if the visible selection does not match loaded Item Master records.
+      const selectedItems = ids.map(id => items.find(i => i.id === id)).filter(Boolean);
+      if (selectedItems.length !== ids.length) {
+        return toast("Safety stop: selected rows do not match loaded Item Master data. Reload and verify before deleting.");
+      }
+      const activeCid = companyFilterId();
+      if (activeCid && selectedItems.some(i => i.companyId !== activeCid)) {
+        return toast("Safety stop: selection contains items outside the active company.");
+      }
       if (!confirm("Delete " + ids.length + " item(s)?")) return;
+      if (ids.length > 100) {
+        const approval = prompt("High-volume deletion blocked for safety. Type DELETE to permanently delete " + ids.length + " items:");
+        if (approval !== "DELETE") return toast("Bulk deletion cancelled");
+      }
       for (const id of ids) {
         await db.collection("items").doc(id).delete();
         items = items.filter(i => i.id !== id);
@@ -2816,7 +2945,7 @@ select.ss-hidden{display:none !important}
     }
     function filterItems() {
       const q = (document.getElementById("item-q").value||"").toLowerCase();
-      let list = scoped(items, companyFilterId()).filter(i =>
+      let list = scoped(items, companyFilterId()).filter(isUsableItemRecord).filter(i =>
         !q || (i.itemCode||"").toLowerCase().includes(q) || (i.name||"").toLowerCase().includes(q) || (i.itemGroup||"").toLowerCase().includes(q)
       );
       document.getElementById("item-body").innerHTML = itemRows(list);
@@ -2866,7 +2995,7 @@ select.ss-hidden{display:none !important}
           if (items.some(i => i.companyId===data.companyId && i.itemCode===data.itemCode)) return toast("Item code exists");
           data.createdAt = new Date().toISOString();
           const ref = await db.collection("items").add(data);
-          items.push({ id: ref.id, ...data });
+          items.push(normalizeItemRecord(data, ref.id));
           toast("Item saved", true);
         }
         editingItemId = null;
@@ -3087,9 +3216,12 @@ select.ss-hidden{display:none !important}
           });
           return;
         }
+        // BP and G/L opening balances are not inventory transactions.
+        if (doc.docType === "OB" && (doc.obType || "STOCK") !== "STOCK") return;
         const sign = (doc.docType === "IN" || doc.docType === "OB") ? 1 : -1;
         const wh = doc.warehouseCode || "";
         (doc.lines || []).forEach(l => {
+          if (!l.itemCode) return;
           add(l.itemCode, l.name, l.uom, wh, sign * (parseFloat(l.qty) || 0));
         });
       });
@@ -3363,12 +3495,12 @@ select.ss-hidden{display:none !important}
     let openingLines = [];
     function renderOpening(el) {
       const cid = companyFilterId();
-      const docs = scoped(stockDocs, cid).filter(d => d.docType === "OB");
+      const docs = scoped(stockDocs, cid).filter(d => d.docType === "OB" && (!window.__invOpeningOnly || (d.obType || "STOCK") === "STOCK"));
       const whOpts = scoped(warehouses, cid).map(w => `<option value="${w.code}">${esc(w.code)}${w.name?" — "+esc(w.name):""}</option>`).join("");
       el.innerHTML = `
         <div class="toolbar">
           <h2>Opening Balance</h2>
-          <button class="btn btn-sm btn-primary" onclick="startOpening()">+ Opening</button>
+          <button class="btn btn-sm btn-primary" onclick="window.__invOpeningOnly?startInvOpening():startOpening()">+ Opening</button>
           <label class="btn btn-sm" style="cursor:pointer;margin:0">📥 Import Excel
             <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="openImportMapper('stock_OB', this)">
           </label>
@@ -3436,10 +3568,13 @@ select.ss-hidden{display:none !important}
       renderOpeningLines();
     }
     function startOpening() {
-      if (!scoped(warehouses, companyFilterId()).length) return toast("Add a warehouse first");
-      openingLines = [{ itemCode: "", qty: "", unitCost: "" }];
+      const type = (document.getElementById("ob-type") || {}).value || "STOCK";
+      if (type === "STOCK" && !scoped(warehouses, companyFilterId()).length) return toast("Add a warehouse first");
+      openingLines = type === "STOCK" ? [{ itemCode: "", qty: "", unitCost: "" }]
+        : type === "BP" ? [{ bpType: "C", bpCode: "", amount: "" }]
+        : [{ acctCode: "", debit: "", credit: "" }];
       document.getElementById("ob-form").style.display = "block";
-      renderOpeningLines();
+      onObTypeChange();
     }
     function renderOpeningLines() {
       const cid = companyFilterId();
@@ -3456,7 +3591,7 @@ select.ss-hidden{display:none !important}
             <td>${idx+1}</td>
             <td><select onchange="openingLines[${idx}].itemCode=this.value" style="width:100%;margin:0;padding:3px"><option value="">— Item —</option>${opts}</select></td>
             <td><input type="number" step="any" value="${l.qty||""}" onchange="openingLines[${idx}].qty=this.value" style="width:100%;margin:0;padding:3px"></td>
-            <td><input type="number" step="any" value="${l.unitCost||""}" onchange="openingLines[${idx}].unitCost=this.value" style="width:100%;margin:0;padding:3px"></td>
+            <td><input type="text" inputmode="decimal" value="${esc(fmtMoney(l.unitCost||0))}" onchange="openingLines[${idx}].unitCost=parseMoney(this.value);renderOpeningLines();" style="width:100%;margin:0;padding:3px"></td>
             <td><button class="btn btn-sm btn-danger" onclick="openingLines.splice(${idx},1);renderOpeningLines();">✕</button></td>
           </tr>`;
         }).join("");
@@ -3475,7 +3610,7 @@ select.ss-hidden{display:none !important}
               <option value="S" ${bpType==="S"?"selected":""}>Vendor</option>
             </select></td>
             <td><select onchange="openingLines[${idx}].bpCode=this.value" style="width:100%;margin:0;padding:3px"><option value="">—</option>${opts}</select></td>
-            <td><input type="number" step="any" value="${l.amount||""}" onchange="openingLines[${idx}].amount=this.value" style="width:100%;margin:0;padding:3px"></td>
+            <td><input type="text" inputmode="decimal" value="${esc(fmtMoney(l.amount||0))}" onchange="openingLines[${idx}].amount=parseMoney(this.value);renderOpeningLines();" style="width:100%;margin:0;padding:3px"></td>
             <td><button class="btn btn-sm btn-danger" onclick="openingLines.splice(${idx},1);renderOpeningLines();">✕</button></td>
           </tr>`;
         }).join("");
@@ -3541,16 +3676,25 @@ select.ss-hidden{display:none !important}
             { acctCode: equity, debit: 0, credit: totalValue, lineMemo: "OB Equity " + docNo },
           ];
         }
-      } else if (obType === "BP" || obType === "GL") {
-        const target = offsetAcct;
-        const equity = getMap(companyId, "OB_EQUITY");
-        if (target && equity) {
-          // Positive = debit (asset / customer), negative handled by user putting positive
-          glLines = [
-            { acctCode: target, debit: totalValue, credit: 0, lineMemo: "OB " + docNo },
-            { acctCode: equity, debit: 0, credit: totalValue, lineMemo: "OB Equity " + docNo },
-          ];
+      } else if (obType === "BP") {
+        const equity = getMap(companyId, "OB_EQUITY") || getMap(companyId, "RETAINED");
+        if (!equity) return toast("Map OB_EQUITY / RETAINED in Account Determination before posting BP opening balances");
+        for (const l of lines) {
+          const amount = Math.abs(Number(l.amount)||0);
+          const isCustomer = l.bpType !== "S";
+          const control = getMap(companyId, isCustomer ? "AR_CONTROL" : "AP_CONTROL");
+          if (!control) return toast("Map " + (isCustomer ? "AR_CONTROL" : "AP_CONTROL") + " in Account Determination first");
+          // Customer debit balance: Dr AR / Cr Opening Equity. Vendor credit balance: Dr Equity / Cr AP.
+          const debitControl = isCustomer ? Number(l.amount) >= 0 : Number(l.amount) < 0;
+          glLines.push({ acctCode: debitControl ? control : equity, debit: amount, credit: 0, lineMemo: "BP OB " + l.bpCode + " " + docNo });
+          glLines.push({ acctCode: debitControl ? equity : control, debit: 0, credit: amount, lineMemo: "BP OB Equity " + l.bpCode + " " + docNo });
         }
+      } else if (obType === "GL") {
+        const equity = getMap(companyId, "OB_EQUITY") || getMap(companyId, "RETAINED");
+        if (!equity) return toast("Map OB_EQUITY / RETAINED in Account Determination before posting G/L opening balances");
+        glLines = lines.map(l => ({ acctCode:l.acctCode, debit:Number(l.debit)||0, credit:Number(l.credit)||0, lineMemo:"G/L OB "+docNo }));
+        const dr = glLines.reduce((a,l)=>a+l.debit,0), cr = glLines.reduce((a,l)=>a+l.credit,0);
+        if (Math.abs(dr-cr) > 0.01) glLines.push({ acctCode:equity, debit:cr>dr?cr-dr:0, credit:dr>cr?dr-cr:0, lineMemo:"Opening Equity "+docNo });
       }
       if (glLines.length) {
         try {
@@ -3618,15 +3762,18 @@ select.ss-hidden{display:none !important}
       return list.map(c => `<option value="${esc(c.code)}" ${c.code===def?"selected":""}>${esc(c.code)} — ${esc(c.name||c.code)}</option>`).join("");
     }
     function nextBpCode(companyId, series) {
-      let prefix = series === "EMP" ? "EMP" : (series === "S" ? "S" : "C");
-      const pad = 5;
-      const re = series === "EMP" ? /^EMP(\d+)$/i : (series === "S" ? /^S(\d+)$/i : /^C(\d+)$/i);
-      let max = 0;
+      const typeMap = { C:"BP-CUST", S:"BP-VEND", EMP:"EMP", L:"BP-LEAD" };
+      const def = (docSeries||[]).find(x=>x.companyId===companyId && x.docType===typeMap[series] && x.isActive!==false);
+      const prefix = def && def.prefix ? def.prefix : (series === "EMP" ? "EMP" : (series === "S" ? "S" : (series === "L" ? "L" : "C")));
+      const pad = (def && def.padLength) || 5;
+      const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+      const re = new RegExp("^"+escaped+"(\\d+)$","i");
+      let max = Math.max(0, ((def && def.nextNumber)||1)-1);
       scoped(partners, companyId).forEach(p => {
         const m = String(p.bpCode || "").match(re);
         if (m) max = Math.max(max, parseInt(m[1], 10));
       });
-      return prefix + String(max + 1).padStart(pad, "0");
+      return prefix + String(max + 1).padStart(pad,"0");
     }
     function onBpTypeOrCompanyChange(keepCode) {
       const typeEl = document.getElementById("bp-type");
@@ -3638,11 +3785,11 @@ select.ss-hidden{display:none !important}
         : companyFilterId();
       if (seriesSel) {
         if (type === "C") {
-          seriesSel.innerHTML = `<option value="C">Customer (C00001…)</option><option value="MANUAL">Manual</option>`;
+          seriesSel.innerHTML = `<option value="C">Customer</option><option value="MANUAL">Manual</option>`;
         } else if (type === "S") {
-          seriesSel.innerHTML = `<option value="S">Supplier (S00001…)</option><option value="EMP">EMP (EMP00001…)</option><option value="MANUAL">Manual</option>`;
+          seriesSel.innerHTML = `<option value="S">Supplier</option><option value="MANUAL">Manual</option>`;
         } else {
-          seriesSel.innerHTML = `<option value="C">Customer (C00001…)</option><option value="S">Supplier (S00001…)</option><option value="EMP">EMP (EMP00001…)</option><option value="MANUAL">Manual</option>`;
+          seriesSel.innerHTML = `<option value="L">Lead</option><option value="MANUAL">Manual</option>`;
         }
       }
       if (groupSel) {
@@ -3858,15 +4005,12 @@ select.ss-hidden{display:none !important}
       toast("Exported", true);
     }
     function renderBpRecon(el) {
-      el.innerHTML = `<div class="toolbar"><h2>BP Reconciliation</h2></div>
-        <div class="grid-wrap"><table class="grid">
-          <thead><tr><th>Feature</th><th>Status</th></tr></thead>
-          <tbody>
-            <tr><td>Internal reconciliation (open invoices vs payments)</td><td>Uses posted A/R invoices and payments</td></tr>
-            <tr><td>Manage previous reconciliations</td><td>Available with Financials postings</td></tr>
-          </tbody>
-        </table></div>`;
+      const cid=companyFilterId();
+      const rows=scoped(partners,cid).map(p=>{let opening=0,invoice=0,credit=0,payment=0;scoped(stockDocs,cid).filter(d=>d.docType==='OB'&&d.obType==='BP').forEach(d=>(d.lines||[]).filter(l=>l.bpCode===p.bpCode).forEach(l=>opening+=Number(l.amount||0)));if(p.bpType==='C'){scoped(salesDocs,cid).filter(d=>d.bpCode===p.bpCode&&['INV','DPI'].includes(d.docType)).forEach(d=>invoice+=Number(d.grandTotal||d.docTotal||0));scoped(salesDocs,cid).filter(d=>d.bpCode===p.bpCode&&d.docType==='CM').forEach(d=>credit+=Number(d.grandTotal||d.docTotal||0));scoped(payments,cid).filter(d=>(d.bpCode||d.cardCode)===p.bpCode&&String(d.direction||'').toLowerCase()==='in').forEach(d=>payment+=Number(d.docTotal||d.amount||0));return{p,opening,invoice,credit,payment,balance:opening+invoice-credit-payment};}scoped(purchaseDocs,cid).filter(d=>d.bpCode===p.bpCode&&['APINV','PDPI'].includes(d.docType)).forEach(d=>invoice+=Number(d.grandTotal||d.docTotal||0));scoped(purchaseDocs,cid).filter(d=>d.bpCode===p.bpCode&&d.docType==='APCM').forEach(d=>credit+=Number(d.grandTotal||d.docTotal||0));scoped(payments,cid).filter(d=>(d.bpCode||d.cardCode)===p.bpCode&&String(d.direction||'').toLowerCase()==='out').forEach(d=>payment+=Number(d.docTotal||d.amount||0));return{p,opening,invoice,credit,payment,balance:opening+invoice-credit-payment};});
+      el.innerHTML=`<div class="toolbar"><h2>BP Account Balances & Reconciliation</h2><button class="btn btn-sm" onclick="exportBpBalances()">Export Excel</button></div><div class="grid-wrap"><table class="grid"><thead><tr><th>BP Code</th><th>Business Partner</th><th>Type</th><th>Opening Balance</th><th>Invoices</th><th>Credit Notes</th><th>Payments</th><th>Net Balance</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.p.bpCode)}</td><td>${esc(r.p.name)}</td><td>${r.p.bpType==='S'?'Vendor':'Customer'}</td><td style="text-align:right">${r.opening.toLocaleString()}</td><td style="text-align:right">${r.invoice.toLocaleString()}</td><td style="text-align:right">${r.credit.toLocaleString()}</td><td style="text-align:right">${r.payment.toLocaleString()}</td><td style="text-align:right;font-weight:700">${r.balance.toLocaleString()}</td></tr>`).join('')||'<tr><td colspan="8">No business partners</td></tr>'}</tbody></table></div><p style="font-size:11px;color:#64748b">Balances are a management summary from available opening balances, invoices, credit notes and payments. Reconcile to the AR/AP control accounts before using as an audited balance.</p>`;
+      window.__bpBalanceRows=rows;
     }
+    window.exportBpBalances=function(){const rows=window.__bpBalanceRows||[];const data=[['BP Code','Name','Type','Opening Balance','Invoices','Credit Notes','Payments','Net Balance'],...rows.map(r=>[r.p.bpCode,r.p.name,r.p.bpType,r.opening,r.invoice,r.credit,r.payment,r.balance])];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(data),'BP Balances');XLSX.writeFile(wb,'KESHASHA_BP_Account_Balances.xlsx');};
 
     function renderPriceLists(el) {
       const cid = companyFilterId();
@@ -3899,7 +4043,7 @@ select.ss-hidden{display:none !important}
           <thead><tr><th>List</th><th>Item</th><th>Price</th><th>Currency</th></tr></thead>
           <tbody>
             ${list.map(r=>`<tr><td>${esc(r.listName)}</td><td>${esc(r.itemCode)}</td>
-              <td style="text-align:right">${Number(r.price||0).toLocaleString()}</td><td>${esc(r.currencyCode||"")}</td></tr>`).join("")||`<tr><td colspan="4">No prices</td></tr>`}
+              <td style="text-align:right">${fmtMoney(r.price||0)}</td><td>${esc(r.currencyCode||"")}</td></tr>`).join("")||`<tr><td colspan="4">No prices</td></tr>`}
           </tbody>
         </table></div>`;
     }
@@ -4066,6 +4210,7 @@ select.ss-hidden{display:none !important}
     }
 
     function startPurchase(docType) {
+      window.keshashaCurrentPurchaseDocType = docType;
       purchaseLines = [{ lineType: "I", itemCode: "", name: "", qty: 1, numPerMsr: 1, price: 0, discPct: 0, whsCode: "", acctCode: "" }];
       purchaseCopyFromId = null;
       const form = document.getElementById("purch-form");
@@ -4096,7 +4241,9 @@ select.ss-hidden{display:none !important}
       if (!body) return;
       purchaseLines.forEach(l => { if ((l.lineType||"I")==="S") { l.qty = 1; l.whsCode = ""; l.numPerMsr = 1; } });
       const __allSvcP = purchaseLines.length > 0 && purchaseLines.every(l => (l.lineType||"I")==="S");
-      const visible = PURCH_LINE_COLS.filter(c => isPurchColVisible(c.key) && !(__allSvcP && ["qty","numPerMsr","whsCode","uom","uomCode","openQty"].includes(c.key)));
+      const __pUdfs = window.getUDFsFor ? window.getUDFsFor("purch_"+(window.keshashaCurrentPurchaseDocType||"PO"),"row") : [];
+      const __pActive = (()=>{try{return JSON.parse(localStorage.getItem("keshasha_purch_col_active")||"{}")}catch(e){return {}}})();
+      const visible = [...PURCH_LINE_COLS.filter(c => isPurchColVisible(c.key) && __pActive[c.key]!==false && !(__allSvcP && ["qty","numPerMsr","whsCode","uom","uomCode","openQty"].includes(c.key))), ...__pUdfs.filter(f=>__pActive["udf:"+f.name]!==false && purchColVis()["udf:"+f.name]!==false).map(f=>({key:"udf:"+f.name,label:f.desc||f.name,udf:f}))];
       if (head) {
         head.innerHTML = `<th>#</th>${visible.map(c => {
           let label = c.label;
@@ -4134,7 +4281,7 @@ select.ss-hidden{display:none !important}
           const sorted = [...accts].sort((a,b)=>(a.acctName||"").localeCompare(b.acctName||""));
           return `<select onchange="purchaseLines[${idx}].acctCode=this.value;renderPurchaseLines();" ${common}><option value="">— Name —</option>${sorted.map(a=>`<option value="${a.acctCode}" ${a.acctCode===l.acctCode?"selected":""}>${esc(a.acctName||"")}</option>`).join("")}</select>`;
         }
-        if (key === "price" || key === "priceBefDi") return `<input type="number" step="any" value="${l.price||""}" onchange="purchaseLines[${idx}].price=this.value;renderPurchaseLines();" ${common}>`;
+        if (key === "price" || key === "priceBefDi") return `<input type="text" inputmode="decimal" value="${esc(fmtMoney(l.price||0))}" onchange="purchaseLines[${idx}].price=parseMoney(this.value);renderPurchaseLines();" ${common}>`;
         if (key === "discPct") return `<input type="number" step="any" value="${l.discPct||""}" onchange="purchaseLines[${idx}].discPct=this.value;renderPurchaseLines();" ${common}>`;
         if (key === "taxCode") return `<select onchange="purchaseLines[${idx}].taxCode=this.value;purchaseLines[${idx}].vatPrcnt=taxRateFor(companyFilterId(),this.value);renderPurchaseLines();" ${common}><option value="">—</option>${taxList.map(t=>`<option value="${esc(t.code)}" ${t.code===l.taxCode?"selected":""}>${esc(t.code)}${t.name?" — "+esc(t.name):""}</option>`).join("")}</select>`;
         if (key === "lineTotal") {
@@ -4151,6 +4298,7 @@ select.ss-hidden{display:none !important}
           const lt0 = (parseFloat(l.qty)||0) * (parseFloat(l.price)||0) * (1 - (parseFloat(l.discPct)||0)/100);
           return `<span style="display:block;text-align:right;padding:2px">${(lt0 * taxRateFor(cid, l.taxCode) / 100).toLocaleString(undefined,{minimumFractionDigits:2})}</span>`;
         }
+        if (key.startsWith("udf:")) { const fn=key.slice(4); return `<input value="${esc((l.udfValues||{})[fn]||"")}" onchange="purchaseLines[${idx}].udfValues={...(purchaseLines[${idx}].udfValues||{}),['${fn}']:this.value}" ${common}>`; }
         return `<input value="${esc(l[key]||"")}" onchange="purchaseLines[${idx}].${key}=this.value" ${common}>`;
       }
       body.innerHTML = purchaseLines.map((l, idx) => {
@@ -4286,7 +4434,11 @@ select.ss-hidden{display:none !important}
       let docNo;
       try { docNo = await nextSalesDocNo(companyId, docType); }
       catch (e) { return toast(e.message); }
+      const __pRowUDF=window.collectUDFValues('purch_'+docType,'purchase-udf-slot','row');
+      if(Object.keys(__pRowUDF).length) lines.forEach(l=>l.udfValues={...__pRowUDF});
       const data = {
+        udfValues: window.collectUDFValues('purch_'+docType,'purchase-udf-slot'),
+        udfRowValues: window.collectUDFValues('purch_'+docType,'purchase-udf-slot','row'),
         companyId, docType, docNo, docDate, dueDate, bpCode, bpName,
         warehouseCode, branchCode, remarks, requester, department, lines, grandTotal, netTotal, taxTotal, freight, docCurrency, docRate, grandTotalLC,
         status: "open", createdBy: currentUser.email, createdAt: new Date().toISOString()
@@ -4545,10 +4697,6 @@ select.ss-hidden{display:none !important}
       { key: "cig", label: "CIG", def: false },
       { key: "operProfit", label: "Operating Profit", def: false },
       { key: "netIncome", label: "Net Income", def: false },
-      { key: "u_ref_no", label: "U_ref_no", def: false },
-      { key: "u_qty", label: "U_qty", def: false },
-      { key: "u_date", label: "U_date", def: false },
-      { key: "u_commission_slp", label: "U_commission_slp", def: false },
     ];
     function purchColVis() {
       try { return JSON.parse(localStorage.getItem("keshasha_purch_cols") || "{}"); } catch(e) { return {}; }
@@ -4561,91 +4709,15 @@ select.ss-hidden{display:none !important}
       }
       return !!v[key];
     }
-    function openPurchFormSettings() {
-      const body = `<div style="padding:10px;font-size:12px">
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-          <label style="margin:0">Select UI Template</label>
-          <select id="fs-template" style="padding:4px"><option>Default</option></select>
-          <button class="btn btn-sm" onclick="toast('Applied',true)">Apply</button>
-        </div>
-        <div style="display:flex;gap:4px;margin-bottom:6px">
-          <button class="btn btn-sm" style="background:#fef3c7">Table Format</button>
-          <button class="btn btn-sm">Row Format</button>
-          <button class="btn btn-sm">Document</button>
-        </div>
-        <div style="display:flex;gap:6px;margin-bottom:6px">
-          <button class="btn btn-sm" onclick="fsFindNext()">Find Next</button>
-          <input id="fs-search" placeholder="Search column..." style="flex:1;margin:0;padding:4px">
-        </div>
-        <div style="max-height:320px;overflow:auto;border:1px solid #ccc">
-          <table class="grid" style="font-size:12px">
-            <thead><tr><th>Column</th><th style="width:60px;text-align:center">Visible</th><th style="width:60px;text-align:center">Active</th></tr></thead>
-            <tbody>
-              ${PURCH_LINE_COLS.map(c => `<tr>
-                <td>${esc(c.label)}</td>
-                <td style="text-align:center"><input type="checkbox" data-pkey="${c.key}" ${isPurchColVisible(c.key)?"checked":""}></td>
-                <td style="text-align:center"><input type="checkbox" data-pact="${c.key}" checked></td>
-              </tr>`).join("")}
-            </tbody>
-          </table>
-        </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
-          <button class="btn btn-sm btn-primary" onclick="savePurchFormSettings()">OK</button>
-          <button class="btn btn-sm" onclick="this.closest('.win')&&closeWin(this.closest('.win').id)">Cancel</button>
-          <button class="btn btn-sm" onclick="restorePurchDefaults()">Restore Default</button>
-        </div>
-      </div>`;
-      openAppWindow("Form Settings - Purchase", body, { w: 480, h: 520 });
-    }
+    function openPurchFormSettings() { openKeshashaDocumentFormSettings("purchase"); }
     function fsFindNext() {
-      const q = (document.getElementById("fs-search").value||"").toLowerCase();
-      if (!q) return;
-      const rows = document.querySelectorAll("[data-pkey]");
-      for (const r of rows) {
-        const tr = r.closest("tr");
-        if (tr && tr.textContent.toLowerCase().includes(q)) {
-          tr.scrollIntoView({ block: "center" });
-          tr.style.background = "#fef3c7";
-          setTimeout(() => tr.style.background = "", 1500);
-          break;
-        }
-      }
+      const q=(document.getElementById("kfs-search")?.value||"").toLowerCase(); if(!q)return;
+      const rows=[...document.querySelectorAll("#kfs-settings-table tbody tr")];
+      const hit=rows.find(r=>r.textContent.toLowerCase().includes(q));
+      if(hit){hit.scrollIntoView({block:"center"});hit.style.background="#fff3c4";setTimeout(()=>hit.style.background="",1200);}
     }
-    function restorePurchDefaults() {
-      localStorage.removeItem("keshasha_purch_cols");
-      toast("Restored defaults", true);
-      openPurchFormSettings();
-    }
-    function savePurchFormSettings() {
-      const v = {};
-      document.querySelectorAll("[data-pkey]").forEach(el => { v[el.dataset.pkey] = el.checked; });
-      localStorage.setItem("keshasha_purch_cols", JSON.stringify(v));
-      toast("Form Settings saved — columns updated", true);
-      renderPurchaseLines();
-      const ptbl = document.querySelector("#purch-form table.grid");
-      if (ptbl && typeof enableColumnResize === "function") enableColumnResize(ptbl);
-      // Update footer totals
-      let bef = 0, disc = 0, tax = 0;
-      purchaseLines.forEach(l => {
-        const qty = parseFloat(l.qty)||0;
-        const price = parseFloat(l.price)||0;
-        const dp = parseFloat(l.discPct)||0;
-        const gross = qty * price;
-        const dAmt = gross * dp / 100;
-        const net = gross - dAmt;
-        bef += gross;
-        disc += dAmt;
-        // Tax from tax code rate
-        tax += net * taxRateFor(cid, l.taxCode) / 100;
-      });
-      const freight = parseFloat(document.getElementById("p-freight")&&document.getElementById("p-freight").value)||0;
-      const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n.toLocaleString(undefined,{minimumFractionDigits:2}); };
-      set("p-total-bef", bef);
-      set("p-total-disc", disc);
-      set("p-total-tax", tax);
-      set("p-total", bef - disc + freight + tax);
-      setLocalTotal("p", bef - disc + freight + tax);
-    }
+    function restorePurchDefaults(){localStorage.removeItem("keshasha_purch_cols");localStorage.removeItem("keshasha_purch_col_active");openPurchFormSettings();}
+    function savePurchFormSettings(){saveKeshashaDocumentFormSettings("purchase");}
     // form settings above
     function downloadPurchTemplate(docType) {
       const data = [["docGroup","bpCode","docDate","itemCode","qty","price","discPct"], ["1","S00001","2026-01-15","ITM001",10,100,0]];
@@ -4915,6 +4987,7 @@ select.ss-hidden{display:none !important}
       onSalesCustomerChange();
     }
     function startSalesDoc(docType) {
+      window.keshashaCurrentSalesDocType = docType;
       const cid = companyFilterId() || (companies[0] && companies[0].id);
       if (!customersFor(cid).length) return toast("Add a customer Business Partner first");
       if (!scoped(items, cid).length) return toast("Add items first");
@@ -5162,7 +5235,9 @@ select.ss-hidden{display:none !important}
       if (!body) return;
       salesLines.forEach(l => { if ((l.lineType||"I")==="S") { l.qty = 1; l.whsCode = ""; l.itemCode = ""; } });
       const __allSvcS = salesLines.length > 0 && salesLines.every(l => (l.lineType||"I")==="S");
-      const visible = SALES_LINE_COLS.filter(c => isLineColVisible(c.key) && !(__allSvcS && ["qty","openQty","whsCode","fromWhsCod","uom","uomCode","numPerMsr","packQty","invQty","weight1","volume","stockPrice"].includes(c.key)));
+      const __sUdfs = window.getUDFsFor ? window.getUDFsFor("sales_"+(window.keshashaCurrentSalesDocType||"INV"),"row") : [];
+      const __sActive = (()=>{try{return JSON.parse(localStorage.getItem("keshasha_sales_col_active")||"{}")}catch(e){return {}}})();
+      const visible = [...SALES_LINE_COLS.filter(c => isLineColVisible(c.key) && __sActive[c.key]!==false && !(__allSvcS && ["qty","openQty","whsCode","fromWhsCod","uom","uomCode","numPerMsr","packQty","invQty","weight1","volume","stockPrice"].includes(c.key))), ...__sUdfs.filter(f=>__sActive["udf:"+f.name]!==false && getSalesColVisibility()["udf:"+f.name]!==false).map(f=>({key:"udf:"+f.name,label:f.desc||f.name,udf:f}))];
 
       if (head) {
         head.innerHTML = `<tr>
@@ -5243,6 +5318,7 @@ select.ss-hidden{display:none !important}
         return `<tr>
           <td>${idx+1}</td>
           ${visible.map(c => {
+            if(c.key.startsWith("udf:")){const fn=c.key.slice(4);return `<td><input style="width:100%;margin:0;padding:3px" value="${esc((l.udfValues||{})[fn]||"")}" onchange="salesLines[${idx}].udfValues={...(salesLines[${idx}].udfValues||{}),['${fn}']:this.value}"></td>`;}
             let val = l[c.key];
             if (c.key === "name") val = l.name;
             if (c.key === "lineTotal") val = lineTotal(l);
@@ -5255,69 +5331,11 @@ select.ss-hidden{display:none !important}
     }
 
 
-    function getSalesColVisibility() {
-      try {
-        const raw = localStorage.getItem("keshasha_sales_cols");
-        if (!raw) return {};
-        const v = JSON.parse(raw);
-        return v && typeof v === "object" ? v : {};
-      } catch (e) {
-        return {};
-      }
-    }
-    function isLineColVisible(key) {
-      const v = getSalesColVisibility();
-      const keys = Object.keys(v);
-      if (!keys.length) {
-        const c = SALES_LINE_COLS.find(x => x.key === key);
-        return c ? !!c.def : true;
-      }
-      // Strict: only show if explicitly true
-      return v[key] === true;
-    }
-
-    function openSalesFormSettings() {
-      const v = getSalesColVisibility();
-      const body = `
-        <div style="padding:10px;max-height:480px;overflow:auto">
-          <div style="display:flex;gap:8px;margin-bottom:10px;position:sticky;top:0;background:#fff;padding-bottom:8px">
-            <button class="btn btn-sm" onclick="document.querySelectorAll('.sc-col').forEach(c=>c.checked=true)">Select all</button>
-            <button class="btn btn-sm" onclick="document.querySelectorAll('.sc-col').forEach(c=>c.checked=false)">Clear all</button>
-            <button class="btn btn-sm" onclick="resetSalesColDefaults()">Defaults</button>
-          </div>
-          <p style="margin:0 0 8px;font-size:13px;font-weight:600">Visible line columns (${SALES_LINE_COLS.length})</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 12px">
-            ${SALES_LINE_COLS.map(c => {
-              const on = isLineColVisible(c.key);
-              return `<label class="sc-lab">
-              <input type="checkbox" class="sc-col" data-col="${c.key}" ${on?"checked":""}> <span>${esc(c.label)}</span>
-            </label>`;
-            }).join("")}
-          </div>
-          <button class="btn btn-sm btn-primary" style="margin-top:12px" onclick="saveSalesFormSettings()">Apply</button>
-        </div>`;
-      openAppWindow("Form Settings — Sales lines", body, { w: 520, h: 560 });
-    }
-    function resetSalesColDefaults() {
-      SALES_LINE_COLS.forEach(c => {
-        const el = document.querySelector('.sc-col[data-col="'+c.key+'"]');
-        if (el) el.checked = c.def;
-      });
-    }
-    function saveSalesFormSettings() {
-      const v = {};
-      // Initialize every known column to false, then set checked ones true
-      SALES_LINE_COLS.forEach(c => { v[c.key] = false; });
-      document.querySelectorAll("input.sc-col[data-col]").forEach(c => {
-        if (c.dataset.col) v[c.dataset.col] = !!c.checked;
-      });
-      localStorage.setItem("keshasha_sales_cols", JSON.stringify(v));
-      toast("Form settings saved — unchecked columns hidden", true);
-      if (document.getElementById("s-lines")) renderSalesLines();
-      // Also re-render list page if form was rebuilt
-      const total = document.getElementById("s-total");
-      if (total) recalcSalesTotal();
-    }
+    function getSalesColVisibility() { try { return JSON.parse(localStorage.getItem("keshasha_sales_cols")||"{}"); } catch(e){return {};} }
+    function isLineColVisible(key) { const v=getSalesColVisibility(); if(v[key]===undefined){const c=SALES_LINE_COLS.find(x=>x.key===key);return c?!!c.def:true;} return v[key]===true; }
+    function openSalesFormSettings(){openKeshashaDocumentFormSettings("sales");}
+    function resetSalesColDefaults(){SALES_LINE_COLS.forEach(c=>{const e=document.querySelector('.kfs-visible[data-key="'+c.key+'"]');if(e)e.checked=!!c.def;});}
+    function saveSalesFormSettings(){saveKeshashaDocumentFormSettings("sales");}
 
     function onSalesItem(idx, code) {
       const cid = currentUser.isSuperAdmin && document.getElementById("s-co")
@@ -5522,7 +5540,11 @@ select.ss-hidden{display:none !important}
       try { docNo = await nextSalesDocNo(companyId, docType); }
       catch (e) { return toast(e.message); }
       const baseDoc = salesCopyFromId ? salesDocs.find(x => x.id === salesCopyFromId) : null;
+      const __sRowUDF=window.collectUDFValues('sales_'+docType,'sales-udf-slot','row');
+      if(Object.keys(__sRowUDF).length) lines.forEach(l=>l.udfValues={...__sRowUDF});
       const data = {
+        udfValues: window.collectUDFValues('sales_'+docType,'sales-udf-slot'),
+        udfRowValues: window.collectUDFValues('sales_'+docType,'sales-udf-slot','row'),
         companyId, docType, docNo, docDate, dueDate, bpCode,
         bpName: bp ? bp.name : "",
         warehouseCode, branchCode, remarks, slpCode, owner, lines, grandTotal, netTotal, taxTotal, freight, docCurrency, docRate, grandTotalLC,
@@ -6688,7 +6710,7 @@ select.ss-hidden{display:none !important}
           <td>${esc(l.name||"")}</td>
           <td style="text-align:right">${l.qty??""}</td>
           <td>${esc(l.uom||"")}</td>
-          <td style="text-align:right">${Number(l.priceBefDi||l.price||0).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
+          <td style="text-align:right">${fmtMoney(l.priceBefDi||l.price||0)}</td>
           <td style="text-align:right">${Number(l.discPct||0)}</td>
           <td style="text-align:right">${Number(l.lineTotal||0).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
           <td>${esc(l.whsCode||d.warehouseCode||"")}</td>
@@ -7453,103 +7475,50 @@ select.ss-hidden{display:none !important}
     async function seedStandardCOA() {
       const cid = activeCompanyId || companyFilterId();
       if (!cid) return toast("Select company first");
-      if (!confirm("Load standard IAS/IFRS Chart of Accounts for this company? Existing accounts with same codes will be skipped.")) return;
-      const coa = [
-        ["100000","ASSETS","Assets",null,"N",1],
-        ["110000","Non-current Assets","Assets","100000","N",2],
-        ["111000","Tangible Assets","Assets","110000","N",3],
-        ["111100","Land","Assets","111000","Y",4],
-        ["111200","Buildings","Assets","111000","Y",4],
-        ["111300","Plant and Machinery","Assets","111000","Y",4],
-        ["111400","Motor Vehicles","Assets","111000","Y",4],
-        ["111500","Furniture and Fittings","Assets","111000","Y",4],
-        ["111600","IT Equipment","Assets","111000","Y",4],
-        ["112000","Accumulated Depreciation","Assets","110000","N",3],
-        ["112100","Accum. Dep. - Buildings","Assets","112000","Y",4],
-        ["112200","Accum. Dep. - Plant & Machinery","Assets","112000","Y",4],
-        ["112300","Accum. Dep. - Motor Vehicles","Assets","112000","Y",4],
-        ["113000","Intangible Assets","Assets","110000","N",3],
-        ["113100","Goodwill","Assets","113000","Y",4],
-        ["113200","Capitalised Software","Assets","113000","Y",4],
-        ["120000","Current Assets","Assets","100000","N",2],
-        ["121000","Inventory","Assets","120000","N",3],
-        ["121100","Raw Materials","Assets","121000","Y",4],
-        ["121200","Work in Progress","Assets","121000","Y",4],
-        ["121300","Finished Goods","Assets","121000","Y",4],
-        ["122000","Trade and Other Receivables","Assets","120000","N",3],
-        ["122100","Trade Debtors","Assets","122000","Y",4],
-        ["122200","Other Debtors","Assets","122000","Y",4],
-        ["122300","Prepayments","Assets","122000","Y",4],
-        ["122400","VAT Receivable","Assets","122000","Y",4],
-        ["123000","Cash and Cash Equivalents","Assets","120000","N",3],
-        ["123100","Cash at Bank","Assets","123000","Y",4],
-        ["123200","Petty Cash","Assets","123000","Y",4],
-        ["123300","M-PESA / Mobile Money","Assets","123000","Y",4],
-        ["200000","LIABILITIES","Liabilities",null,"N",1],
-        ["210000","Non-current Liabilities","Liabilities","200000","N",2],
-        ["211000","Long-term Borrowings","Liabilities","210000","Y",3],
-        ["220000","Current Liabilities","Liabilities","200000","N",2],
-        ["221000","Trade and Other Payables","Liabilities","220000","N",3],
-        ["221100","Trade Creditors","Liabilities","221000","Y",4],
-        ["221200","Other Creditors","Liabilities","221000","Y",4],
-        ["221300","Accruals","Liabilities","221000","Y",4],
-        ["221400","Advance Customer Payments","Liabilities","221000","Y",4],
-        ["222000","Tax Payables","Liabilities","220000","N",3],
-        ["222100","VAT Payable","Liabilities","222000","Y",4],
-        ["222200","PAYE Payable","Liabilities","222000","Y",4],
-        ["222300","NSSF Payable","Liabilities","222000","Y",4],
-        ["223000","Short-term Borrowings","Liabilities","220000","Y",3],
-        ["300000","EQUITY","Equity",null,"N",1],
-        ["310000","Share Capital","Equity","300000","Y",2],
-        ["320000","Share Premium","Equity","300000","Y",2],
-        ["330000","Retained Earnings","Equity","300000","Y",2],
-        ["340000","Revaluation Reserve","Equity","300000","Y",2],
-        ["350000","Opening Balances","Equity","300000","Y",2],
-        ["400000","REVENUE","Revenue",null,"N",1],
-        ["410000","Sales Revenue","Revenue","400000","N",2],
-        ["411000","Domestic Sales","Revenue","410000","Y",3],
-        ["412000","Foreign Sales","Revenue","410000","Y",3],
-        ["413000","Ando Roofing Sheets Sales","Revenue","410000","Y",3],
-        ["414000","Ando Tiles Revenue","Revenue","410000","Y",3],
-        ["420000","Other Operating Income","Revenue","400000","N",2],
-        ["421000","Miscellaneous Revenue","Revenue","420000","Y",3],
-        ["500000","COST OF SALES","Cost of Sales",null,"N",1],
-        ["510000","Cost of Goods Sold","Cost of Sales","500000","N",2],
-        ["511000","Raw Materials - COGS","Cost of Sales","510000","Y",3],
-        ["512000","Finished Goods - COGS","Cost of Sales","510000","Y",3],
-        ["530000","Freight & Carriage","Cost of Sales","500000","Y",2],
-        ["600000","OPERATING EXPENSES","Expenses",null,"N",1],
-        ["610000","Administrative Expenses","Expenses","600000","N",2],
-        ["611000","Salaries & Wages","Expenses","610000","Y",3],
-        ["612000","Rent","Expenses","610000","Y",3],
-        ["613000","Utilities","Expenses","610000","Y",3],
-        ["614000","Professional Fees","Expenses","610000","Y",3],
-        ["615000","Depreciation Expense","Expenses","610000","Y",3],
-        ["620000","Selling & Distribution","Expenses","600000","N",2],
-        ["621000","Advertising & Marketing","Expenses","620000","Y",3],
-        ["622000","Sales Commission","Expenses","620000","Y",3],
-        ["630000","Finance Costs","Expenses","600000","N",2],
-        ["631000","Bank Charges","Expenses","630000","Y",3],
-        ["632000","Interest Expense","Expenses","630000","Y",3],
-        ["640000","Taxation","Expenses","600000","Y",2],
-      ];
+      const raw = prompt("Paste the complete COA TSV (10 columns: acctCode, acctName, category, postable, level, fatherNum, currency, cashAccount, controlAccount, status). Existing account codes will be skipped.");
+      if (raw === null) return;
+      const lines = raw.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+      if (lines.length < 2) return toast("No COA rows supplied");
+      const first = lines[0].split("\t").map(x => x.trim().toLowerCase());
+      const hasHeader = first[0] === "acctcode";
+      const rows = (hasHeader ? lines.slice(1) : lines).map((line, idx) => {
+        const c = line.split("\t");
+        if (c.length < 10) throw new Error("Invalid COA row " + (idx + (hasHeader ? 2 : 1)) + ": expected 10 tab-separated columns");
+        const [acctCode, acctName, category, postable, level, fatherNum, currency, cashAccount, controlAccount, status] = c.map(v => (v || "").trim());
+        if (!acctCode || !acctName || !category || !["Title", "Active"].includes(postable) || !Number.isFinite(Number(level)))
+          throw new Error("Invalid required value in COA row " + (idx + (hasHeader ? 2 : 1)));
+        return { acctCode, acctName, category, postable, level: Number(level), fatherNum: fatherNum || null,
+          currency: currency || "TZS", cashAccount: (cashAccount || "N").toUpperCase(),
+          controlAccount: (controlAccount || "N").toUpperCase(), status: (status || "active").toLowerCase() };
+      });
+      const seen = new Set();
+      for (const r of rows) {
+        if (seen.has(r.acctCode)) throw new Error("Duplicate account code in pasted COA: " + r.acctCode);
+        seen.add(r.acctCode);
+      }
+      const knownCodes = new Set([...scoped(accounts, cid).map(a => String(a.acctCode)), ...rows.map(r => r.acctCode)]);
+      const missingParents = rows.filter(r => r.fatherNum && !knownCodes.has(r.fatherNum));
+      if (missingParents.length) return toast("Missing parent account: " + missingParents[0].fatherNum + " (" + missingParents[0].acctCode + ")");
+      if (!confirm("Load " + rows.length + " COA rows for this company? Existing accounts with the same codes will be skipped.")) return;
       let added = 0, skipped = 0;
       showProgress(0, "Loading COA…");
-      for (let i = 0; i < coa.length; i++) {
-        const [acctCode, acctName, category, fatherNum, postable, levels] = coa[i];
-        showProgress(Math.round(((i+1)/coa.length)*100), "COA " + (i+1) + "/" + coa.length);
-        if (accounts.some(a => a.companyId === cid && a.acctCode === acctCode)) { skipped++; continue; }
-        const data = {
-          companyId: cid, acctCode, acctName, category,
-          fatherNum: fatherNum || null,
-          postable: postable === "Y",
-          levels,
-          isActive: true,
-          createdAt: new Date().toISOString()
-        };
-        const ref = await db.collection("accounts").add(data);
-        accounts.push({ id: ref.id, ...data });
-        added++;
+      try {
+        // Parents are inserted before children, while retaining source order among equal levels.
+        rows.sort((a,b) => a.level - b.level);
+        for (let i = 0; i < rows.length; i++) {
+          const r = rows[i];
+          showProgress(Math.round(((i + 1) / rows.length) * 100), "COA " + (i + 1) + "/" + rows.length);
+          if (accounts.some(a => a.companyId === cid && String(a.acctCode) === r.acctCode)) { skipped++; continue; }
+          const data = { companyId: cid, ...r, isActive: r.status !== "inactive", createdAt: new Date().toISOString() };
+          const ref = await db.collection("accounts").add(data);
+          accounts.push({ id: ref.id, ...data });
+          added++;
+        }
+      } catch (err) {
+        console.error("COA seed failed", err);
+        hideProgress();
+        toast("COA load stopped: " + (err.message || err));
+        return;
       }
       hideProgress();
       toast("COA loaded: " + added + " added, " + skipped + " skipped", true);
@@ -7827,7 +7796,7 @@ select.ss-hidden{display:none !important}
         <td>${esc(l.itemCode||"")}</td>
         <td>${esc(l.name||"")}</td>
         <td style="text-align:right">${l.qty||""}</td>
-        <td style="text-align:right">${Number(l.price||l.priceBefDi||0).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
+        <td style="text-align:right">${fmtMoney(l.price||l.priceBefDi||0)}</td>
         <td style="text-align:right">${Number(l.lineTotal||0).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
       </tr>`).join("");
       const html = `<!DOCTYPE html><html><head><title>${esc(doc.docNo||"Document")}</title>
@@ -7865,7 +7834,10 @@ select.ss-hidden{display:none !important}
         <div class="tot"><b>Total: ${Number(doc.grandTotal||0).toLocaleString(undefined,{minimumFractionDigits:2})} ${esc(doc.docCurrency||"")}</b>${doc.docRate && doc.docRate!==1 ? ` <small>(Rate ${doc.docRate})</small>` : ""}</div>
         ${doc.remarks ? `<p style="font-size:12px"><b>Remarks:</b> ${esc(doc.remarks)}</p>` : ""}
         <div class="ft">${esc(co.printFooter||"Thank you for your business.")}</div>
-        </body></html>`;
+        
+
+
+</body></html>`;
       const w = window.open("", "_blank");
       w.document.write(html);
       w.document.close();
@@ -8823,8 +8795,9 @@ select.ss-hidden{display:none !important}
 
     // ---- HR / Payroll ----
     window.payrollRuns = window.payrollRuns || [];
-    function renderPayroll(el) {
+    async function renderPayroll(el) {
       const cid = companyFilterId();
+      try { const saved = await db.collection("payroll_runs").where("companyId", "==", cid).get(); window.payrollRuns = saved.docs.map(d => ({ id:d.id, ...d.data() })).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")); } catch (e) { console.warn("Payroll history load:",e.message); }
       const emps = scoped(employees, cid);
       const co = (typeof activeCompany==="function" && activeCompany()) || {};
       const runs = (window.payrollRuns||[]).filter(r=>!cid||r.companyId===cid);
@@ -9294,7 +9267,7 @@ select.ss-hidden{display:none !important}
     async function seedDefaultItemSeries() {
       const cid = companyFilterId() || (companies[0]&&companies[0].id);
       if (!cid) return toast("Company required");
-      const seeds = [["FG","Finished Goods","FG"],["RM","Raw Materials","RM"],["ITM","General Items","ITM"]];
+      const seeds = [["ITM","General Items","ITM"],["RM","Raw Materials","RM"],["FG","Finished Goods","FG"]];
       let n=0;
       for (const [code,name,prefix] of seeds) {
         if (itemSeriesDefs.some(d=>d.companyId===cid && d.code===code)) continue;
@@ -9359,7 +9332,7 @@ select.ss-hidden{display:none !important}
         ["fa.master","Asset Master"],["fa.depr","Depreciation"],["fa.disposal","Asset Disposal"],
       ]},
       { mod: "HR / Payroll", items: [
-        ["hr.payroll","Payroll"],["hr.leave","Leave Management"],["hr.attendance","Attendance"],
+        ["hr.payroll","Payroll"],["hr.leave","Leave Management"],["hr.attendance","Attendance"],["hr.basicpay","Basic Pay"],["hr.loans","Employee Loans"],
       ]},
       { mod: "CRM", items: [
         ["crm.opps","Opportunities"],["crm.activities","Activities"],
@@ -9374,14 +9347,12 @@ select.ss-hidden{display:none !important}
         ["cust.udf","User Defined Fields"],["cust.udo","User Defined Objects"],
         ["cust.barcode","Barcode / EFD"],
       ]},
-      { mod: "HR Extra", items: [
-        ["hr.loans","Employee Loans"],["hr.basicpay","Basic Pay"],
-      ]},
       { mod: "Reports", items: [
         ["rep.pl","Profit & Loss"],["rep.bs","Balance Sheet"],
       ]},
       { mod: "Document Actions", items: [
         ["act.delete","Delete master data"],["act.cancel","Cancel documents"],["act.close","Close documents"],
+        ["fin.je.cancel","Cancel / reverse Journal Entries"],
       ]},
     ];
     let authSelectedUserId = null;
@@ -9788,6 +9759,18 @@ select.ss-hidden{display:none !important}
 
     function esc(s) {
       return String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // Consistent document money format: 1,234.56 (display only).
+    function fmtMoney(value, digits = 2) {
+      const n = Number(String(value ?? 0).replace(/,/g, ""));
+      return (Number.isFinite(n) ? n : 0).toLocaleString("en-US", {
+        minimumFractionDigits: digits, maximumFractionDigits: digits
+      });
+    }
+    function parseMoney(value) {
+      const n = Number(String(value ?? "").replace(/,/g, "").trim());
+      return Number.isFinite(n) ? n : 0;
     }
 
     // Ctrl+A selects all checkboxes in current grid
@@ -11358,13 +11341,80 @@ function injectToolbar(){
     <button title="Reports" onclick="nav('dashboard')">📈</button>
     <button title="New" onclick="toast('New document')">➕</button>
     <button title="Save" onclick="toast('Save')">💾</button>
-    <button title="AI Assistant" onclick="openKESHASHAChat()">🤖</button>
+    <button id="keshasha-ai-launcher" title="Drag to move · Click to open AI Assistant" onclick="openKESHASHAChat()">🤖</button>
     <span class="tb-sep"></span>
     <button title="Minimize" onclick="toolbarWin('min')">_</button>
     <button title="Maximize" onclick="toolbarWin('max')">□</button>
     <button title="Close" onclick="toolbarWin('close')">✕</button>
   `;
   mb.after(tb);
+  bindDraggableAIButton();
+}
+
+// Draggable AI launcher: drag anywhere on screen; position is remembered on this device.
+function bindDraggableAIButton(){
+  const btn = document.getElementById("keshasha-ai-launcher");
+  if(!btn || btn.dataset.dragReady === "1") return;
+  btn.dataset.dragReady = "1";
+  btn.style.touchAction = "none";
+  btn.style.cursor = "grab";
+  btn.style.position = "relative";
+  try {
+    const saved = JSON.parse(localStorage.getItem("keshasha_ai_launcher_pos") || "null");
+    if(saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)){
+      btn.style.position = "fixed";
+      btn.style.left = Math.max(0, Math.min(innerWidth-44, saved.left)) + "px";
+      btn.style.top = Math.max(0, Math.min(innerHeight-44, saved.top)) + "px";
+      btn.style.right = "auto"; btn.style.bottom = "auto";
+      btn.style.zIndex = "10001";
+      btn.style.width = "40px"; btn.style.height = "40px";
+      btn.style.borderRadius = "50%";
+      btn.style.background = "var(--primary)";
+      btn.style.color = "#fff";
+      btn.style.boxShadow = "0 4px 14px rgba(0,0,0,.28)";
+    }
+  } catch(e){}
+  let dragging=false, moved=false, startX=0, startY=0, originX=0, originY=0;
+  btn.addEventListener("pointerdown", function(e){
+    if(e.button !== 0 && e.pointerType === "mouse") return;
+    const r=btn.getBoundingClientRect();
+    startX=e.clientX; startY=e.clientY; originX=r.left; originY=r.top;
+    dragging=true; moved=false; btn.style.cursor="grabbing";
+    try{btn.setPointerCapture(e.pointerId);}catch(err){}
+  });
+  btn.addEventListener("pointermove", function(e){
+    if(!dragging) return;
+    const dx=e.clientX-startX, dy=e.clientY-startY;
+    if(!moved && Math.hypot(dx,dy)<5) return;
+    moved=true;
+    const left=Math.max(0,Math.min(innerWidth-btn.offsetWidth,originX+dx));
+    const top=Math.max(0,Math.min(innerHeight-btn.offsetHeight,originY+dy));
+    btn.style.position="fixed"; btn.style.left=left+"px"; btn.style.top=top+"px";
+    btn.style.right="auto"; btn.style.bottom="auto"; btn.style.zIndex="10001";
+    btn.style.width="40px"; btn.style.height="40px"; btn.style.borderRadius="50%";
+    btn.style.background="var(--primary)"; btn.style.color="#fff";
+    btn.style.boxShadow="0 4px 14px rgba(0,0,0,.28)";
+    e.preventDefault();
+  });
+  function endDrag(){
+    if(!dragging) return;
+    dragging=false; btn.style.cursor="grab";
+    if(moved){
+      const r=btn.getBoundingClientRect();
+      try{localStorage.setItem("keshasha_ai_launcher_pos",JSON.stringify({left:r.left,top:r.top}));}catch(e){}
+      btn.dataset.justDragged="1";
+      setTimeout(()=>{delete btn.dataset.justDragged;},250);
+    }
+  }
+  btn.addEventListener("pointerup",endDrag);
+  btn.addEventListener("pointercancel",endDrag);
+  btn.addEventListener("click",function(e){if(btn.dataset.justDragged==="1"){e.preventDefault();e.stopImmediatePropagation();}},true);
+  window.addEventListener("resize",function(){
+    if(btn.style.position!=="fixed") return;
+    const r=btn.getBoundingClientRect();
+    btn.style.left=Math.max(0,Math.min(innerWidth-btn.offsetWidth,r.left))+"px";
+    btn.style.top=Math.max(0,Math.min(innerHeight-btn.offsetHeight,r.top))+"px";
+  });
 }
 const css = document.createElement("style");
 css.textContent = `
@@ -11505,101 +11555,65 @@ window.saveHRLoan = function(mode){
   else document.getElementById("hr-loan-form").style.display="none";
 };
 
-window.renderBasicPay = function(el){
-  el.innerHTML = `
-    <div class="toolbar"><h2>Basic Pay Document</h2>
-      <button class="btn btn-sm btn-primary" onclick="toast('Basic Pay form')">+ New</button>
-    </div>
-    <div class="form-bar">
-      <div class="fg"><label>Employee</label><select><option>— Select —</option></select></div>
-      <div class="fg"><label>Period</label><input type="month"></div>
-      <div class="fg"><label>Basic Pay</label><input type="number" step="0.01"></div>
-      <div class="fg"><label>Remarks</label><input></div>
-    </div>
-    <div class="grid-wrap" style="margin-top:8px"><table class="grid"><thead><tr><th>Employee</th><th>Code</th><th>Department</th><th>Basic Pay</th><th>Allowances</th><th>Deductions</th><th>Net</th></tr></thead>
-    <tbody><tr><td colspan="7">No basic pay documents</td></tr></tbody></table></div>
-    <div style="margin-top:8px">
-      <button class="btn btn-sm btn-primary" onclick="toast('Add & View',true)">Add & View</button>
-      <button class="btn btn-sm btn-primary" onclick="toast('Add & New',true)">Add & New</button>
-    </div>
-  `;
+// Basic Pay: persisted employee salary setup and statutory deduction flags.
+window.renderBasicPay = async function(el){
+  const cid=companyFilterId();
+  let cfg=[];
+  try { const snap=await db.collection("basic_pay_settings").where("companyId","==",cid).get(); cfg=snap.docs.map(d=>({id:d.id,...d.data()})); }
+  catch(e){ el.innerHTML=`<div class="toolbar"><h2>Basic Pay</h2></div><p class="error">Unable to load Basic Pay settings: ${esc(e.message)}</p>`; return; }
+  const emps=scoped(employees,cid);
+  const rows=cfg.map(c=>{const e=emps.find(x=>x.employeeCode===c.employeeCode);return `<tr><td>${esc(e?.fullName||c.employeeCode)}</td><td>${esc(c.employeeCode)}</td><td>${esc(c.period||"Recurring")}</td><td style="text-align:right">${Number(c.basicPay||0).toLocaleString()}</td><td style="text-align:right">${Number(c.allowances||0).toLocaleString()}</td><td>${[c.deductNSSF&&"NSSF",c.deductNHIF&&"NHIF",c.deductHESLB&&"HESLB",c.deductPAYE&&"PAYE"].filter(Boolean).join(", ")||"—"}</td><td><button class="btn btn-sm" onclick="editBasicPay('${c.id}')">Edit</button></td></tr>`}).join("");
+  el.innerHTML=`<div class="toolbar"><h2>Basic Pay & Payroll UDF</h2><button class="btn btn-sm btn-primary" onclick="openBasicPayForm()">+ New / Update</button><button class="btn btn-sm" onclick="nav('payroll')">Payroll Run →</button></div>
+  <div id="bp-basic-form" style="display:none;background:#fff;border:1px solid #c5cdd8;padding:12px;margin-bottom:10px;border-radius:8px">
+    <input type="hidden" id="bp-basic-id"><div class="form-bar">
+    <div class="fg"><label>Employee *</label><select id="bp-basic-emp"><option value="">Select employee</option>${emps.map(e=>`<option value="${esc(e.employeeCode)}">${esc(e.fullName||e.employeeCode)} (${esc(e.employeeCode)})</option>`).join("")}</select></div>
+    <div class="fg"><label>Effective Period</label><input id="bp-basic-period" type="month"></div><div class="fg"><label>Basic Pay (TZS) *</label><input id="bp-basic-salary" type="number" min="0" step="0.01"></div><div class="fg"><label>Monthly Allowances</label><input id="bp-basic-allow" type="number" min="0" step="0.01"></div><div class="fg"><label>Other fixed deductions</label><input id="bp-basic-other" type="number" min="0" step="0.01"></div><div class="fg"><label>Monthly Additions (AddAmt)</label><input id="bp-basic-addamt" type="number" min="0" step="0.01" value="0"></div><div class="fg"><label>Welfare</label><input id="bp-basic-welfare" type="number" min="0" step="0.01" value="0"></div></div>
+    <h4 style="margin:10px 0 6px">Payroll UDF — Statutory Deduction Controls</h4><div class="form-bar">
+    <label><input type="checkbox" id="bp-d-nssf" checked> Deduct NSSF employee share</label><label><input type="checkbox" id="bp-d-nhif"> Deduct NHIF (if applicable)</label><label><input type="checkbox" id="bp-d-heslb"> Deduct HESLB (if loan active)</label><label><input type="checkbox" id="bp-d-paye" checked> Calculate TRA PAYE</label><label><input type="checkbox" id="bp-d-psssf"> Use PSSSF instead of NSSF</label></div>
+    <div class="form-bar"><div class="fg"><label>Employee pension rate %</label><input id="bp-nssf-rate" type="number" min="0" max="20" step="0.1" value="10"></div><div class="fg"><label>NHIF employee rate %</label><input id="bp-nhif-rate" type="number" min="0" max="20" step="0.1" value="3"></div><div class="fg"><label>HESLB rate % of basic</label><input id="bp-heslb-rate" type="number" min="0" max="100" step="0.1" value="15"></div><div class="fg"><label>Taxable allowances (TZS)</label><input id="bp-tax-allow" type="number" min="0" step="0.01"></div></div>
+    <div style="margin-top:10px"><button class="btn btn-sm btn-primary" onclick="saveBasicPay()">Save Basic Pay</button> <button class="btn btn-sm" onclick="document.getElementById('bp-basic-form').style.display='none'">Cancel</button></div></div>
+  <div class="grid-wrap"><table class="grid"><thead><tr><th>Employee</th><th>Code</th><th>Period</th><th>Basic Pay</th><th>Allowances</th><th>Enabled Deductions</th><th>Action</th></tr></thead><tbody>${rows||`<tr><td colspan="7">No Basic Pay records yet. Add employee salary setup.</td></tr>`}</tbody></table></div>
+  <h4 style="margin:14px 0 6px">TRA PAYE — Monthly Resident Bands (TZS)</h4><div class="grid-wrap"><table class="grid"><thead><tr><th>Monthly taxable income</th><th>Rate</th><th>Tax on lower band</th></tr></thead><tbody><tr><td>0 – 270,000</td><td>0%</td><td>0</td></tr><tr><td>270,001 – 520,000</td><td>8%</td><td>0</td></tr><tr><td>520,001 – 760,000</td><td>20%</td><td>20,000</td></tr><tr><td>760,001 – 1,000,000</td><td>25%</td><td>68,000</td></tr><tr><td>Above 1,000,000</td><td>30%</td><td>128,000</td></tr></tbody></table></div>
+  <p style="font-size:12px;color:#64748b;margin-top:8px">Payroll defaults use Mainland resident monthly PAYE bands. Pension deduction is deducted before PAYE. NSSF/PSSSF employee share, optional NHIF and HESLB are employee deductions; SDL (3.5%, when applicable) and WCF (0.5%) are employer costs only. Confirm the 2026/27 rates and NHIF applicability with the relevant authorities before posting payroll.</p>`;
 };
+window.openBasicPayForm=function(){const f=document.getElementById('bp-basic-form');if(f)f.style.display='block';document.getElementById('bp-basic-id').value='';};
+window.editBasicPay=async function(id){try{const d=await db.collection('basic_pay_settings').doc(id).get();if(!d.exists)return toast('Record not found');const x=d.data();openBasicPayForm();document.getElementById('bp-basic-id').value=id;document.getElementById('bp-basic-emp').value=x.employeeCode||'';document.getElementById('bp-basic-period').value=x.period||'';document.getElementById('bp-basic-salary').value=x.basicPay||0;document.getElementById('bp-basic-allow').value=x.allowances||0;document.getElementById('bp-basic-other').value=x.otherDeductions||0;document.getElementById('bp-basic-addamt').value=x.addAmt||0;document.getElementById('bp-basic-welfare').value=x.welfare||0;document.getElementById('bp-d-nssf').checked=x.deductNSSF!==false;document.getElementById('bp-d-nhif').checked=!!x.deductNHIF;document.getElementById('bp-d-heslb').checked=!!x.deductHESLB;document.getElementById('bp-d-paye').checked=x.deductPAYE!==false;document.getElementById('bp-d-psssf').checked=!!x.deductPSSSF;document.getElementById('bp-nssf-rate').value=x.pensionRate??10;document.getElementById('bp-nhif-rate').value=x.nhifRate??3;document.getElementById('bp-heslb-rate').value=x.heslbRate??15;document.getElementById('bp-tax-allow').value=x.taxableAllowances||0;setTimeout(()=>window.setUDFValues('basic_pay_settings','bp-udf-slot',x.udfValues||{}),80);}catch(e){toast(e.message)}};
+window.saveBasicPay=async function(){try{if(!hasAuth('hr.basicpay',2))return toast('Full Basic Pay authorization required');const cid=companyFilterId(),employeeCode=document.getElementById('bp-basic-emp').value,basicPay=Number(document.getElementById('bp-basic-salary').value),allowances=Number(document.getElementById('bp-basic-allow').value||0);if(!cid||!employeeCode||!(basicPay>0))return toast('Select employee and enter valid basic pay');const data={companyId:cid,udfValues:window.collectUDFValues('basic_pay_settings','bp-udf-slot'),employeeCode,period:document.getElementById('bp-basic-period').value||'',basicPay,allowances,otherDeductions:Number(document.getElementById('bp-basic-other').value||0),addAmt:Number(document.getElementById('bp-basic-addamt').value||0),welfare:Number(document.getElementById('bp-basic-welfare').value||0),deductNSSF:document.getElementById('bp-d-nssf').checked,deductNHIF:document.getElementById('bp-d-nhif').checked,deductHESLB:document.getElementById('bp-d-heslb').checked,deductPAYE:document.getElementById('bp-d-paye').checked,deductPSSSF:document.getElementById('bp-d-psssf').checked,pensionRate:Number(document.getElementById('bp-nssf-rate').value||0),nhifRate:Number(document.getElementById('bp-nhif-rate').value||0),heslbRate:Number(document.getElementById('bp-heslb-rate').value||0),taxableAllowances:Number(document.getElementById('bp-tax-allow').value||0),updatedAt:new Date().toISOString()};const id=document.getElementById('bp-basic-id').value;if(id)await db.collection('basic_pay_settings').doc(id).update(data);else{data.createdAt=data.updatedAt;await db.collection('basic_pay_settings').add(data);}toast('Basic Pay saved',true);await renderBasicPay(document.getElementById('main'));}catch(e){toast('Save failed: '+e.message)}};
 
-// ---------- 5. Inventory Counting / Posting / Revaluation / Opening ----------
-window.renderInvCounting = function(el){
-  el.innerHTML = `<div class="toolbar"><h2>Inventory Counting</h2><button class="btn btn-sm btn-primary">+ New Counting</button></div>
-    <div class="grid-wrap"><table class="grid"><thead><tr><th>Doc No</th><th>Date</th><th>Warehouse</th><th>Status</th><th>Counter</th></tr></thead>
-    <tbody><tr><td colspan="5">No counting documents</td></tr></tbody></table></div>
-    <p style="font-size:12px;color:#64748b;margin-top:8px">SAP-style Inventory Counting → Inventory Posting → Inventory Revaluation flow.</p>`;
-};
-window.renderInvPosting = function(el){
-  el.innerHTML = `<div class="toolbar"><h2>Inventory Posting</h2><button class="btn btn-sm btn-primary">+ New Posting</button></div>
-    <div class="grid-wrap"><table class="grid"><thead><tr><th>Doc No</th><th>Date</th><th>From Counting</th><th>Status</th></tr></thead>
-    <tbody><tr><td colspan="4">No postings</td></tr></tbody></table></div>`;
-};
-window.renderInvReval = function(el){
-  el.innerHTML = `<div class="toolbar"><h2>Inventory Revaluation</h2><button class="btn btn-sm btn-primary">+ New Revaluation</button></div>
-    <div class="grid-wrap"><table class="grid"><thead><tr><th>Doc No</th><th>Date</th><th>Item</th><th>Old Cost</th><th>New Cost</th><th>Difference</th></tr></thead>
-    <tbody><tr><td colspan="6">No revaluations</td></tr></tbody></table></div>`;
-};
-window.renderInvOpening = function(el){
-  el.innerHTML = `<div class="toolbar"><h2>Inventory Opening Balance</h2><button class="btn btn-sm btn-primary">+ New</button>
-    <button class="btn btn-sm">📄 Template</button></div>
-    <p style="font-size:12px;color:#64748b">Separate from general Opening Balance. Own template and format.</p>
-    <div class="grid-wrap"><table class="grid"><thead><tr><th>Item</th><th>Warehouse</th><th>Qty</th><th>Cost</th><th>Total</th></tr></thead>
-    <tbody><tr><td colspan="5">No inventory opening balances</td></tr></tbody></table></div>`;
-};
+// Mainland Tanzania payroll calculation; employer-only statutory costs never reduce net pay.
+window.calculateTzPaye=function(taxable){const x=Math.max(0,Number(taxable)||0);if(x<=270000)return 0;if(x<=520000)return (x-270000)*0.08;if(x<=760000)return 20000+(x-520000)*0.20;if(x<=1000000)return 68000+(x-760000)*0.25;return 128000+(x-1000000)*0.30;};
+window.doRunPayroll=async function(){try{const cid=companyFilterId(),emps=scoped(employees,cid),period=(document.getElementById('pay-period')||{}).value||'',payDate=(document.getElementById('pay-date')||{}).value||'';if(!emps.length)return toast('No employees');if(!period||!payDate)return toast('Select payroll period and pay date');let configs=[];const snap=await db.collection('basic_pay_settings').where('companyId','==',cid).get();configs=snap.docs.map(d=>d.data());const activeEmpCount=emps.length;const lines=emps.map(e=>{const c=configs.filter(x=>x.employeeCode===e.employeeCode).sort((a,b)=>(b.period||'').localeCompare(a.period||''))[0]||{};const basic=Number(c.basicPay??e.basicPay??e.salary??0),allow=Number(c.allowances??e.allowances??0),taxAllow=Number(c.taxableAllowances??allow),gross=basic+allow;const pensionRate=Number(c.pensionRate??(c.deductPSSSF?5:10));const pensionOn=c.deductPSSSF?0:(c.deductNSSF!==false?pensionRate:0);const psssfOn=c.deductPSSSF?(pensionRate||5):0;const pension=Math.min(gross,gross*(pensionOn+psssfOn)/100);const nhif=c.deductNHIF?gross*Number(c.nhifRate??3)/100:0;const heslb=c.deductHESLB?basic*Number(c.heslbRate??15)/100:0;const taxable=Math.max(0,basic+taxAllow-pension);const paye=c.deductPAYE===false?0:window.calculateTzPaye(taxable);const other=Number(c.otherDeductions??e.deductions??0);const totalDeductions=pension+nhif+heslb+paye+other;const net=gross-totalDeductions;const employerPension=gross*(c.deductPSSSF?15:10)/100;const wcf=gross*0.005;const sdl=activeEmpCount>=10?gross*0.035:0;return{code:e.employeeCode,name:e.fullName||e.employeeCode,basic,allow,gross,pension,nhif,heslb,paye,other,totalDeductions,net,employerPension,wcf,sdl,taxable};});const totalNet=lines.reduce((a,x)=>a+x.net,0);const run={companyId:cid,period,payDate,lines,totalNet,totalGross:lines.reduce((a,x)=>a+x.gross,0),createdAt:new Date().toISOString(),createdBy:currentUser.email};const ref=await db.collection('payroll_runs').add(run);run.id=ref.id;window.payrollRuns=window.payrollRuns||[];window.payrollRuns.unshift(run);toast('Payroll calculated and saved for '+lines.length+' employees',true);renderPayroll(document.getElementById('main'));viewPayrollRun(0);}catch(e){toast('Payroll failed: '+e.message)}};
+window.viewPayrollRun=function(i){const run=(window.payrollRuns||[])[i];if(!run)return;const res=document.getElementById('pay-result');if(!res)return;res.innerHTML=`<div style="background:#fff;border:1px solid #c5cdd8;padding:10px;margin:8px 0;border-radius:8px"><b>Period: ${esc(run.period)}</b> | Pay Date: ${esc(run.payDate)} | Gross: ${Number(run.totalGross||0).toLocaleString()} | Net: ${Number(run.totalNet||0).toLocaleString()}<div class="grid-wrap"><table class="grid" style="margin-top:8px"><thead><tr><th>Employee</th><th>Gross</th><th>NSSF/PSSSF</th><th>NHIF</th><th>HESLB</th><th>PAYE</th><th>Other</th><th>Net Pay</th><th>Employer Costs</th></tr></thead><tbody>${run.lines.map(l=>`<tr><td>${esc(l.name)}</td><td>${Number(l.gross||0).toLocaleString()}</td><td>${Number(l.pension||0).toLocaleString()}</td><td>${Number(l.nhif||0).toLocaleString()}</td><td>${Number(l.heslb||0).toLocaleString()}</td><td>${Number(l.paye||0).toLocaleString()}</td><td>${Number(l.other||0).toLocaleString()}</td><td><b>${Number(l.net||0).toLocaleString()}</b></td><td>${Number((l.employerPension||0)+(l.wcf||0)+(l.sdl||0)).toLocaleString()}</td></tr>`).join('')}</tbody></table></div><p style="font-size:11px;color:#64748b">Employer costs: pension ${run.lines.reduce((a,l)=>a+(l.employerPension||0),0).toLocaleString()} + WCF ${run.lines.reduce((a,l)=>a+(l.wcf||0),0).toLocaleString()} + SDL ${run.lines.reduce((a,l)=>a+(l.sdl||0),0).toLocaleString()}. These are not deducted from net pay.</p></div>`;};
+
+window.exportPayrollExcel=function(){const run=(window.payrollRuns||[])[0];if(!run)return toast('Run payroll first');if(typeof XLSX==='undefined')return toast('Excel library not loaded');const co=activeCompany()||{};const headers=['Employee','Code','Basic Pay','Allowances','Gross Pay','NSSF/PSSSF','NHIF','HESLB','PAYE','Other Deductions','Total Deductions','Net Pay','Employer Pension','WCF','SDL'];const rows=[[co.name||''],['Payroll — '+run.period],['Pay Date: '+run.payDate],[],headers];run.lines.forEach(l=>rows.push([l.name,l.code,l.basic||0,l.allow||0,l.gross??((l.basic||0)+(l.allow||0)),l.pension||0,l.nhif||0,l.heslb||0,l.paye||0,l.other??l.ded??0,l.totalDeductions??l.ded??0,l.net||0,l.employerPension||0,l.wcf||0,l.sdl||0]));rows.push([],['TOTAL','','','','',...['pension','nhif','heslb','paye','other','totalDeductions','net','employerPension','wcf','sdl'].map(k=>run.lines.reduce((a,l)=>a+Number(l[k]||0),0))]);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Payroll');XLSX.writeFile(wb,'Payroll_'+run.period+'.xlsx');toast('Detailed payroll Excel exported',true);};
+window.exportPayrollPDF=function(){const run=(window.payrollRuns||[])[0];if(!run)return toast('Run payroll first');const co=activeCompany()||{};const rows=run.lines.map(l=>`<tr><td>${esc(l.name)}</td><td>${esc(l.code)}</td>${[l.basic,l.allow,l.gross,l.pension,l.nhif,l.heslb,l.paye,l.other,l.totalDeductions,l.net].map(v=>`<td style="text-align:right">${Number(v||0).toLocaleString()}</td>`).join('')}</tr>`).join('');const html=`<!doctype html><html><head><title>Payroll ${esc(run.period)}</title><style>body{font-family:Arial;margin:20px}table{border-collapse:collapse;width:100%;font-size:10px}th,td{border:1px solid #bbb;padding:5px}th{background:#eaf0f8}h2{color:#0b3d91}</style></head><body><h2>${esc(co.name||'Company')} — Payroll ${esc(run.period)}</h2><p>Pay Date: ${esc(run.payDate)} | Employees: ${run.lines.length}</p><table><thead><tr><th>Employee</th><th>Code</th><th>Basic</th><th>Allowances</th><th>Gross</th><th>NSSF/PSSSF</th><th>NHIF</th><th>HESLB</th><th>PAYE</th><th>Other</th><th>Total Ded.</th><th>Net Pay</th></tr></thead><tbody>${rows}</tbody></table><p>Employer-only contributions are not deducted from net pay: Pension ${run.lines.reduce((a,l)=>a+(l.employerPension||0),0).toLocaleString()}, WCF ${run.lines.reduce((a,l)=>a+(l.wcf||0),0).toLocaleString()}, SDL ${run.lines.reduce((a,l)=>a+(l.sdl||0),0).toLocaleString()}.</p></body></html>`;const w=window.open('','_blank');if(!w)return toast('Allow pop-ups');w.document.write(html);w.document.close();setTimeout(()=>w.print(),400);};
+
+
+// Inventory counting: capture physical quantities, then post differences to stock ledger.
+window.renderInvCounting=async function(el){const cid=companyFilterId();let docs=[];try{const q=await db.collection('inventory_countings').where('companyId','==',cid).get();docs=q.docs.map(d=>({id:d.id,...d.data()}));}catch(e){el.innerHTML=`<h2>Inventory Counting</h2><p>${esc(e.message)}</p>`;return;}el.innerHTML=`<div class="toolbar"><h2>Inventory Counting</h2><button class="btn btn-sm btn-primary" onclick="newInvCount()">+ New Counting</button></div><div id="inv-count-form" style="display:none;background:#fff;padding:10px;border:1px solid #c5cdd8"><div class="form-bar"><div class="fg"><label>Warehouse</label><select id="ic-wh">${scoped(warehouses,cid).map(w=>`<option value="${esc(w.code)}">${esc(w.code)} — ${esc(w.name||'')}</option>`).join('')}</select></div><div class="fg"><label>Count Date</label><input id="ic-date" type="date"></div><div class="fg"><label>Remarks</label><input id="ic-remarks"></div></div><div class="grid-wrap"><table class="grid"><thead><tr><th>Item</th><th>System Qty</th><th>Counted Qty</th><th>Difference</th></tr></thead><tbody id="ic-lines"></tbody></table></div><button class="btn btn-sm btn-primary" onclick="saveInvCount()">Save Count</button> <button class="btn btn-sm" onclick="document.getElementById('inv-count-form').style.display='none'">Cancel</button></div><div class="grid-wrap"><table class="grid"><thead><tr><th>Count No</th><th>Date</th><th>Warehouse</th><th>Items</th><th>Status</th><th>Action</th></tr></thead><tbody>${docs.map(d=>`<tr><td>${esc(d.docNo)}</td><td>${esc(d.date)}</td><td>${esc(d.warehouseCode)}</td><td>${(d.lines||[]).length}</td><td>${esc(d.status)}</td><td>${d.status==='Open'?`<button class="btn btn-sm btn-primary" onclick="postInvCount('${d.id}')">Post Differences</button>`:'Posted'}</td></tr>`).join('')||'<tr><td colspan="6">No counting documents</td></tr>'}</tbody></table></div>`;};
+window.newInvCount=function(){const f=document.getElementById('inv-count-form');if(!scoped(warehouses,companyFilterId()).length)return toast('Create a warehouse first');f.style.display='block';const wh=document.getElementById('ic-wh').value;const balances=computeStockBalances(companyFilterId()).filter(x=>x.warehouseCode===wh);const all=scoped(items,companyFilterId());document.getElementById('ic-lines').innerHTML=all.map(i=>{const b=balances.find(x=>x.itemCode===i.itemCode);const q=b?b.qty:0;return `<tr data-code="${esc(i.itemCode)}" data-system="${q}"><td>${esc(i.itemCode)} — ${esc(i.name||'')}</td><td>${q}</td><td><input type="number" step="any" min="0" class="ic-counted" value="${q}" style="width:110px"></td><td class="ic-diff">0</td></tr>`}).join('');document.querySelectorAll('.ic-counted').forEach(x=>x.addEventListener('input',()=>{const tr=x.closest('tr');tr.querySelector('.ic-diff').textContent=(Number(x.value)-Number(tr.dataset.system)).toLocaleString()}));document.getElementById('ic-date').value=new Date().toISOString().slice(0,10);};
+window.saveInvCount=async function(){try{if(!hasAuth('inv.count',2))return toast('Full Inventory Counting authorization required');const cid=companyFilterId(),warehouseCode=document.getElementById('ic-wh').value,date=document.getElementById('ic-date').value;const lines=[...document.querySelectorAll('#ic-lines tr')].map(tr=>({itemCode:tr.dataset.code,systemQty:Number(tr.dataset.system),countedQty:Number(tr.querySelector('.ic-counted').value),difference:Number(tr.querySelector('.ic-counted').value)-Number(tr.dataset.system)}));if(!date||!lines.length)return toast('Enter date and count lines');const docNo='IC-'+Date.now();const data={companyId:cid,docNo,warehouseCode,date,remarks:document.getElementById('ic-remarks').value,lines,status:'Open',createdAt:new Date().toISOString(),createdBy:currentUser.email};await db.collection('inventory_countings').add(data);toast('Counting saved',true);await renderInvCounting(document.getElementById('main'));}catch(e){toast(e.message)}};
+window.postInvCount=async function(id){if(!hasAuth('inv.posting',2))return toast('Full Inventory Posting authorization required');try{const ref=db.collection('inventory_countings').doc(id),snap=await ref.get();if(!snap.exists)return toast('Count not found');const d=snap.data();if(d.status!=='Open')return toast('Already posted');const positive=d.lines.filter(l=>l.difference>0).map(l=>({itemCode:l.itemCode,qty:l.difference,uom:'pcs',name:(items.find(i=>i.itemCode===l.itemCode)||{}).name||''}));const negative=d.lines.filter(l=>l.difference<0).map(l=>({itemCode:l.itemCode,qty:Math.abs(l.difference),uom:'pcs',name:(items.find(i=>i.itemCode===l.itemCode)||{}).name||''}));for(const [type,lines] of [['IN',positive],['OUT',negative]])if(lines.length){const docNo=await nextStockDocNo(d.companyId,type);const doc={companyId:d.companyId,docNo,docType:type,docDate:d.date,warehouseCode:d.warehouseCode,remarks:'Inventory count adjustment '+d.docNo,lines,status:'posted',sourceCountId:id,createdBy:currentUser.email,createdAt:new Date().toISOString()};const x=await db.collection('stock_docs').add(doc);stockDocs.unshift({id:x.id,...doc});}await ref.update({status:'Posted',postedAt:new Date().toISOString(),postedBy:currentUser.email});toast('Inventory differences posted',true);await renderInvCounting(document.getElementById('main'));}catch(e){toast('Posting failed: '+e.message)}};
+
+window.renderInvPosting=async function(el){let docs=[];try{const q=await db.collection('inventory_countings').where('companyId','==',companyFilterId()).get();docs=q.docs.map(d=>({id:d.id,...d.data()}));}catch(e){}el.innerHTML=`<div class="toolbar"><h2>Inventory Posting</h2><button class="btn btn-sm" onclick="nav('invcount')">Open Inventory Counting</button></div><div class="grid-wrap"><table class="grid"><thead><tr><th>Count No</th><th>Date</th><th>Warehouse</th><th>Variance Lines</th><th>Status</th><th>Action</th></tr></thead><tbody>${docs.map(d=>`<tr><td>${esc(d.docNo)}</td><td>${esc(d.date)}</td><td>${esc(d.warehouseCode)}</td><td>${(d.lines||[]).filter(l=>l.difference).length}</td><td>${esc(d.status)}</td><td>${d.status==='Open'?`<button class="btn btn-sm btn-primary" onclick="postInvCount('${d.id}')">Post</button>`:'Posted'}</td></tr>`).join('')||'<tr><td colspan="6">No count variances available</td></tr>'}</tbody></table></div>`;};
+
+window.renderInvReval=async function(el){let docs=[];try{const q=await db.collection('inventory_revaluations').where('companyId','==',companyFilterId()).get();docs=q.docs.map(d=>({id:d.id,...d.data()}));}catch(e){}const list=scoped(items,companyFilterId());el.innerHTML=`<div class="toolbar"><h2>Inventory Revaluation</h2><button class="btn btn-sm btn-primary" onclick="document.getElementById('ir-form').style.display='block'">+ New Revaluation</button></div><div id="ir-form" style="display:none;background:#fff;border:1px solid #c5cdd8;padding:10px"><div class="form-bar"><div class="fg"><label>Item</label><select id="ir-item" onchange="fillInvRevalCost()">${list.map(i=>`<option value="${esc(i.itemCode)}">${esc(i.itemCode)} — ${esc(i.name||'')}</option>`).join('')}</select></div><div class="fg"><label>Old Unit Cost</label><input id="ir-old" type="number" readonly></div><div class="fg"><label>New Unit Cost</label><input id="ir-new" type="number" min="0" step="0.01"></div><div class="fg"><label>Effective Date</label><input id="ir-date" type="date"></div><div class="fg"><label>Reason</label><input id="ir-reason"></div></div><button class="btn btn-sm btn-primary" onclick="saveInvReval()">Save Revaluation</button></div><div class="grid-wrap"><table class="grid"><thead><tr><th>Doc No</th><th>Date</th><th>Item</th><th>Old Cost</th><th>New Cost</th><th>Variance</th></tr></thead><tbody>${docs.map(d=>`<tr><td>${esc(d.docNo)}</td><td>${esc(d.date)}</td><td>${esc(d.itemCode)}</td><td>${Number(d.oldCost).toLocaleString()}</td><td>${Number(d.newCost).toLocaleString()}</td><td>${Number(d.newCost-d.oldCost).toLocaleString()}</td></tr>`).join('')||'<tr><td colspan="6">No revaluations</td></tr>'}</tbody></table></div>`;window.fillInvRevalCost();};
+window.fillInvRevalCost=function(){const i=scoped(items,companyFilterId()).find(x=>x.itemCode===document.getElementById('ir-item')?.value);if(document.getElementById('ir-old'))document.getElementById('ir-old').value=Number(i?.lastPurchasePrice||i?.avgPrice||i?.cost||0);if(document.getElementById('ir-date'))document.getElementById('ir-date').value=new Date().toISOString().slice(0,10);};
+window.saveInvReval=async function(){try{if(!hasAuth('inv.reval',2))return toast('Full Inventory Revaluation authorization required');const cid=companyFilterId(),itemCode=document.getElementById('ir-item').value,oldCost=Number(document.getElementById('ir-old').value),newCost=Number(document.getElementById('ir-new').value),date=document.getElementById('ir-date').value;if(!itemCode||!(newCost>=0)||!date)return toast('Complete revaluation details');const d={companyId:cid,docNo:'IR-'+Date.now(),itemCode,oldCost,newCost,date,reason:document.getElementById('ir-reason').value,status:'Posted',createdAt:new Date().toISOString(),createdBy:currentUser.email};await db.collection('inventory_revaluations').add(d);const item=items.find(x=>x.itemCode===itemCode);if(item){await db.collection('items').doc(item.id).update({lastPurchasePrice:newCost,avgPrice:newCost,updatedAt:new Date().toISOString()});item.lastPurchasePrice=newCost;item.avgPrice=newCost;}toast('Revaluation saved. Future valuation uses the new cost; historical transactions remain unchanged.',true);await renderInvReval(document.getElementById('main'));}catch(e){toast('Revaluation failed: '+e.message)}};
+window.renderInvOpening=async function(el){window.__invOpeningOnly=true;renderOpening(el);const type=document.getElementById('ob-type');if(type){type.value='STOCK';type.disabled=true;}const title=el.querySelector('h2');if(title)title.textContent='Inventory Opening Balance';const form=el.querySelector('#ob-form');if(form){const label=form.querySelector('label');}const btn=el.querySelector('.toolbar .btn-primary');if(btn)btn.textContent='+ New Inventory Opening';};
+window.startInvOpening=function(){const t=document.getElementById('ob-type');if(t)t.value='STOCK';startOpening();};
 
 // ---------- 6. Super Inventory Reports ----------
 window.renderSuperInvReports = function(el){
-  el.innerHTML = `
-    <div class="toolbar"><h2>Super Inventory Reports (International Standard)</h2>
-      <button class="btn btn-sm" onclick="window.print()">Print / PDF</button>
-    </div>
-    <div class="form-bar">
-      <div class="fg"><label>Report</label><select id="inv-rep-type">
-        <option>Inventory Audit Report</option>
-        <option>Inventory Status Report</option>
-        <option>Inventory in Warehouse Report</option>
-        <option>Inventory Valuation Report</option>
-        <option>Inventory Posting List</option>
-        <option>Batch / Serial Number Report</option>
-        <option>Inventory Counting Report</option>
-        <option>Goods Receipt / Issue Report</option>
-        <option>Inventory Transfer Report</option>
-        <option>Item Master List</option>
-      </select></div>
-      <div class="fg"><label>Warehouse</label><select><option>All</option></select></div>
-      <div class="fg"><label>From</label><input type="date"></div>
-      <div class="fg"><label>To</label><input type="date"></div>
-      <button class="btn btn-sm btn-primary" onclick="genSuperInvReport()">Generate</button>
-    </div>
-    <div id="super-inv-result" class="grid-wrap" style="padding:12px;margin-top:8px">
-      <p style="color:#64748b">Select a report and click Generate. Reports follow international inventory standards (similar quality to Financial Statements).</p>
-    </div>
-  `;
+  const cid=companyFilterId();el.innerHTML=`<div class="toolbar"><h2>Inventory Reports & Analytics</h2><button class="btn btn-sm" onclick="window.print()">Print / PDF</button><button class="btn btn-sm" onclick="exportStockBalance()">Export Stock</button></div><div class="form-bar"><div class="fg"><label>Report</label><select id="inv-rep-type"><option>Inventory Status</option><option>Inventory Valuation</option><option>Warehouse Stock</option><option>Inventory Audit</option><option>Stock Movements</option><option>Item Master List</option><option>Batch / Serial Register</option><option>Inventory Count Variance</option></select></div><div class="fg"><label>Warehouse</label><select id="inv-rep-wh"><option value="">All Warehouses</option>${scoped(warehouses,cid).map(w=>`<option value="${esc(w.code)}">${esc(w.code)} — ${esc(w.name||'')}</option>`).join('')}</select></div><div class="fg"><label>From</label><input id="inv-rep-from" type="date"></div><div class="fg"><label>To</label><input id="inv-rep-to" type="date"></div><button class="btn btn-sm btn-primary" onclick="genSuperInvReport()">Generate</button></div><div id="super-inv-result" class="grid-wrap" style="padding:12px;margin-top:8px"><p>Select a report and click Generate.</p></div>`;
 };
-window.genSuperInvReport = function(){
-  const t=(document.getElementById("inv-rep-type")||{}).value||"Inventory Report";
-  const res=document.getElementById("super-inv-result");
-  if(res) res.innerHTML=`<h3 style="margin:0 0 8px;color:#0b3d91">${esc(t)}</h3>
-    <table class="grid"><thead><tr><th>Item</th><th>Warehouse</th><th>Qty</th><th>Value</th><th>Status</th></tr></thead>
-    <tbody><tr><td colspan="5">Report generated. Data based on current inventory transactions. Use Print for PDF with company logo.</td></tr></tbody></table>`;
-  toast(t+" generated", true);
-};
+window.genSuperInvReport = async function(){const type=document.getElementById('inv-rep-type').value,wh=document.getElementById('inv-rep-wh').value,from=document.getElementById('inv-rep-from').value,to=document.getElementById('inv-rep-to').value,res=document.getElementById('super-inv-result');const fmt=n=>Number(n||0).toLocaleString(undefined,{maximumFractionDigits:2});let heads=[],rows=[];if(type==='Item Master List'){heads=['Item Code','Description','UoM','Group','Cost'];rows=scoped(items,companyFilterId()).map(i=>[i.itemCode,i.name||'',i.uom||'',i.groupName||i.itemGroup||'',fmt(i.avgPrice||i.lastPurchasePrice||0)]);}else if(type==='Inventory Audit'||type==='Stock Movements'){heads=['Date','Document','Type','Warehouse','Item','Qty','Source'];rows=scoped(stockDocs,companyFilterId()).filter(d=>(!from||d.docDate>=from)&&(!to||d.docDate<=to)&&(!wh||d.warehouseCode===wh||d.fromWh===wh||d.toWh===wh)).flatMap(d=>(d.lines||[]).map(l=>[d.docDate,d.docNo,d.docType,d.warehouseCode||d.fromWh||'',l.itemCode,fmt(l.qty),d.createdBy||'']));}else if(type==='Inventory Count Variance'){let docs=[];try{const q=await db.collection('inventory_countings').where('companyId','==',companyFilterId()).get();docs=q.docs.map(d=>d.data());}catch(e){}heads=['Date','Count No','Warehouse','Item','System Qty','Counted Qty','Variance'];rows=docs.filter(d=>(!from||d.date>=from)&&(!to||d.date<=to)&&(!wh||d.warehouseCode===wh)).flatMap(d=>(d.lines||[]).map(l=>[d.date,d.docNo,d.warehouseCode,l.itemCode,fmt(l.systemQty),fmt(l.countedQty),fmt(l.difference)]));}else if(type==='Batch / Serial Register'){let docs=[];try{const q=await db.collection('inventory_batches').where('companyId','==',companyFilterId()).get();docs=q.docs.map(d=>d.data());}catch(e){}heads=['Item','Batch/Serial','Type','Warehouse','Qty','Expiry','Status'];rows=docs.filter(d=>!wh||d.warehouseCode===wh).map(d=>[d.itemCode,d.number,d.type,d.warehouseCode,fmt(d.qty),d.expiry||'',d.status||'Active']);}else{heads=['Item','Description','Warehouse','UoM','On Hand','Unit Cost','Stock Value'];rows=computeStockBalances(companyFilterId()).filter(r=>!wh||r.warehouseCode===wh).map(r=>{const i=scoped(items,companyFilterId()).find(x=>x.itemCode===r.itemCode)||{},cost=Number(i.avgPrice||i.lastPurchasePrice||i.cost||0);return[r.itemCode,r.name,r.warehouseCode,r.uom,fmt(r.qty),fmt(cost),fmt(r.qty*cost)];});if(type==='Inventory Valuation')rows.sort((a,b)=>Number(String(b[6]).replace(/,/g,''))-Number(String(a[6]).replace(/,/g,'')));}
+res.innerHTML=`<h3 style="margin:0 0 8px;color:#0b3d91">${esc(type)}</h3><div style="font-size:12px;color:#64748b;margin-bottom:8px">Rows: ${rows.length} · Generated ${new Date().toLocaleString()}</div><div class="grid-wrap"><table class="grid"><thead><tr>${heads.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,5000).map(r=>`<tr>${r.map(v=>`<td>${esc(v==null?'':v)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${heads.length}">No matching data</td></tr>`}</tbody></table></div>`;toast(type+' report generated',true);};
 
 // ---------- 7. Batch / Serial Management ----------
-window.renderBatchMgmt = function(el){
-  el.innerHTML = `
-    <div class="toolbar"><h2>Batch & Serial Management</h2>
-      <button class="btn btn-sm btn-primary">+ Batch</button>
-      <button class="btn btn-sm">+ Serial</button>
-    </div>
-    <div class="grid-wrap"><table class="grid"><thead><tr>
-      <th>Item</th><th>Batch/Serial No</th><th>Qty</th><th>Warehouse</th><th>Admission Date</th><th>Expiry</th><th>Status</th>
-    </tr></thead><tbody><tr><td colspan="7">No batches/serials. Strict control when Item is managed by Batch or Serial (SAP B1 style).</td></tr></tbody></table></div>
-  `;
-};
+window.renderBatchMgmt = async function(el){let docs=[];try{const q=await db.collection('inventory_batches').where('companyId','==',companyFilterId()).get();docs=q.docs.map(d=>({id:d.id,...d.data()}));}catch(e){el.innerHTML=`<h2>Batch / Serial Management</h2><p>${esc(e.message)}</p>`;return;}const cid=companyFilterId();el.innerHTML=`<div class="toolbar"><h2>Batch & Serial Management</h2><button class="btn btn-sm btn-primary" onclick="document.getElementById('batch-form').style.display='block'">+ Register Batch / Serial</button></div><div id="batch-form" style="display:none;background:#fff;border:1px solid #c5cdd8;padding:10px"><div class="form-bar"><div class="fg"><label>Item</label><select id="bm-item">${scoped(items,cid).map(i=>`<option value="${esc(i.itemCode)}">${esc(i.itemCode)} — ${esc(i.name||'')}</option>`).join('')}</select></div><div class="fg"><label>Tracking Type</label><select id="bm-type"><option>Batch</option><option>Serial</option></select></div><div class="fg"><label>Batch / Serial No.</label><input id="bm-number"></div><div class="fg"><label>Warehouse</label><select id="bm-wh">${scoped(warehouses,cid).map(w=>`<option value="${esc(w.code)}">${esc(w.code)}</option>`).join('')}</select></div><div class="fg"><label>Quantity</label><input id="bm-qty" type="number" min="0.0001" step="any" value="1"></div><div class="fg"><label>Admission Date</label><input id="bm-date" type="date"></div><div class="fg"><label>Expiry Date</label><input id="bm-expiry" type="date"></div></div><button class="btn btn-sm btn-primary" onclick="saveBatchRecord()">Save</button> <button class="btn btn-sm" onclick="document.getElementById('batch-form').style.display='none'">Cancel</button></div><div class="grid-wrap"><table class="grid"><thead><tr><th>Item</th><th>Tracking No.</th><th>Type</th><th>Qty</th><th>Warehouse</th><th>Admission</th><th>Expiry</th><th>Status</th><th></th></tr></thead><tbody>${docs.map(d=>`<tr><td>${esc(d.itemCode)}</td><td>${esc(d.number)}</td><td>${esc(d.type)}</td><td>${Number(d.qty||0).toLocaleString()}</td><td>${esc(d.warehouseCode)}</td><td>${esc(d.admissionDate||'')}</td><td>${esc(d.expiry||'')}</td><td>${d.expiry&&d.expiry<new Date().toISOString().slice(0,10)?'Expired':esc(d.status||'Active')}</td><td><button class="btn btn-sm btn-danger" onclick="deleteBatchRecord('${d.id}')">Delete</button></td></tr>`).join('')||'<tr><td colspan="9">No batch or serial records</td></tr>'}</tbody></table></div>`;const dt=document.getElementById('bm-date');if(dt)dt.value=new Date().toISOString().slice(0,10);};
+window.saveBatchRecord=async function(){try{if(!hasAuth('inv.batch',2))return toast('Full Batch/Serial authorization required');const data={companyId:companyFilterId(),itemCode:document.getElementById('bm-item').value,type:document.getElementById('bm-type').value,number:document.getElementById('bm-number').value.trim(),warehouseCode:document.getElementById('bm-wh').value,qty:Number(document.getElementById('bm-qty').value),admissionDate:document.getElementById('bm-date').value,expiry:document.getElementById('bm-expiry').value,status:'Active',createdAt:new Date().toISOString()};if(!data.itemCode||!data.number||!(data.qty>0)||!data.warehouseCode)return toast('Complete item, tracking number, warehouse and quantity');if(data.type==='Serial'&&data.qty!==1)return toast('Serial-managed unit quantity must be 1');await db.collection('inventory_batches').add(data);toast('Batch / Serial registered',true);await renderBatchMgmt(document.getElementById('main'));}catch(e){toast('Save failed: '+e.message)}};
+window.deleteBatchRecord=async function(id){if(!hasAuth('inv.batch',2))return toast('Full Batch/Serial authorization required');if(!confirm('Delete this batch/serial record?'))return;try{await db.collection('inventory_batches').doc(id).delete();toast('Record deleted',true);await renderBatchMgmt(document.getElementById('main'));}catch(e){toast(e.message)}};
 
 // ---------- 8. Queries Manager ----------
 window.userQueries = window.userQueries || [];
@@ -12574,7 +12588,7 @@ window.openKESHASHAChat = function(){
   if(p){ p.style.display=p.style.display==="none"?"flex":"none"; return; }
   p=document.createElement("div");
   p.id="keshasha-chat";
-  p.style.cssText="position:fixed;bottom:70px;right:16px;width:340px;height:420px;background:#fff;border:1px solid #94a3b8;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.25);z-index:9999;display:flex;flex-direction:column;font-size:13px";
+  p.style.cssText="position:fixed;bottom:70px;left:16px;right:auto;width:340px;height:420px;background:#fff;border:1px solid #94a3b8;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.25);z-index:9999;display:flex;flex-direction:column;font-size:13px";
   p.innerHTML=`<div style="background:var(--primary);color:#fff;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;border-radius:8px 8px 0 0"><b>KESHASHA AI</b><span><button onclick="clearAIChat()" style="background:none;border:0;color:#fff;cursor:pointer;font-size:11px;margin-right:8px">Clear</button><button onclick="this.closest('#keshasha-chat').style.display='none'" style="background:none;border:0;color:#fff;cursor:pointer">✕</button></span></div>
     <div id="chat-msgs" style="flex:1;overflow:auto;padding:8px;background:#f8fafc"></div>
     <div style="display:flex;padding:6px;border-top:1px solid #e2e8f0"><input id="chat-in" placeholder="Ask how to..." style="flex:1;margin:0;padding:6px" onkeydown="if(event.key==='Enter')sendAI()"><button class="btn btn-sm btn-primary" style="margin-left:4px" onclick="sendAI()">Send</button></div>`;
@@ -12620,7 +12634,7 @@ function addMsg(role,t){
 setTimeout(()=>{
   const b=document.createElement("button");
   b.innerHTML="💬 AI";
-  b.style.cssText="position:fixed;bottom:16px;right:16px;z-index:9998;background:var(--primary);color:#fff;border:0;border-radius:20px;padding:8px 14px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(11,61,145,.4)";
+  b.style.cssText="position:fixed;bottom:16px;left:16px;right:auto;z-index:9998;background:var(--primary);color:#fff;border:0;border-radius:20px;padding:8px 14px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(11,61,145,.4)";
   b.onclick=openKESHASHAChat;
   document.body.appendChild(b);
 },600);
@@ -12685,7 +12699,8 @@ const SKINS = {
   navy:   { name:"Navy Blue",    primary:"#0b3d91", primaryD:"#072a66", accent:"#1e40af" },
   gold:   { name:"Golden Thread",primary:"#b45309", primaryD:"#92400e", accent:"#d97706" },
   maroon: { name:"Maroon",       primary:"#7f1d1d", primaryD:"#5c1515", accent:"#991b1b" },
-  forest: { name:"Forest Green", primary:"#14532d", primaryD:"#0f3d22", accent:"#166534" }
+  forest: { name:"Forest Green", primary:"#14532d", primaryD:"#0f3d22", accent:"#166534" },
+  purple: { name:"Purple", primary:"#6d28d9", primaryD:"#4c1d95", accent:"#7c3aed" }
 };
 window.applySkin = function(key){
   const s = SKINS[key] || SKINS.navy;
@@ -12771,8 +12786,8 @@ window.renderOutgoing = function(el){
   }
 };
 
-// Employees, Warehouses, COA also get window button
-["renderEmployees","renderWarehouses","renderCOA","renderSalesEmployees"].forEach(fnName=>{
+// Additional ERP work areas can also be opened as independent windows.
+["renderEmployees","renderWarehouses","renderCOA","renderSalesEmployees","renderDocSeries","renderItemSeriesDefs","renderJournals","renderAccountsPayable","renderAccountsReceivable","renderPurchaseOrders","renderSalesOrders","renderPayroll"].forEach(fnName=>{
   const orig = window[fnName];
   if(!orig) return;
   window[fnName] = function(el){
@@ -12802,6 +12817,8 @@ window.renderUsers = function(el){
           <option value="Verdana">Verdana</option>
           <option value="Calibri">Calibri</option>
           <option value="Georgia">Georgia</option>
+          <option value="Times New Roman">Times New Roman (Roman)</option>
+          <option value="Trebuchet MS">Trebuchet MS</option>
         </select>
       </div>
       <div class="fg"><label>UI Font Size</label>
@@ -12811,6 +12828,9 @@ window.renderUsers = function(el){
           <option value="13">13 px</option>
           <option value="14">14 px</option>
           <option value="15">15 px</option>
+          <option value="16">16 px</option>
+          <option value="17">17 px</option>
+          <option value="18">18 px</option>
         </select>
       </div>
       <div class="fg"><label>Skin Style</label>
@@ -12819,6 +12839,7 @@ window.renderUsers = function(el){
           <option value="gold">Golden Thread</option>
           <option value="maroon">Maroon</option>
           <option value="forest">Forest Green</option>
+          <option value="purple">Purple</option>
         </select>
       </div>
     `;
@@ -12826,24 +12847,34 @@ window.renderUsers = function(el){
   }
 };
 
-// Patch saveUser to persist UI prefs
+// Persist UI preferences for both new and existing users. Capture before base save rerenders the form.
 const _saveUser = window.saveUser;
 window.saveUser = async function(){
-  if(typeof _saveUser==="function") await _saveUser();
-  // After original save, attach UI prefs if editing
-  const font = (document.getElementById("u-font")||{}).value;
-  const size = (document.getElementById("u-fontsize")||{}).value;
-  const skin = (document.getElementById("u-skin")||{}).value;
-  if(typeof editingUserId!=="undefined" && editingUserId && typeof users!=="undefined"){
-    const u = users.find(x=>x.id===editingUserId);
-    if(u){
-      u.uiFont = font||"";
-      u.uiFontSize = size||"";
-      u.uiSkin = skin||"navy";
-      if(typeof db!=="undefined") await db.collection("users").doc(u.id).set(u);
-      if(u.id===currentUser.id) applyUserUI(u);
-    }
+  const email = (document.getElementById("u-email")||{}).value || "";
+  const prefs = {
+    uiFont: (document.getElementById("u-font")||{}).value || "",
+    uiFontSize: (document.getElementById("u-fontsize")||{}).value || "",
+    uiSkin: (document.getElementById("u-skin")||{}).value || "navy"
+  };
+  if(typeof _saveUser === "function") await _saveUser();
+  const saved = (typeof users!=="undefined" ? users.find(u=>u.email===email.trim().toLowerCase()) : null);
+  if(saved){
+    Object.assign(saved,prefs);
+    await db.collection("users").doc(saved.id).update(prefs);
+    if(typeof currentUser!=="undefined" && currentUser && saved.id===currentUser.id){ Object.assign(currentUser,prefs); applyUserUI(currentUser); }
   }
+};
+
+// Load saved preferences when editing a user.
+const _editUserPrefs = window.editUser;
+window.editUser = function(id){
+  if(typeof _editUserPrefs === "function") _editUserPrefs(id);
+  const u = (typeof users!=="undefined" ? users.find(x=>x.id===id) : null);
+  if(!u) return;
+  setTimeout(()=>{
+    const f=document.getElementById("u-font"), z=document.getElementById("u-fontsize"), k=document.getElementById("u-skin");
+    if(f) f.value=u.uiFont||""; if(z) z.value=u.uiFontSize||""; if(k) k.value=u.uiSkin||"navy";
+  },0);
 };
 
 // Quick skin switcher in topbar
@@ -12853,7 +12884,7 @@ setTimeout(()=>{
     const sel = document.createElement("select");
     sel.id = "skin-switch";
     sel.style.cssText = "margin-left:8px;padding:2px 6px;font-size:12px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)";
-    sel.innerHTML = `<option value="navy">Navy</option><option value="gold">Gold</option><option value="maroon">Maroon</option><option value="forest">Forest</option>`;
+    sel.innerHTML = `<option value="navy">Navy</option><option value="gold">Gold</option><option value="maroon">Maroon</option><option value="forest">Forest</option><option value="purple">Purple</option>`;
     sel.value = localStorage.getItem("keshasha_skin")||"navy";
     sel.onchange = ()=>applySkin(sel.value);
     tb.appendChild(sel);
@@ -13552,5 +13583,271 @@ window.saveUserProfile = async function(){
 })();
 </script>
 
+<script>
+// KESHASHA AI — grounded, live ERP context answers (read-only).
+(function(){
+  function fmt(n){return Number(n||0).toLocaleString(undefined,{maximumFractionDigits:2});}
+  function answer(q){
+    const s=String(q||'').toLowerCase();
+    try{
+      if(/stock balance|inventory balance|stock on hand|salio la stock|stock iliyopo|inventory status|low stock|reorder/.test(s)){
+        const rows=typeof computeStockBalances==='function'?computeStockBalances(typeof companyFilterId==='function'?companyFilterId():null):[];
+        if(/low stock|reorder|chini ya kiwango/.test(s)){const low=rows.filter(r=>r.qty<=0);return low.length?'KESHASHA AI — Inventory alert:\n'+low.slice(0,25).map(r=>r.itemCode+' / '+r.name+' — '+fmt(r.qty)+' '+r.uom+' ('+r.warehouseCode+')').join('\n'):'Hakuna item yenye stock zero/negative kwenye ledger iliyopakiwa.';}
+        const total=rows.reduce((a,r)=>a+r.qty,0);return 'KESHASHA AI — Live Stock Summary\nItems/Warehouse rows: '+rows.length+'\nTotal quantity (mixed UoM; indicative only): '+fmt(total)+'\n'+rows.slice(0,20).map(r=>r.itemCode+' — '+r.name+': '+fmt(r.qty)+' '+r.uom+' @ '+r.warehouseCode).join('\n');
+      }
+      if(/how many items|item count|idadi ya bidhaa|items zilizopo/.test(s)){const a=typeof scoped==='function'?scoped(items,companyFilterId()):items;return 'KESHASHA AI — Item Master: '+a.length+' items loaded for the selected company. This is the currently loaded dataset, not a Firebase backup count.';}
+      if(/bp balance|customer balance|vendor balance|account balance|salio la mteja|salio la supplier/.test(s)){const a=typeof scoped==='function'?scoped(partners,companyFilterId()):partners;return 'KESHASHA AI — BP Account Balances: '+a.length+' Business Partners loaded. Open Business Partners → Reconciliation to view the BP balance breakdown from opening balances, invoices, credit notes and payments.';}
+      if(/payroll|paye|nssf|nhif|heslb/.test(s))return 'KESHASHA AI — Payroll: Open HR/Payroll → Basic Pay to configure each employee salary and NSSF/PSSSF, NHIF, HESLB and PAYE flags. Then open Payroll → Run Payroll. Employer SDL/WCF/pension costs are shown separately and are not deducted from net pay. Verify current statutory rates before posting.';
+      if(/inventory count|stock take|physical count|hesabu ya stock/.test(s))return 'KESHASHA AI — Inventory Count: Open Inventory → Inventory Counting → New Counting, choose a warehouse, enter counted quantities, save, then use Post Differences. Posting creates Goods Receipt/Issue adjustments in the stock ledger.';
+    }catch(e){return 'KESHASHA AI: I could not read the live ERP data: '+e.message;}
+    return null;
+  }
+  const hook=setInterval(()=>{if(typeof window.sendAI!=='function')return;clearInterval(hook);const old=window.sendAI;window.sendAI=function(){const input=document.getElementById('chat-in');if(!input)return old.apply(this,arguments);const q=input.value.trim();const a=answer(q);if(!a)return old.apply(this,arguments);const box=document.getElementById('chat-msgs');if(box){for(const [role,msg] of [['user',q],['bot',a]]){const d=document.createElement('div');d.style.cssText='margin:4px 0;padding:6px 8px;border-radius:6px;max-width:90%;'+(role==='user'?'background:var(--primary);color:#fff;margin-left:auto':'background:#fff;border:1px solid #e2e8f0');d.textContent=msg;box.appendChild(d);}box.scrollTop=box.scrollHeight;}else alert(a);input.value='';};},250);
+})();
+
+
+// ============================================================
+// PAYROLL / CANCELLATION CONTROL PATCH (v2)
+// ============================================================
+function __erpMoney(v){ return Number(String(v??0).replace(/,/g,''))||0; }
+function __erpMonth(date){ return String(date||'').slice(0,7); }
+function __erpLoanType(type){
+  const t=String(type||'').toLowerCase().replace(/[ _-]+/g,' ').trim();
+  if(t==='loan') return 'loan';
+  if(t.includes('advance')) return 'advanceSalary';
+  if(t.includes('absent')) return 'absenteeism';
+  if(t.includes('good')||t.includes('loss')) return 'goodsLoss';
+  if(t.includes('disciplin')) return 'disciplinaryPenalty';
+  return 'otherDeduction';
+}
+function __erpDocLabel(d){ return d.docNo||d.id||'document'; }
+async function __erpReverseLinkedJournals(companyId, doc, docId){
+  const docNo=__erpDocLabel(doc);
+  const linked=scoped(journals,companyId).filter(j=>j.status!=='cancelled' && (j.sourceDoc===docNo || j.sourceDoc===docId || j.sourceDoc===String(docNo)) && j.sourceType!=='Reversal');
+  const reversed=[];
+  for(const j of linked){
+    if(j.reversalTransId || scoped(journals,companyId).some(x=>x.sourceType==='Reversal' && (x.reversesJournalId===j.id || x.sourceDoc===('REV-'+j.transId)))) continue;
+    const revLines=(j.lines||[]).map(l=>({acctCode:l.acctCode,debit:Number(l.credit||0),credit:Number(l.debit||0),lineMemo:'Reversal: '+(l.lineMemo||j.memo||docNo)}));
+    if(!revLines.length) continue;
+    const rev=await postJournalEntry(companyId,{refDate:new Date().toISOString().slice(0,10),memo:'REVERSAL of JE '+j.transId+' — cancelled '+docNo,lines:revLines,sourceType:'Reversal',sourceDoc:'REV-'+j.transId});
+    const revRec=journals.find(x=>x.transId===rev.transId);
+    if(revRec){ revRec.reversesJournalId=j.id; await db.collection('journals').doc(revRec.id).update({reversesJournalId:j.id}); }
+    await db.collection('journals').doc(j.id).update({status:'cancelled',cancelledAt:new Date().toISOString(),reversalTransId:rev.transId});
+    j.status='cancelled'; j.reversalTransId=rev.transId; reversed.push(rev.transId);
+  }
+  return reversed;
+}
+window.cancelSalesDoc=async function(id){
+  if(!hasAuth('act.cancel',2)) return toast('No authorization to cancel documents');
+  const d=salesDocs.find(x=>x.id===id); if(!d) return toast('Sales document not found');
+  if(d.status==='cancelled') return toast('Document already cancelled');
+  if(d.status==='closed') return toast('Closed document cannot be cancelled. Reopen or reverse through the approved process first.');
+  if(!confirm('Cancel '+__erpDocLabel(d)+'? Any linked Journal Entry will receive a reversing entry.')) return;
+  try{
+    const reversals=await __erpReverseLinkedJournals(d.companyId||companyFilterId(),d,id);
+    await db.collection('sales_docs').doc(id).update({status:'cancelled',cancelledAt:new Date().toISOString(),cancelledBy:currentUser.email,reversalJournalNos:reversals});
+    d.status='cancelled'; d.reversalJournalNos=reversals;
+    toast('Document cancelled'+(reversals.length?' — reversal JE '+reversals.join(', '):' — no linked JE found'),true);
+    nav(d.docType.toLowerCase());
+  }catch(e){toast('Cancellation failed: '+e.message);}
+};
+window.cancelPurchDoc=async function(id){
+  if(!hasAuth('act.cancel',2)) return toast('No authorization to cancel documents');
+  const d=purchaseDocs.find(x=>x.id===id); if(!d) return toast('Purchase document not found');
+  if(d.status==='cancelled') return toast('Document already cancelled');
+  if(d.status==='closed') return toast('Closed document cannot be cancelled. Reopen or reverse through the approved process first.');
+  if(!confirm('Cancel '+__erpDocLabel(d)+'? Any linked Journal Entry will receive a reversing entry.')) return;
+  try{
+    const reversals=await __erpReverseLinkedJournals(d.companyId||companyFilterId(),d,id);
+    await db.collection('purchase_docs').doc(id).update({status:'cancelled',cancelledAt:new Date().toISOString(),cancelledBy:currentUser.email,reversalJournalNos:reversals});
+    d.status='cancelled'; d.reversalJournalNos=reversals;
+    toast('Document cancelled'+(reversals.length?' — reversal JE '+reversals.join(', '):' — no linked JE found'),true);
+    nav(d.docType.toLowerCase());
+  }catch(e){toast('Cancellation failed: '+e.message);}
+};
+window.cancelJournalEntry=async function(id){
+  if(!hasAuth('fin.je.cancel',2) && !hasAuth('act.cancel',2)) return toast('No authorization to cancel Journal Entries');
+  const j=journals.find(x=>x.id===id); if(!j) return toast('Journal Entry not found');
+  if(j.status==='cancelled') return toast('Journal already cancelled');
+  if(j.sourceType==='Reversal') return toast('A reversal journal cannot itself be cancelled here');
+  if(!confirm('Cancel JE '+j.transId+' and post its reversing Journal Entry?')) return;
+  try{
+    const revLines=(j.lines||[]).map(l=>({acctCode:l.acctCode,debit:Number(l.credit||0),credit:Number(l.debit||0),lineMemo:'Reversal of '+j.transId}));
+    const rev=await postJournalEntry(j.companyId,{refDate:new Date().toISOString().slice(0,10),memo:'REVERSAL of JE '+j.transId,lines:revLines,sourceType:'Reversal',sourceDoc:'REV-'+j.transId});
+    const revRec=journals.find(x=>x.transId===rev.transId);
+    if(revRec){revRec.reversesJournalId=j.id;await db.collection('journals').doc(revRec.id).update({reversesJournalId:j.id});}
+    await db.collection('journals').doc(id).update({status:'cancelled',cancelledAt:new Date().toISOString(),cancelledBy:currentUser.email,reversalTransId:rev.transId});
+    j.status='cancelled';j.reversalTransId=rev.transId;
+    toast('JE cancelled; reversal '+rev.transId+' posted',true);renderJE(document.getElementById('main'));
+  }catch(e){toast('JE cancellation failed: '+e.message);}
+};
+// Add cancellation actions and visible reversal linkage to the Journal Entry table.
+const __erpOriginalRenderJE=renderJE;
+renderJE=function(el){
+  __erpOriginalRenderJE(el);
+  const tables=el.querySelectorAll('.grid-wrap table.grid'); const table=tables[tables.length-1]; if(!table)return;
+  const head=table.querySelector('thead tr'); if(head && !head.querySelector('[data-je-cancel-head]')){const th=document.createElement('th');th.textContent='Action';th.dataset.jeCancelHead='1';head.appendChild(th);}
+  table.querySelectorAll('tbody tr').forEach((tr,i)=>{
+    const j=(scoped(journals,companyFilterId()).sort((a,b)=>(b.refDate||'').localeCompare(a.refDate||'')))[i];
+    if(!j)return;
+    const td=document.createElement('td');
+    td.innerHTML=(j.status!=='cancelled' && j.sourceType!=='Reversal' && (hasAuth('fin.je.cancel',2)||hasAuth('act.cancel',2)))?`<button class="btn btn-sm btn-danger" onclick="cancelJournalEntry('${j.id}')">Cancel & Reverse</button>`:(j.reversalTransId?`Reversed by ${esc(j.reversalTransId)}`:'—');
+    tr.appendChild(td);
+  });
+};
+
+// Employee loan/deduction records: one header per employee request and dated installment rows.
+window.renderHRLoans=async function(el){
+  const cid=companyFilterId(); let records=[];
+  try{const snap=await db.collection('employee_loans').where('companyId','==',cid).get();records=snap.docs.map(d=>({id:d.id,...d.data()}));}
+  catch(e){el.innerHTML='<div class="toolbar"><h2>Employee Loans & Deductions</h2></div><p>'+esc(e.message)+'</p>';return;}
+  const empOpts=scoped(employees,cid).map(e=>`<option value="${esc(e.employeeCode)}">${esc(e.fullName||e.employeeCode)} — ${esc(e.employeeCode)}</option>`).join('');
+  el.innerHTML=`<div class="toolbar"><h2>Employee Loans & Deductions</h2><button class="btn btn-sm btn-primary" onclick="openHRLoanForm()">+ New Loan / Deduction</button></div>
+  <div class="grid-wrap"><table class="grid"><thead><tr><th>Doc No</th><th>Employee</th><th>Type</th><th>Document Date</th><th>Installments</th><th>Total</th><th>Status</th></tr></thead><tbody>${records.map(r=>`<tr><td>${esc(r.docNo||r.id)}</td><td>${esc(r.employeeName||r.employeeCode)}</td><td>${esc(r.type)}</td><td>${esc(r.docDate||'')}</td><td>${(r.installments||[]).length}</td><td style="text-align:right">${(r.installments||[]).reduce((a,x)=>a+Number(x.amount||0),0).toLocaleString()}</td><td>${esc(r.status||'Open')}</td></tr>`).join('')||'<tr><td colspan="7">No employee loans/deductions found</td></tr>'}</tbody></table></div>
+  <div id="hr-loan-form" style="display:none;margin-top:10px;background:#fff;border:1px solid #c5cdd8;padding:10px"><div class="form-bar">
+  <div class="fg"><label>Employee</label><select id="hr-emp"><option value="">— Select —</option>${empOpts}</select></div>
+  <div class="fg"><label>Type</label><select id="hr-type"><option value="Loan">Loan</option><option value="Advance Salary">Advance Salary</option><option value="Absenteeism">Absenteeism</option><option value="Good_Loss">Goods Loss</option><option value="Disciplinary Penalty">Disciplinary Penalty</option><option value="Other">Other Deduction</option></select></div>
+  <div class="fg"><label>Document Date</label><input type="date" id="hr-date"></div><div class="fg"><label>Remark</label><input id="hr-rem"></div></div>
+  <b>Installment rows — payroll uses the deduction date in each row</b><table class="grid"><thead><tr><th>#</th><th>Amount</th><th>Deduction Date</th><th>Status</th><th></th></tr></thead><tbody id="hr-inst"></tbody></table>
+  <button class="btn btn-sm" onclick="addHRInstallment()">+ Installment</button><div style="margin-top:8px"><button class="btn btn-sm btn-primary" onclick="saveHRLoan('view')">Save</button><button class="btn btn-sm" onclick="document.getElementById('hr-loan-form').style.display='none'">Close</button></div></div>`;
+  window.__hrLoanCache=records;
+};
+window.openHRLoanForm=function(){const f=document.getElementById('hr-loan-form');if(f)f.style.display='block';const date=document.getElementById('hr-date');if(date&&!date.value)date.value=new Date().toISOString().slice(0,10);const tb=document.getElementById('hr-inst');if(tb&&!tb.rows.length)window.addHRInstallment();};
+window.addHRInstallment=function(){const tb=document.getElementById('hr-inst');if(!tb)return;const n=tb.rows.length+1;tb.insertAdjacentHTML('beforeend',`<tr><td>${n}</td><td><input type="number" min="0" step="0.01" class="hr-inst-amount" style="width:100%"></td><td><input type="date" class="hr-inst-date" style="width:100%"></td><td><select class="hr-inst-status"><option value="open">Open</option><option value="closed">Closed</option></select></td><td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()">✕</button></td></tr>`);};
+window.saveHRLoan=async function(){try{
+  if(!hasAuth('hr.loans',2))return toast('Full Employee Loans authorization required');
+  const cid=companyFilterId(),employeeCode=document.getElementById('hr-emp').value,emp=scoped(employees,cid).find(e=>e.employeeCode===employeeCode),type=document.getElementById('hr-type').value,docDate=document.getElementById('hr-date').value;
+  const installments=[...document.querySelectorAll('#hr-inst tr')].map(tr=>({amount:Number(tr.querySelector('.hr-inst-amount').value||0),date:tr.querySelector('.hr-inst-date').value,status:tr.querySelector('.hr-inst-status').value}));
+  const __loanRowUDF=window.collectUDFValues('employee_loans','loan-udf-slot','row');if(Object.keys(__loanRowUDF).length)installments.forEach(r=>r.udfValues={...__loanRowUDF});
+  if(!cid||!employeeCode||!docDate||!installments.length||installments.some(x=>!(x.amount>0)||!x.date))return toast('Select employee, document date and complete valid installment rows');
+  const data={companyId:cid,udfValues:window.collectUDFValues('employee_loans','loan-udf-slot'),udfRowValues:window.collectUDFValues('employee_loans','loan-udf-slot','row'),docNo:'HR-'+Date.now(),employeeCode,employeeName:emp?.fullName||employeeCode,type,docDate,remark:document.getElementById('hr-rem').value||'',installments,status:'Open',createdAt:new Date().toISOString(),createdBy:currentUser.email};
+  await db.collection('employee_loans').add(data);toast('Employee deduction schedule saved',true);await renderHRLoans(document.getElementById('main'));
+}catch(e){toast('Save failed: '+e.message);}};
+
+// Payroll calculation follows the supplied query's flow: monthly basic-pay setup + dated
+// employee deduction rows, with additions/welfare added after deductions. It does not
+// automatically close installments; payroll is a preview/run and source rows remain auditable.
+window.doRunPayroll=async function(){try{
+  const cid=companyFilterId(),emps=scoped(employees,cid),period=(document.getElementById('pay-period')||{}).value||'',payDate=(document.getElementById('pay-date')||{}).value||'';
+  if(!emps.length)return toast('No employees');if(!/^\d{4}-\d{2}$/.test(period)||!payDate)return toast('Select payroll month and pay date');
+  const [bpSnap,loanSnap]=await Promise.all([db.collection('basic_pay_settings').where('companyId','==',cid).get(),db.collection('employee_loans').where('companyId','==',cid).get()]);
+  const configs=bpSnap.docs.map(d=>({id:d.id,...d.data()}));const loanDocs=loanSnap.docs.map(d=>({id:d.id,...d.data()}));
+  const activeEmpCount=emps.filter(e=>e.active!==false).length;
+  const lines=emps.filter(e=>e.active!==false).map(e=>{
+    const ec=configs.filter(x=>x.employeeCode===e.employeeCode && (!x.period||x.period<=period)).sort((a,b)=>(b.period||'').localeCompare(a.period||''))[0]||{};
+    const basic=__erpMoney(ec.basicPay??e.basicPay??e.salary),allow=__erpMoney(ec.allowances??e.allowances),addAmt=__erpMoney(ec.addAmt??e.addAmt),welfare=__erpMoney(ec.welfare??e.welfare),gross=basic+allow;
+    const pensionRate=Number(ec.pensionRate??(ec.deductPSSSF?5:10));const pension=ec.deductPSSSF?(ec.deductPSSSF?gross*pensionRate/100:0):(ec.deductNSSF===false?0:gross*pensionRate/100);
+    const nhif=ec.deductNHIF?gross*Number(ec.nhifRate??3)/100:0;const heslb=ec.deductHESLB?basic*Number(ec.heslbRate??15)/100:0;
+    const taxable=Math.max(0,basic+__erpMoney(ec.taxableAllowances??allow)-pension);const paye=ec.deductPAYE===false?0:window.calculateTzPaye(taxable);
+    const monthly=[];loanDocs.filter(d=>d.employeeCode===e.employeeCode && String(d.status||'Open').toLowerCase()==='open').forEach(d=>(d.installments||[]).forEach((r,idx)=>{if(__erpMonth(r.date)===period && String(r.status||'open').toLowerCase()==='open' && Number(r.amount)>0)monthly.push({docId:d.id,docNo:d.docNo,type:d.type,kind:__erpLoanType(d.type),amount:Number(r.amount),date:r.date,rowIndex:idx});}));
+    const buckets={loan:0,advanceSalary:0,absenteeism:0,goodsLoss:0,disciplinaryPenalty:0,otherDeduction:0};monthly.forEach(r=>buckets[r.kind]=(buckets[r.kind]||0)+r.amount);
+    const fixedOther=__erpMoney(ec.otherDeductions??e.deductions);const statutoryDeductions=pension+nhif+heslb+paye;const totalDeductions=statutoryDeductions+fixedOther+buckets.loan+buckets.advanceSalary+buckets.absenteeism+buckets.goodsLoss+buckets.disciplinaryPenalty+buckets.otherDeduction;
+    const net=gross-statutoryDeductions;const netAfterDeduction=net-fixedOther-buckets.loan-buckets.advanceSalary-buckets.absenteeism-buckets.goodsLoss-buckets.disciplinaryPenalty-buckets.otherDeduction+addAmt+welfare;const netBeforeWelfare=net-fixedOther-buckets.loan-buckets.advanceSalary-buckets.absenteeism-buckets.goodsLoss-buckets.disciplinaryPenalty-buckets.otherDeduction+addAmt;const netPayable=netBeforeWelfare>0?netBeforeWelfare+welfare:0;
+    const employerPension=gross*(ec.deductPSSSF?15:10)/100,wcf=gross*.005,sdl=activeEmpCount>=10?gross*.035:0;
+    return{code:e.employeeCode,name:e.fullName||e.employeeCode,department:e.department||e.dept||'',basic,allow,gross,addAmt,welfare,pension,nhif,heslb,paye,taxable,statutoryDeductions,fixedOther,loan:buckets.loan,advanceSalary:buckets.advanceSalary,absenteeism:buckets.absenteeism,goodsLoss:buckets.goodsLoss,disciplinaryPenalty:buckets.disciplinaryPenalty,otherDeduction:buckets.otherDeduction,totalDeductions,net,netAfterDeduction,netPayable,employerPension,wcf,sdl,loanRows:monthly};
+  });
+  const sum=k=>lines.reduce((a,l)=>a+Number(l[k]||0),0);const run={companyId:cid,period,payDate,lines,totalGross:sum('gross'),totalNet:sum('net'),totalNetPayable:sum('netPayable'),createdAt:new Date().toISOString(),createdBy:currentUser.email,source:'Basic Pay + dated Employee Loan installments'};
+  const ref=await db.collection('payroll_runs').add(run);run.id=ref.id;window.payrollRuns=window.payrollRuns||[];window.payrollRuns.unshift(run);toast('Payroll saved for '+lines.length+' employees',true);await renderPayroll(document.getElementById('main'));window.viewPayrollRun(0);
+}catch(e){toast('Payroll failed: '+e.message);}};
+window.viewPayrollRun=function(i){const run=(window.payrollRuns||[])[i];if(!run)return;const res=document.getElementById('pay-result');if(!res)return;const cols=[['Basic Pay','basic'],['Allowances','allow'],['Gross','gross'],['NSSF/PSSSF','pension'],['NHIF','nhif'],['HESLB','heslb'],['PAYE','paye'],['Loan','loan'],['Advance Salary','advanceSalary'],['Absenteeism','absenteeism'],['Goods Loss','goodsLoss'],['Disciplinary Penalty','disciplinaryPenalty'],['Other Deduction','otherDeduction'],['Fixed Other','fixedOther'],['AddAmt','addAmt'],['Welfare','welfare'],['Total Deductions','totalDeductions'],['Net','net'],['Net After Deduction','netAfterDeduction'],['Net Payable','netPayable']];
+  res.innerHTML=`<div style="background:#fff;border:1px solid #c5cdd8;padding:10px;margin:8px 0;border-radius:8px"><b>Payroll: ${esc(run.period)}</b> | Pay Date: ${esc(run.payDate)} | Gross: ${Number(run.totalGross||0).toLocaleString()} | Net Payable: ${Number(run.totalNetPayable||0).toLocaleString()}<div class="grid-wrap" style="margin-top:8px"><table class="grid"><thead><tr><th>Employee</th><th>Code</th>${cols.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead><tbody>${run.lines.map(l=>`<tr><td>${esc(l.name)}</td><td>${esc(l.code)}</td>${cols.map(c=>`<td style="text-align:right">${Number(l[c[1]]||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>`).join('')}</tr>`).join('')}</tbody><tfoot><tr><th colspan="2">TOTAL</th>${cols.map(c=>`<th style="text-align:right">${run.lines.reduce((a,l)=>a+Number(l[c[1]]||0),0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</th>`).join('')}</tr></tfoot></table></div><p style="font-size:11px;color:#64748b;margin-top:8px">Loan and deduction rows are selected by installment date within ${esc(run.period)} and open status. Employer costs are not deducted from employee net pay.</p></div>`;
+};
+window.exportPayrollExcel=function(){const run=(window.payrollRuns||[])[0];if(!run)return toast('Run payroll first');if(typeof XLSX==='undefined')return toast('Excel library not loaded');const cols=['code','name','basic','allow','gross','pension','nhif','heslb','paye','loan','advanceSalary','absenteeism','goodsLoss','disciplinaryPenalty','otherDeduction','fixedOther','addAmt','welfare','totalDeductions','net','netAfterDeduction','netPayable','employerPension','wcf','sdl'];const rows=[['Payroll',run.period],['Pay Date',run.payDate],cols, ...run.lines.map(l=>cols.map(k=>l[k]??''))];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Payroll');XLSX.writeFile(wb,'Payroll_'+run.period+'.xlsx');};
+window.exportPayrollPDF=function(){const run=(window.payrollRuns||[])[0];if(!run)return toast('Run payroll first');const cols=['basic','allow','gross','pension','nhif','heslb','paye','loan','advanceSalary','absenteeism','goodsLoss','disciplinaryPenalty','otherDeduction','addAmt','welfare','totalDeductions','net','netAfterDeduction','netPayable'];const heads=['Basic','Allowances','Gross','NSSF/PSSSF','NHIF','HESLB','PAYE','Loan','Advance Salary','Absenteeism','Goods Loss','Disciplinary Penalty','Other Deduction','AddAmt','Welfare','Total Ded.','Net','Net After Ded.','Net Payable'];const rows=run.lines.map(l=>`<tr><td>${esc(l.name)}</td><td>${esc(l.code)}</td>${cols.map(k=>`<td>${Number(l[k]||0).toLocaleString()}</td>`).join('')}</tr>`).join('');const w=window.open('','_blank');if(!w)return toast('Allow pop-ups');w.document.write(`<html><head><title>Payroll ${esc(run.period)}</title><style>body{font:10px Arial;margin:15px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #aaa;padding:4px}th{background:#e8eef7}</style></head><body><h2>Payroll ${esc(run.period)}</h2><p>Pay date: ${esc(run.payDate)}</p><table><thead><tr><th>Employee</th><th>Code</th>${heads.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></body></html>`);w.document.close();setTimeout(()=>w.print(),300);};
+
+</script>
+
+<script>
+// ===== SAP-STYLE SHARED DOCUMENT FORM SETTINGS (Sales A/R + Purchase A/P) =====
+(function(){
+ const cfg={sales:{title:'Sales A/R',cols:()=>SALES_LINE_COLS,key:'keshasha_sales_cols',active:'keshasha_sales_col_active'},purchase:{title:'Purchase A/P',cols:()=>PURCH_LINE_COLS,key:'keshasha_purch_cols',active:'keshasha_purch_col_active'}};
+ function read(k){try{return JSON.parse(localStorage.getItem(k)||'{}')}catch(e){return {}}}
+ window.openKeshashaDocumentFormSettings=function(kind){const c=cfg[kind];if(!c)return;const vis=read(c.key),act=read(c.active),cols=c.cols();
+  const udf=(window.getUDFsFor?window.getUDFsFor(kind==='sales'?'sales_'+(window.keshashaCurrentSalesDocType||'INV'):'purch_'+(window.keshashaCurrentPurchaseDocType||'PO'),'row'):[]);
+  const headers=(window.getUDFsFor?window.getUDFsFor(kind==='sales'?'sales_'+(window.keshashaCurrentSalesDocType||'INV'):'purch_'+(window.keshashaCurrentPurchaseDocType||'PO'),'header'):[]);
+  const rows=[...cols.map(x=>({key:x.key,label:x.label,def:vis[x.key]===undefined?!!x.def:!!vis[x.key],active:act[x.key]!==false,standard:true,category:'table'})),...udf.map(f=>({key:'udf:'+f.name,label:f.desc||f.name,def:vis['udf:'+f.name]!==false,active:act['udf:'+f.name]!==false,standard:false,category:'row'})),...headers.map(f=>({key:'udfh:'+f.name,label:f.desc||f.name,def:vis['udfh:'+f.name]!==false,active:act['udfh:'+f.name]!==false,standard:false,category:'document'}))];
+  const tr=rows.map(x=>`<tr data-kfs-row data-category="${x.category}"><td>${x.standard?'SAP Standard':'User Defined'}</td><td>${String(x.label).replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}</td><td style="text-align:center"><input class="kfs-visible" data-key="${x.key}" type="checkbox" ${x.def?'checked':''}></td><td style="text-align:center"><input class="kfs-active" data-key="${x.key}" type="checkbox" ${x.active?'checked':''}></td></tr>`).join('');
+  const body=`<div style="padding:12px;font:12px Arial;color:#263445"><div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><label style="margin:0">Select UI Template</label><select id="kfs-template"><option value="standard">Standard</option><option value="compact">Compact</option></select><button class="btn btn-sm" onclick="applyKeshashaFormTemplate()">Apply</button></div><div style="display:flex;gap:5px;border-bottom:1px solid #b9c4d0;padding-bottom:7px;margin-bottom:8px"><button class="btn btn-sm" onclick="kfsTab('table')">Table Format</button><button class="btn btn-sm" onclick="kfsTab('row')">Row Format</button><button class="btn btn-sm" onclick="kfsTab('document')">Document</button></div><div style="display:flex;gap:6px;margin:7px 0"><button class="btn btn-sm" onclick="document.querySelectorAll('.kfs-visible,.kfs-active').forEach(x=>x.checked=true)">Select All</button><button class="btn btn-sm" onclick="document.querySelectorAll('.kfs-visible').forEach(x=>x.checked=false)">Clear Visible</button><input id="kfs-search" placeholder="Find field..." style="flex:1;margin:0" onkeydown="if(event.key==='Enter')fsFindNext()"><button class="btn btn-sm" onclick="fsFindNext()">Find Next</button></div><div style="max-height:340px;overflow:auto;border:1px solid #c8d0d9"><table id="kfs-settings-table" class="grid" style="width:100%;font-size:12px"><thead><tr><th>Type</th><th>Field / Column</th><th>Visible</th><th>Active</th></tr></thead><tbody>${tr||'<tr><td colspan="4">No fields available</td></tr>'}</tbody></table></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button class="btn btn-sm" onclick="restoreKeshashaFormDefaults('${kind}')">Restore Defaults</button><button class="btn btn-sm" onclick="this.closest('.win')&&closeWin(this.closest('.win').id)">Cancel</button><button class="btn btn-sm btn-primary" onclick="saveKeshashaDocumentFormSettings('${kind}')">OK</button></div><small style="display:block;margin-top:7px;color:#64748b">Visible controls display the column. Active controls whether the field is enabled for use. Settings are saved separately for each module.</small></div>`;
+  openAppWindow('Form Settings — '+c.title,body,{w:650,h:620});
+ };
+ window.kfsTab=function(tab){const table=document.getElementById('kfs-settings-table');if(!table)return;table.dataset.tab=tab;const rows=[...table.querySelectorAll('tbody tr')];rows.forEach(r=>{const c=r.dataset.category;r.style.display=(tab==='table'?(c==='table'||c==='row'):tab==='row'?c==='row':c==='document')?'':'none';});};
+ window.applyKeshashaFormTemplate=function(){const t=document.getElementById('kfs-template')?.value;if(t==='compact'){document.querySelectorAll('#kfs-settings-table tbody tr').forEach((r,i)=>{const v=r.querySelector('.kfs-visible');if(v&&i>10)v.checked=false;});}toast('Template applied. Press OK to save.',true);};
+ window.restoreKeshashaFormDefaults=function(kind){const c=cfg[kind];if(!c)return;localStorage.removeItem(c.key);localStorage.removeItem(c.active);window.openKeshashaDocumentFormSettings(kind);};
+ window.saveKeshashaDocumentFormSettings=function(kind){const c=cfg[kind];if(!c)return;const vis={},act={};document.querySelectorAll('#kfs-settings-table .kfs-visible').forEach(x=>vis[x.dataset.key]=!!x.checked);document.querySelectorAll('#kfs-settings-table .kfs-active').forEach(x=>act[x.dataset.key]=!!x.checked);localStorage.setItem(c.key,JSON.stringify(vis));localStorage.setItem(c.active,JSON.stringify(act));if(kind==='sales'&&typeof renderSalesLines==='function'&&document.getElementById('s-lines'))renderSalesLines();if(kind==='purchase'&&typeof renderPurchaseLines==='function'&&document.getElementById('p-lines'))renderPurchaseLines();toast(c.title+' Form Settings saved',true);const w=document.querySelector('.win:has(#kfs-settings-table)');if(w&&typeof closeWin==='function')closeWin(w.id);};
+ window.keshashaColumnIsActive=function(kind,key){const c=cfg[kind],a=read(c.active);return a[key]!==false;};
+})();
+
+// ===== KESHASHA UDF TABLE REGISTER + MODULE-WIDE FIELD BINDING =====
+(function(){
+ const TABLES=[
+  {group:'Sales A/R',name:'Sales Quotation',code:'sales_quotations',scope:'header'},{group:'Sales A/R',name:'Sales Order',code:'sales_orders',scope:'header'},{group:'Sales A/R',name:'Delivery',code:'sales_deliveries',scope:'header'},{group:'Sales A/R',name:'Return',code:'sales_returns',scope:'header'},{group:'Sales A/R',name:'A/R Down Payment Request',code:'sales_dp_requests',scope:'header'},{group:'Sales A/R',name:'A/R Down Payment Invoice',code:'sales_dp_invoices',scope:'header'},{group:'Sales A/R',name:'A/R Invoice',code:'sales_invoices',scope:'header'},{group:'Sales A/R',name:'A/R Credit Memo',code:'sales_credit_memos',scope:'header'},{group:'Sales A/R',name:'Incoming Payment',code:'incoming_payments',scope:'header'},{group:'Sales A/R',name:'Sales Document Rows',code:'sales_document_rows',scope:'row'},
+  {group:'Purchase A/P',name:'Purchase Request',code:'purchase_requests',scope:'header'},{group:'Purchase A/P',name:'Purchase Quotation',code:'purchase_quotations',scope:'header'},{group:'Purchase A/P',name:'Purchase Order',code:'purchase_orders',scope:'header'},{group:'Purchase A/P',name:'Goods Receipt PO',code:'goods_receipt_po',scope:'header'},{group:'Purchase A/P',name:'A/P Down Payment Request',code:'ap_dp_requests',scope:'header'},{group:'Purchase A/P',name:'A/P Down Payment Invoice',code:'ap_dp_invoices',scope:'header'},{group:'Purchase A/P',name:'A/P Invoice',code:'ap_invoices',scope:'header'},{group:'Purchase A/P',name:'A/P Credit Memo',code:'ap_credit_memos',scope:'header'},{group:'Purchase A/P',name:'Purchase Document Rows',code:'purchase_document_rows',scope:'row'},
+  {group:'Business Partners',name:'Business Partner Master',code:'OCRD',scope:'master'},{group:'Business Partners',name:'Contact Persons',code:'OCPR',scope:'master'},{group:'Business Partners',name:'Addresses',code:'CRD1',scope:'master'},
+  {group:'Inventory',name:'Item Master Data',code:'OITM',scope:'master'},{group:'Inventory',name:'Item Groups',code:'OITB',scope:'master'},{group:'Inventory',name:'Warehouses',code:'OWHS',scope:'master'},{group:'Inventory',name:'Inventory Transfer',code:'OWTR',scope:'header'},{group:'Inventory',name:'Inventory Transfer Rows',code:'WTR1',scope:'row'},{group:'Inventory',name:'Goods Receipt',code:'OIGN',scope:'header'},{group:'Inventory',name:'Goods Issue',code:'OIGE',scope:'header'},{group:'Inventory',name:'Inventory Counting',code:'OINC',scope:'header'},{group:'Inventory',name:'Inventory Counting Rows',code:'INC1',scope:'row'},
+  {group:'Finance',name:'Chart of Accounts',code:'OACT',scope:'master'},{group:'Finance',name:'Journal Entry',code:'OJDT',scope:'header'},{group:'Finance',name:'Journal Entry Rows',code:'JDT1',scope:'row'},{group:'Finance',name:'Incoming Payments',code:'ORCT',scope:'header'},{group:'Finance',name:'Outgoing Payments',code:'OVPM',scope:'header'},{group:'Finance',name:'Bank Accounts',code:'DSC1',scope:'master'},
+  {group:'Human Resources',name:'Employee Master',code:'OHEM',scope:'master'},{group:'Human Resources',name:'Basic Pay Settings',code:'basic_pay_settings',scope:'header'},{group:'Human Resources',name:'Employee Loans',code:'employee_loans',scope:'header'},{group:'Human Resources',name:'Loan Installment Rows',code:'employee_loan_installments',scope:'row'},{group:'Human Resources',name:'Payroll Runs',code:'payroll_runs',scope:'header'},{group:'Human Resources',name:'Payroll Employee Rows',code:'payroll_run_rows',scope:'row'},{group:'Human Resources',name:'Leave Requests',code:'leave_requests',scope:'header'},{group:'Human Resources',name:'Attendance',code:'attendance_records',scope:'header'},
+  {group:'Production',name:'Production Orders',code:'OWOR',scope:'header'},{group:'Production',name:'Production Order Rows',code:'WOR1',scope:'row'},{group:'Projects',name:'Projects',code:'OPRJ',scope:'master'},{group:'Projects',name:'Project Stages',code:'project_stages',scope:'row'},
+  {group:'Administration',name:'Users',code:'OUSR',scope:'master'},{group:'Administration',name:'Branches',code:'OBPL',scope:'master'},{group:'Administration',name:'Document Series',code:'NNM1',scope:'master'},{group:'Administration',name:'Tax Codes',code:'OSTC',scope:'master'},
+  {group:'Custom Tables',name:'User Defined Tables',code:'@CUSTOM',scope:'custom'}
+ ];
+
+ const APP_TABLES=[
+  ['Sales A/R','Sales Documents (All Types)','sales_docs','header'],['Sales A/R','Sales Document Lines','sales_doc_rows','row'],
+  ['Purchase A/P','Purchase Documents (All Types)','purchase_docs','header'],['Purchase A/P','Purchase Document Lines','purchase_doc_rows','row'],
+  ['Inventory','Stock Documents','stock_docs','header'],['Inventory','Stock Document Lines','stock_doc_rows','row'],['Inventory','Inventory Batches','inventory_batches','row'],['Inventory','Inventory Countings','inventory_countings','header'],['Inventory','Inventory Revaluations','inventory_revaluations','header'],
+  ['Finance','Accounts','accounts','master'],['Finance','Journals','journals','header'],['Finance','Journal Rows','journal_rows','row'],['Finance','Payments','payments','header'],['Finance','Account Maps','account_maps','master'],['Finance','Assets','assets','master'],
+  ['Business Partners','Partners','partners','master'],['Business Partners','Partner Groups','partner_groups','master'],
+  ['Human Resources','Employees','employees','master'],['Human Resources','Basic Pay Settings','basic_pay_settings','header'],['Human Resources','Employee Loans','employee_loans','header'],['Human Resources','Loan Installments','employee_loan_installments','row'],['Human Resources','Payroll Runs','payroll_runs','header'],['Human Resources','Leave Requests','leave_requests','header'],
+  ['Production','Production Orders','prod_orders','header'],['Production','Bills of Materials','boms','master'],
+  ['Administration','Companies','companies','master'],['Administration','Users','users','master'],['Administration','Roles','roles','master'],['Administration','UI Templates','ui_templates','master'],['Administration','Document Series','doc_series','master'],['Administration','Branches','branches','master'],['Administration','Dimensions','dimensions','master'],['Administration','Dimension Types','dimension_types','master'],['Administration','Currencies','currencies','master'],['Administration','Exchange Rates','exchange_rates','master'],['Administration','Tax Codes','tax_codes','master'],['Administration','Item Series','item_series','master'],['Administration','Sales Employees','sales_employees','master'],['Administration','Price Lists','price_lists','master']
+ ];
+ APP_TABLES.forEach(x=>{if(!TABLES.some(t=>t.code===x[2]))TABLES.push({group:x[0],name:x[1],code:x[2],scope:x[3]});});
+ window.KESHASHA_SYSTEM_TABLES=TABLES;
+ const KEY='keshasha_udf_definitions_v2';
+ function load(){try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){return []}}
+ function store(a){window.udfList=a;try{localStorage.setItem(KEY,JSON.stringify(a))}catch(e){} }
+ window.udfList=window.udfList&&window.udfList.length?window.udfList:load();
+ window.getUDFTableCatalog=()=>TABLES.slice();
+ window.getUDFsFor=function(table,scope){return (window.udfList||[]).filter(f=>{const direct=f.table===table||(f.tables||[]).includes(table);const salesAlias=String(table).startsWith('sales_')&&(f.applyModule===true&&f.group==='Sales A/R'||(f.tables||[]).includes('sales_docs')||(f.tables||[]).includes('sales_document_rows'));const purchaseAlias=String(table).startsWith('purch_')&&(f.applyModule===true&&f.group==='Purchase A/P'||(f.tables||[]).includes('purchase_docs')||(f.tables||[]).includes('purchase_document_rows'));return (direct||salesAlias||purchaseAlias)&&(!scope||!f.scope||f.scope===scope);});};
+ window.renderUDF=function(el){
+  const defs=window.udfList||[]; const groups=[...new Set(TABLES.map(t=>t.group))];
+  const opts=groups.map(g=>`<optgroup label="${g}"><option value="GROUP:${g}">${g} — ALL TABLES</option>${TABLES.filter(t=>t.group===g).map(t=>`<option value="${t.code}">${t.name} (${t.code})</option>`).join('')}</optgroup>`).join('');
+  const rows=defs.map((f,i)=>`<tr><td>${esc(f.group||'')}</td><td>${esc(f.tableName||f.table)}</td><td><b>${esc(f.name)}</b></td><td>${esc(f.type)}</td><td>${esc(f.scope||'header')}</td><td>${(f.tables||[f.table]).length}</td><td>${esc(f.desc||'')}</td><td><button class="btn btn-sm btn-danger" onclick="deleteUDF(${i})">Delete</button></td></tr>`).join('')||'<tr><td colspan="8">No user-defined fields</td></tr>';
+  el.innerHTML=`<div class="toolbar"><h2>User Defined Fields (UDF)</h2><button class="btn btn-sm btn-primary" onclick="document.getElementById('udf-form').style.display='block'">+ New Field</button></div>
+  <div id="udf-form" style="display:none;background:#fff;border:1px solid #c5cdd8;padding:12px;margin-bottom:10px"><div class="form-bar">
+   <div class="fg"><label>Module / System Table</label><select id="udf-table">${opts}${(window.udtList||[]).map(t=>`<option value="${esc(t.name)}">${esc(t.name)} (Custom)</option>`).join('')}</select></div>
+   <div class="fg"><label>Field Name *</label><input id="udf-name" placeholder="U_MyField"></div>
+   <div class="fg"><label>Data Type</label><select id="udf-type"><option>Alphanumeric</option><option>Numeric</option><option>Date</option><option>Amount</option><option>Yes/No</option><option>Memo</option></select></div>
+   <div class="fg"><label>Field Applies To</label><select id="udf-scope"><option value="header">Document Header / Master</option><option value="row">Document Rows</option></select></div>
+   <div class="fg"><label>Description</label><input id="udf-desc"></div></div>
+   <p style="font-size:12px;color:#64748b">Choosing a module's ALL TABLES option registers the field against every listed table in that module. Row fields are registered separately from document-header fields.</p>
+   <button class="btn btn-sm btn-primary" onclick="saveUDF()">Add Field</button> <button class="btn btn-sm" onclick="document.getElementById('udf-form').style.display='none'">Cancel</button></div>
+  <div class="grid-wrap"><table class="grid"><thead><tr><th>Module</th><th>Table</th><th>Field Name</th><th>Type</th><th>Scope</th><th>Tables linked</th><th>Description</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+  <p style="font-size:12px;color:#64748b;margin-top:8px">System Table Register: ${TABLES.length} system tables across ${groups.length} modules, including Basic Pay, Loans, payroll and row-level tables.</p>`;
+ };
+ window.saveUDF=function(){
+  const raw=document.getElementById('udf-table')?.value||'',name=(document.getElementById('udf-name')?.value||'').trim(),type=document.getElementById('udf-type')?.value||'Alphanumeric',scope=document.getElementById('udf-scope')?.value||'header',desc=document.getElementById('udf-desc')?.value||'';
+  if(!name)return toast('Field name required'); const safeName=name.startsWith('U_')?name:'U_'+name.replace(/[^a-zA-Z0-9_]/g,'');
+  const group=raw.startsWith('GROUP:')?raw.slice(6):(TABLES.find(t=>t.code===raw)||{}).group||'Custom Tables';
+  const tables=raw.startsWith('GROUP:')?TABLES.filter(t=>t.group===group&&t.scope!=='master'&&t.scope!=='custom').map(t=>t.code):[raw];
+  if(!tables.length)return toast('No eligible tables found');
+  const list=window.udfList||[]; if(list.some(f=>f.name.toLowerCase()===safeName.toLowerCase()&&f.tables?.some(t=>tables.includes(t))))return toast('This UDF already exists for one or more selected tables');
+  const definition={group,applyModule:raw.startsWith('GROUP:'),table:tables[0],tableName:raw.startsWith('GROUP:')?group+' — All Tables':(TABLES.find(t=>t.code===raw)||{}).name||raw,tables,name:safeName,type,scope,desc,createdAt:new Date().toISOString(),companyId:(typeof companyFilterId==='function'?companyFilterId():null)};list.push(definition);store(list);if(typeof db!=='undefined'&&db&&db.collection){db.collection('udf_definitions').add(definition).then(ref=>{definition.id=ref.id;store(list);}).catch(e=>console.warn('UDF cloud sync unavailable; kept locally',e));}toast('UDF added to '+tables.length+' table(s)',true);renderUDF(document.getElementById('main'));
+ };
+ window.deleteUDF=function(i){const a=window.udfList||[];if(!a[i])return;if(!confirm('Delete this UDF definition? Existing saved values will remain in documents.'))return;a.splice(i,1);store(a);renderUDF(document.getElementById('main'));};
+ window.renderUDFFields=function(table,containerId){const box=document.getElementById(containerId);if(!box)return;const kind=String(table).startsWith('sales_')?'sales':String(table).startsWith('purch_')?'purchase':null;const visKey=kind==='sales'?'keshasha_sales_cols':'keshasha_purch_cols',actKey=kind==='sales'?'keshasha_sales_col_active':'keshasha_purch_col_active';let vis={},act={};try{vis=JSON.parse(localStorage.getItem(visKey)||'{}');act=JSON.parse(localStorage.getItem(actKey)||'{}')}catch(e){};const make=(scope,label)=>{if(kind&&(scope==='row'))return '';const defs=window.getUDFsFor(table,scope).filter(f=>vis['udfh:'+f.name]!==false&&act['udfh:'+f.name]!==false);if(!defs.length)return '';return `<div style="border:1px solid #cbd5e1;border-radius:6px;padding:9px;margin:8px 0;background:#f8fafc"><b style="display:block;margin-bottom:7px">${label}</b><div class="form-bar">${defs.map((f,i)=>{const id='udfval_'+containerId+'_'+scope+'_'+i;let input=f.type==='Date'?`<input type="date" id="${id}">`:f.type==='Numeric'||f.type==='Amount'?`<input type="number" step="any" id="${id}">`:f.type==='Yes/No'?`<select id="${id}"><option value="">—</option><option value="Yes">Yes</option><option value="No">No</option></select>`:f.type==='Memo'?`<textarea id="${id}" rows="2"></textarea>`:`<input id="${id}" type="text">`;return `<div class="fg"><label>${esc(f.desc||f.name)} <small>(${esc(f.name)})</small></label>${input}</div>`}).join('')}</div></div>`;};box.innerHTML=make('header','Additional User Defined Fields')+(kind?'':make('row','Document Row User Defined Fields'));};
+ window.collectUDFValues=function(table,containerId,scope){const defs=window.getUDFsFor(table,scope||'header'),out={};defs.forEach((f,i)=>{const x=document.getElementById('udfval_'+containerId+'_'+(scope||'header')+'_'+i);if(x&&x.value!=='')out[f.name]=f.type==='Numeric'||f.type==='Amount'?Number(x.value):x.value;});return out;};
+ window.setUDFValues=function(table,containerId,values,scope){const defs=window.getUDFsFor(table,scope||'header');defs.forEach((f,i)=>{const x=document.getElementById('udfval_'+containerId+'_'+(scope||'header')+'_'+i);if(x&&values&&values[f.name]!==undefined)x.value=values[f.name];});};
+ // Attach UDF panels to live document forms, without changing their existing fields or workflow.
+ const _startSales=window.startSalesDoc; if(_startSales)window.startSalesDoc=function(type){const r=_startSales.apply(this,arguments);setTimeout(()=>{const f=document.getElementById('sales-form');if(!f)return;let slot=document.getElementById('sales-udf-slot');if(!slot){slot=document.createElement('div');slot.id='sales-udf-slot';const target=f.querySelector('.mkt-ft')||f;target.parentNode.insertBefore(slot,target);}window.renderUDFFields('sales_'+type,'sales-udf-slot');},80);return r;};
+ const _startPurch=window.startPurchase; if(_startPurch)window.startPurchase=function(type){const r=_startPurch.apply(this,arguments);setTimeout(()=>{const f=document.getElementById('purch-form');if(!f)return;let slot=document.getElementById('purchase-udf-slot');if(!slot){slot=document.createElement('div');slot.id='purchase-udf-slot';const target=f.querySelector('.mkt-ft')||f;target.parentNode.insertBefore(slot,target);}window.renderUDFFields('purch_'+type,'purchase-udf-slot');},80);return r;};
+ // Basic Pay and employee-loan header fields.
+ const _openBP=window.openBasicPayForm;if(_openBP)window.openBasicPayForm=function(){const r=_openBP.apply(this,arguments);setTimeout(()=>{let f=document.getElementById('bp-basic-form');if(f){let x=document.getElementById('bp-udf-slot');if(!x){x=document.createElement('div');x.id='bp-udf-slot';f.insertBefore(x,f.lastElementChild);}window.renderUDFFields('basic_pay_settings','bp-udf-slot');}},30);return r;};
+ const _openLoan=window.openHRLoanForm;if(_openLoan)window.openHRLoanForm=function(){const r=_openLoan.apply(this,arguments);setTimeout(()=>{let f=document.getElementById('hr-loan-form');if(f){let x=document.getElementById('loan-udf-slot');if(!x){x=document.createElement('div');x.id='loan-udf-slot';const b=f.querySelector('b');if(b)b.parentNode.insertBefore(x,b);else f.appendChild(x);}window.renderUDFFields('employee_loans','loan-udf-slot');}},30);return r;};
+ // UDF values are written directly into the document save payloads above.
+ if(typeof db!=='undefined'&&db&&db.collection){try{const cid=typeof companyFilterId==='function'?companyFilterId():null;db.collection('udf_definitions').get().then(snap=>{const cloud=snap.docs.map(d=>({id:d.id,...d.data()})).filter(f=>!f.companyId||!cid||f.companyId===cid);if(cloud.length){const local=window.udfList||[];const merged=[...cloud,...local.filter(x=>!cloud.some(c=>c.name===x.name&&c.group===x.group))];store(merged);if(typeof renderUDF==='function'&&document.getElementById('udf-form')!==null)renderUDF(document.getElementById('main'));}}).catch(e=>console.warn('UDF definitions cloud load skipped',e));}catch(e){}}
+ console.log('KESHASHA UDF register loaded: '+TABLES.length+' tables');
+})();
+</script>
 </body>
 </html>
