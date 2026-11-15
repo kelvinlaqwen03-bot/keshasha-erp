@@ -11972,31 +11972,45 @@ window.saveApprovalTemplate=function(){
 };
 window.renderApprovalStatus = function(el){
   const filter = (document.getElementById("appr-filter")||{}).value || "";
+  const searchText = (document.getElementById("appr-smart-search")||{}).value || "";
   const all = window.approvalQueue||[];
-  const list = filter ? all.filter(q=>q.docType===filter) : all;
+  const get = (q, keys) => { for(const k of keys){ const v=q && q[k]; if(v!==undefined && v!==null && String(v).trim()!=="") return v; } return ""; };
+  const dateValue = q => get(q,["postingDate","docDate","documentDate","date","createdAt","createdOn"]);
+  const codeValue = q => get(q,["cardCode","bpCode","code","partnerCode","accountCode","vendorCode","customerCode"]);
+  const nameValue = q => get(q,["cardName","bpName","name","partnerName","customerName","vendorName","accountName"]);
+  const amountValue = q => get(q,["docTotal","amount","total","documentTotal","totalAmount","grossTotal"]);
+  const remarkValue = q => get(q,["remark","remarks","comments","comment","memo","notes","description","statusRemark"]);
+  const branchValue = q => {
+    const direct = get(q,["branchName","bplName","branch","branchCode","bplCode","branchId","bplId","businessPlace"]);
+    if(!direct) return "";
+    const found = (typeof branches!=="undefined" ? branches : []).find(b =>
+      [b.id,b.code,b.name].some(v => String(v??"").toLowerCase()===String(direct).toLowerCase())
+    );
+    if(found) return [found.code,found.name].filter(Boolean).join(" — ");
+    return String(direct);
+  };
+  const dateText = v => { if(!v) return ""; const d=new Date(v); return !isNaN(d.getTime()) && String(v).length>8 ? d.toLocaleDateString() : String(v); };
+  const moneyText = v => { if(v==="" || v===null || v===undefined) return ""; const n=Number(String(v).replace(/,/g,"")); return Number.isFinite(n)?n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):String(v); };
+  let list = filter ? all.filter(q=>q.docType===filter) : all;
+  const term=searchText.trim().toLowerCase();
+  if(term) list=list.filter(q=>[q.docNo,dateValue(q),codeValue(q),nameValue(q),branchValue(q),amountValue(q),remarkValue(q),q.docType,q.status,q.stage,q.authorizer].some(v=>String(v??"").toLowerCase().includes(term)));
   const docTypes = [...new Set(all.map(q=>q.docType))];
   const statusColor = s => s==="Approved"?"#059669":s==="Rejected"?"#dc2626":"#d97706";
-  const statusLabel = s => {
-    if(s==="Approved") return "Approved";
-    if(s==="Rejected") return "Rejected";
-    if(s==="Pending") return "Pending Draft";
-    return s||"Pending Draft";
-  };
-  const rows = list.map((q,i)=>{
-    const realIdx = all.indexOf(q);
-    const canAdd = q.status==="Approved";
+  const statusLabel = s => s==="Approved"?"Approved":s==="Rejected"?"Rejected":s==="Pending"?"Pending Draft":s||"Pending Draft";
+  const rows = list.map(q=>{
+    const realIdx=all.indexOf(q), status=q.status||"Pending";
+    const remark=remarkValue(q) || [statusLabel(status),q.stage,q.authorizer].filter(Boolean).join(" · ");
     return `<tr>
-      <td>${esc(q.docType)}</td><td>${esc(q.docNo)}</td>
-      <td><b style="color:${statusColor(q.status)}">${statusLabel(q.status)}</b></td>
-      <td>${esc(q.stage)}</td><td>${esc(q.authorizer)}</td>
-      <td style="white-space:nowrap">
-        <button class="btn btn-sm" onclick="viewApprovalDoc(${realIdx})">View</button>
-        ${q.status==="Pending"?`<button class="btn btn-sm btn-primary" onclick="approvalDecision(${realIdx},'Approved')">Approve</button> <button class="btn btn-sm btn-danger" onclick="approvalDecision(${realIdx},'Rejected')">Reject</button>`:""}
-        ${canAdd?`<button class="btn btn-sm btn-primary" onclick="addApprovedDoc(${realIdx})">Add</button>`:""}
-      </td>
+      <td>${esc(q.docNo||"")}</td><td>${esc(dateText(dateValue(q)))}</td>
+      <td>${esc(codeValue(q))}</td><td>${esc(nameValue(q))}</td><td>${esc(branchValue(q))}</td>
+      <td style="text-align:right">${esc(moneyText(amountValue(q)))}</td><td>${esc(remark)}</td>
+      <td style="white-space:nowrap"><button class="btn btn-sm" onclick="viewApprovalDoc(${realIdx})">View</button>
+      ${status==="Pending"?` <button class="btn btn-sm btn-primary" onclick="approvalDecision(${realIdx},'Approved')">Approve</button> <button class="btn btn-sm btn-danger" onclick="approvalDecision(${realIdx},'Rejected')">Reject</button>`:""}
+      ${status==="Approved"?` <button class="btn btn-sm btn-primary" onclick="addApprovedDoc(${realIdx})">Add</button>`:""}</td>
     </tr>`;
-  }).join("")||`<tr><td colspan="6">No documents in approval</td></tr>`;
+  }).join("")||`<tr><td colspan="8" style="text-align:center;padding:18px;color:#64748b">${term?"No matching approval documents":"No documents in approval"}</td></tr>`;
   el.innerHTML=`<div class="toolbar"><h2>Approval Status</h2>
+    <input id="appr-smart-search" type="search" value="${esc(searchText)}" placeholder="Smart Search: Doc No, date, code, name, branch, amount, remark..." oninput="filterApprovalStatus()" style="min-width:260px;max-width:420px;margin:0;padding:6px 9px">
     <select id="appr-filter" onchange="renderApprovalStatus(document.getElementById('main'))" style="margin:0;padding:4px 8px">
       <option value="">All Documents</option>
       <optgroup label="Sales A/R">
@@ -12018,28 +12032,23 @@ window.renderApprovalStatus = function(el){
         <option value="A/P Credit Memo" ${filter==="A/P Credit Memo"?"selected":""}>A/P Credit Memo</option>
         <option value="A/P Down Payment" ${filter==="A/P Down Payment"?"selected":""}>A/P Down Payment</option>
       </optgroup>
-      <optgroup label="Inventory">
-        <option value="Goods Receipt" ${filter==="Goods Receipt"?"selected":""}>Goods Receipt</option>
-        <option value="Goods Issue" ${filter==="Goods Issue"?"selected":""}>Goods Issue</option>
-        <option value="Inventory Transfer" ${filter==="Inventory Transfer"?"selected":""}>Inventory Transfer</option>
-        <option value="Opening Balance" ${filter==="Opening Balance"?"selected":""}>Opening Balance</option>
-        <option value="Inventory Counting" ${filter==="Inventory Counting"?"selected":""}>Inventory Counting</option>
-        <option value="Inventory Posting" ${filter==="Inventory Posting"?"selected":""}>Inventory Posting</option>
-        <option value="Inventory Revaluation" ${filter==="Inventory Revaluation"?"selected":""}>Inventory Revaluation</option>
-      </optgroup>
-      <optgroup label="Banking">
-        <option value="Incoming Payment" ${filter==="Incoming Payment"?"selected":""}>Incoming Payment</option>
-        <option value="Outgoing Payment" ${filter==="Outgoing Payment"?"selected":""}>Outgoing Payment</option>
-      </optgroup>
-      <optgroup label="Financials">
-        <option value="Journal Entry" ${filter==="Journal Entry"?"selected":""}>Journal Entry</option>
-      </optgroup>
+      <optgroup label="Inventory"><option value="Goods Receipt" ${filter==="Goods Receipt"?"selected":""}>Goods Receipt</option><option value="Goods Issue" ${filter==="Goods Issue"?"selected":""}>Goods Issue</option><option value="Inventory Transfer" ${filter==="Inventory Transfer"?"selected":""}>Inventory Transfer</option><option value="Opening Balance" ${filter==="Opening Balance"?"selected":""}>Opening Balance</option><option value="Inventory Counting" ${filter==="Inventory Counting"?"selected":""}>Inventory Counting</option><option value="Inventory Posting" ${filter==="Inventory Posting"?"selected":""}>Inventory Posting</option><option value="Inventory Revaluation" ${filter==="Inventory Revaluation"?"selected":""}>Inventory Revaluation</option></optgroup>
+      <optgroup label="Banking"><option value="Incoming Payment" ${filter==="Incoming Payment"?"selected":""}>Incoming Payment</option><option value="Outgoing Payment" ${filter==="Outgoing Payment"?"selected":""}>Outgoing Payment</option></optgroup>
+      <optgroup label="Financials"><option value="Journal Entry" ${filter==="Journal Entry"?"selected":""}>Journal Entry</option></optgroup>
     </select>
     <button class="btn btn-sm" onclick="simulateApprovalDoc()">+ Simulate</button>
   </div>
-  <div class="grid-wrap"><table class="grid"><thead><tr><th>Document</th><th>Doc No</th><th>Status</th><th>Stage</th><th>Authorizer</th><th></th></tr></thead>
-    <tbody>${rows}</tbody></table></div>
-  <p style="font-size:12px;color:#64748b">Only <b>Approved</b> documents can be Added. Pending = Pending Draft, Rejected = Rejected Draft.</p>`;
+  <div class="grid-wrap" data-smart-search="custom"><table class="grid"><thead><tr><th>Doc Number</th><th>Posting Date</th><th>Code</th><th>Name</th><th>Branch</th><th>Amount</th><th>Remark</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <p style="font-size:12px;color:#64748b">Smart Search checks all displayed columns including Branch and approval details. Branch is resolved from the document branch code/name/ID where available. Only Approved documents can be Added.</p>`;
+};
+window.filterApprovalStatus=function(){
+  const el=document.getElementById("main");
+  const input=document.getElementById("appr-smart-search");
+  if(!el||!input)return;
+  const pos=input.selectionStart, value=input.value;
+  renderApprovalStatus(el);
+  const next=document.getElementById("appr-smart-search");
+  if(next){next.focus();next.setSelectionRange(pos,pos);}
 };
 window.simulateApprovalDoc=function(){
   const types=["Sales Order","Sales Quotation","Delivery","A/R Invoice","Purchase Request","Purchase Order","Goods Receipt PO","A/P Invoice","Goods Receipt","Goods Issue","Inventory Transfer","Opening Balance","Incoming Payment","Outgoing Payment","Journal Entry"];
@@ -13847,6 +13856,53 @@ window.exportPayrollPDF=function(){const run=(window.payrollRuns||[])[0];if(!run
  // UDF values are written directly into the document save payloads above.
  if(typeof db!=='undefined'&&db&&db.collection){try{const cid=typeof companyFilterId==='function'?companyFilterId():null;db.collection('udf_definitions').get().then(snap=>{const cloud=snap.docs.map(d=>({id:d.id,...d.data()})).filter(f=>!f.companyId||!cid||f.companyId===cid);if(cloud.length){const local=window.udfList||[];const merged=[...cloud,...local.filter(x=>!cloud.some(c=>c.name===x.name&&c.group===x.group))];store(merged);if(typeof renderUDF==='function'&&document.getElementById('udf-form')!==null)renderUDF(document.getElementById('main'));}}).catch(e=>console.warn('UDF definitions cloud load skipped',e));}catch(e){}}
  console.log('KESHASHA UDF register loaded: '+TABLES.length+' tables');
+})();
+</script>
+
+<script>
+/* ===== Universal Smart Search for ERP list tables =====
+   Adds a live, case-insensitive search to every rendered .grid-wrap list.
+   Approval Status has its own dedicated multi-field search.
+*/
+(function(){
+  const norm=v=>String(v??"").toLocaleLowerCase().trim();
+  function attach(wrap){
+    if(!wrap || wrap.dataset.listSearchReady==="1" || wrap.dataset.smartSearch==="custom") return;
+    const table=wrap.querySelector("table");
+    if(!table || !table.tBodies || !table.tBodies.length) return;
+    wrap.dataset.listSearchReady="1";
+    const bar=document.createElement("div");
+    bar.className="erp-list-searchbar";
+    bar.style.cssText="display:flex;align-items:center;gap:8px;justify-content:flex-end;padding:6px 0;position:sticky;left:0";
+    const input=document.createElement("input");
+    input.type="search"; input.className="erp-list-smart-search";
+    input.placeholder="Smart Search this list...";
+    input.setAttribute("aria-label","Smart Search this list");
+    input.style.cssText="width:min(360px,100%);padding:7px 10px;border:1px solid var(--border,#cbd5e1);border-radius:5px;font:inherit";
+    const count=document.createElement("span");
+    count.style.cssText="font-size:11px;color:#64748b;white-space:nowrap";
+    bar.append(input,count); wrap.insertBefore(bar,table);
+    const run=()=>{
+      const q=norm(input.value), body=table.tBodies[0]; let shown=0,total=0;
+      Array.from(body.rows).forEach(row=>{
+        if(row.dataset.searchPlaceholder==="1") return;
+        total++;
+        const match=!q || norm(row.innerText||row.textContent).includes(q);
+        row.style.display=match?"":"none"; if(match)shown++;
+      });
+      count.textContent=q?`${shown} / ${total}`:"";
+    };
+    input.addEventListener("input",run);
+    // Keep filtering functional when a list is re-rendered in place.
+    const mo=new MutationObserver(()=>{ if(input.value) run(); });
+    mo.observe(table,{childList:true,subtree:true});
+  }
+  function scan(root){
+    if(root && root.matches && root.matches(".grid-wrap")) attach(root);
+    if(root && root.querySelectorAll) root.querySelectorAll(".grid-wrap").forEach(attach);
+  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",()=>scan(document)); else scan(document);
+  new MutationObserver(records=>records.forEach(r=>r.addedNodes.forEach(n=>{if(n.nodeType===1)scan(n);}))).observe(document.documentElement,{childList:true,subtree:true});
 })();
 </script>
 </body>
