@@ -7,6 +7,10 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <!-- SQL editor + in-browser SQL engine over records loaded from the connected ERP database -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/ace.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/ext-language_tools.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alasql@4.6.6/dist/alasql.min.js"></script>
   <style>
     :root {
       --bg: #eef1f6; --panel: #fff; --border: #c5cdd8; --primary: #0b3d91;
@@ -124,13 +128,13 @@
       color: #333;
     }
     .mkt-spacer {
-      height: 2.25in;
-      min-height: 120px;
-      max-height: 2.5in;
-      border-bottom: 1px dashed #ccc;
-      margin: 0 0 8px 0;
-      background: linear-gradient(180deg, #fafafa 0%, #fff 100%);
+      height: 10px !important; min-height: 6px !important; max-height: 160px !important;
+      border-bottom: 1px dashed #cbd5e1; margin: 0 0 5px 0;
+      background: linear-gradient(180deg,#f1f5f9,#fff); position:relative; cursor:ns-resize;
+      touch-action:none; user-select:none;
     }
+    .mkt-spacer:after{content:'⋯  Drag to resize header / rows spacing  ⋯';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:9px;color:#64748b;background:#fff;padding:0 8px;white-space:nowrap;pointer-events:none}
+    .mkt-spacer:hover{background:#e8f0fb;border-bottom-color:#2563eb}
     .mkt-tabs {
       display: flex; gap: 0; background: #dcdcdc; border-bottom: 1px solid #aaa;
       padding: 0 8px; margin: 0;
@@ -576,6 +580,7 @@ select.ss-hidden{display:none !important}
           <button onclick="nav('powerbi')">Power BI</button>
           <button onclick="nav('whatsapp')">WhatsApp Reports</button>
           <button onclick="nav('emailsch')">Email Schedule</button>
+          <button onclick="showKeshashaAIIcon()">🤖 View AI Icon</button>
         </div>
       </div>
       <div class="menu">Tools
@@ -1373,14 +1378,16 @@ select.ss-hidden{display:none !important}
       toast((moduleVisibility[name] ? "Shown: " : "Hidden: ") + name, true);
     }
 
+    function authorizationDenied(){
+      toast("You are not permitted to perform this task. Contact Admin.", false);
+      const t=document.getElementById("toast"); if(t){t.style.background="#b91c1c";t.style.color="#fff";t.style.border="1px solid #7f1d1d";}
+      return false;
+    }
     function nav(page) {
       if (page !== "invopen") window.__invOpeningOnly = false;
       const ak = pageAuthKey(page);
       if (!currentUser) return;
-      if (!currentUser.isSuperAdmin && !hasAuth(ak, 1)) {
-        toast("No Authorization");
-        return;
-      }
+      if (!currentUser.isSuperAdmin && !hasAuth(ak, 1)) return authorizationDenied();
       window.__keshashaReadOnly = !!(!currentUser.isSuperAdmin && subjectAuth(currentUser, ak) === 1);
       window.__keshashaPageKey = ak;
       const __av = document.getElementById("app-view");
@@ -4074,6 +4081,33 @@ select.ss-hidden{display:none !important}
     // ============================================================
     // PURCHASING A/P
     // ============================================================
+    async function reverseDocumentJournal(companyId, journalNo, sourceType, sourceDoc) {
+      if (!journalNo) return null;
+      const old = journals.find(j => String(j.transId) === String(journalNo) && j.companyId === companyId);
+      if (!old || old.status === "reversed") return null;
+      const reversalLines = (old.lines || []).map(l => ({
+        acctCode:l.acctCode, debit:parseFloat(l.credit)||0, credit:parseFloat(l.debit)||0,
+        lineMemo:"Reversal of " + (old.memo || sourceDoc || journalNo)
+      }));
+      const reversal = await postJournalEntry(companyId, {
+        refDate:new Date().toISOString().slice(0,10),
+        memo:"Reversal — " + (old.memo || sourceDoc || journalNo),
+        lines:reversalLines, sourceType:"REVERSAL", sourceDoc:String(sourceDoc||journalNo)
+      });
+      await db.collection("journals").doc(old.id).update({status:"reversed",reversedBy:reversal.transId,reversedAt:new Date().toISOString(),reversalReason:"Source document updated"});
+      old.status="reversed"; old.reversedBy=reversal.transId;
+      return reversal;
+    }
+    function canEditMarketingDocument(d, side) {
+      if (!d || d.status !== "open") return false;
+      if ((parseFloat(d.paidAmount)||0) > 0 || (parseFloat(d.appliedDownPayment)||0) > 0) return false;
+      if (d.reconciliationStatus === "reconciled" || d.reconciled === true) return false;
+      const docs = side === "AP" ? purchaseDocs : salesDocs;
+      if (docs.some(x => x.id !== d.id && x.baseDocId === d.id && x.status !== "cancelled")) return false;
+      if (d.targetDocId) return false;
+      return true;
+    }
+
     const PURCH_META = {
       PR:   { title: "Purchase Request", prefix: "PR", stock: null },
       PQ:   { title: "Purchase Quotation", prefix: "PQ", stock: null },
@@ -4086,6 +4120,7 @@ select.ss-hidden{display:none !important}
     };
     let purchaseLines = [];
     let purchaseCopyFromId = null;
+    let purchaseEditId = null;
 
     function vendorsFor(cid) {
       return scoped(partners, cid).filter(p => p.bpType === "S" || p.bpType === "B");
@@ -4197,11 +4232,13 @@ select.ss-hidden{display:none !important}
               <td style="text-align:right">${Number(d.grandTotal||0).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
               <td><b style="color:${d.status==="closed"?"#059669":"#0b3d91"}">${esc(d.status||"open")}</b></td>
               <td style="white-space:nowrap">
+                ${canEditMarketingDocument(d,"AP") ? `<button class="btn btn-sm btn-primary" onclick="editPurchaseDoc('${d.id}')">Edit</button>` : ""}
                 <button class="btn btn-sm" onclick="viewPurchaseDoc('${d.id}')">View</button>
                 <button class="btn btn-sm" onclick="printDocument(purchaseDocs.find(x=>x.id==='${d.id}'),'purch')">Print</button>
                 <button class="btn btn-sm" ${d.status==="closed"?"disabled style='opacity:.45'":""} onclick="openPurchCopyTo('${d.id}')">Copy To</button>
                 ${hasAuth("act.cancel",2) && d.status!=="cancelled" && d.status!=="closed" ? `<button class="btn btn-sm" onclick="cancelPurchDoc('${d.id}')">Cancel</button>` : ""}
                 ${hasAuth("act.close",2) && d.status!=="closed" && d.status!=="cancelled" ? `<button class="btn btn-sm" onclick="closePurchDoc('${d.id}')">Close</button>` : ""}
+                ${(d.status==="closed" && d.docType==="APINV") ? `<button class="btn btn-sm" onclick="reopenPurchDoc('${d.id}')">Change to Open</button>` : ""}
               </td>
             </tr>`).join("") || `<tr><td colspan="6">No documents</td></tr>`}
           </tbody>
@@ -4213,6 +4250,8 @@ select.ss-hidden{display:none !important}
       window.keshashaCurrentPurchaseDocType = docType;
       purchaseLines = [{ lineType: "I", itemCode: "", name: "", qty: 1, numPerMsr: 1, price: 0, discPct: 0, whsCode: "", acctCode: "" }];
       purchaseCopyFromId = null;
+      purchaseEditId = null;
+      ["p-btn-view","p-btn-new","p-btn-close"].forEach((bid,i)=>{const b=document.getElementById(bid);if(b)b.textContent=i===0?"Add & View":i===1?"Add & New":"Add & Close";});
       const form = document.getElementById("purch-form");
       if (!form) return;
       form.style.display = "block";
@@ -4222,6 +4261,25 @@ select.ss-hidden{display:none !important}
       if (body) { body.innerHTML = ""; body.appendChild(form); form.style.display = "block"; }
       renderPurchaseLines();
     }
+    function editPurchaseDoc(id) {
+      const d=purchaseDocs.find(x=>x.id===id);
+      if(!canEditMarketingDocument(d,"AP")) return toast("This document cannot be edited: it must be Open, unpaid, unreconciled and have no follow-up document.");
+      purchaseEditId=id; purchaseCopyFromId=null; window.keshashaCurrentPurchaseDocType=d.docType;
+      purchaseLines=(d.lines||[]).map(l=>({...l}));
+      const form=document.getElementById("purch-form"); if(!form)return toast("Document form is not ready");
+      form.style.display="block";
+      const set=(id,v)=>{const x=document.getElementById(id);if(x)x.value=v??"";};
+      set("p-bp",d.bpCode); if(typeof onPurchVendorChange==="function")onPurchVendorChange();
+      set("p-branch",d.branchCode);set("p-wh",d.warehouseCode);set("p-remarks",d.remarks);set("p-remarks-ft",d.remarks);
+      set("p-date",d.docDate);set("p-due",d.dueDate);set("p-currency",d.docCurrency||"TZS");set("p-rate",d.docRate||1);set("p-freight",d.freight||0);
+      const no=document.getElementById("p-docno");if(no)no.value=d.docNo;
+      const status=form.querySelector(".mkt-col input[readonly][value='Open']");if(status)status.value="Open — Editing";
+      if(typeof window.renderUDFFields==="function"){let slot=document.getElementById("purchase-udf-slot");if(!slot){slot=document.createElement("div");slot.id="purchase-udf-slot";const target=form.querySelector(".mkt-ft")||form;target.parentNode.insertBefore(slot,target);}window.renderUDFFields("purch_"+d.docType,"purchase-udf-slot");setTimeout(()=>window.setUDFValues&&window.setUDFValues("purch_"+d.docType,"purchase-udf-slot",d.udfValues||{}),40);}
+      ["p-btn-view","p-btn-new","p-btn-close"].forEach((bid,i)=>{const b=document.getElementById(bid);if(b){b.textContent=i===0?"Update & View":i===1?"Update & Continue":"Update & Close";}});
+      renderPurchaseLines();
+      if(typeof openAppWindow==="function"){const w=openAppWindow((PURCH_META[d.docType]?.title||d.docType)+" — Edit "+d.docNo,"",{w:980,h:560});const body=document.querySelector("#"+w+" .win-body");if(body){body.innerHTML="";body.appendChild(form);}}
+    }
+
     function addPurchaseLine() {
       purchaseLines.push({ itemCode: "", name: "", qty: 1, price: 0, discPct: 0 });
       renderPurchaseLines();
@@ -4420,7 +4478,8 @@ select.ss-hidden{display:none !important}
           lineTotal: round2((parseFloat(l.qty)||0) * (parseFloat(l.price)||0) * (1 - (parseFloat(l.discPct)||0)/100)),
           taxCode: l.taxCode || null,
           vatPrcnt: taxRateFor(companyId, l.taxCode),
-          vatSum: round2((parseFloat(l.qty)||0) * (parseFloat(l.price)||0) * (1 - (parseFloat(l.discPct)||0)/100) * taxRateFor(companyId, l.taxCode) / 100)
+          vatSum: round2((parseFloat(l.qty)||0) * (parseFloat(l.price)||0) * (1 - (parseFloat(l.discPct)||0)/100) * taxRateFor(companyId, l.taxCode) / 100),
+          udfValues: l.udfValues || {}
         };
       });
       if (!lines.length) return toast("Add at least one valid line");
@@ -4431,18 +4490,23 @@ select.ss-hidden{display:none !important}
       const fxi = docCurrencyInfo("p");
       const docCurrency = fxi.cur, docRate = fxi.rate;
       const grandTotalLC = round2(grandTotal * docRate);
+      const editingPurchase = purchaseEditId ? purchaseDocs.find(x=>x.id===purchaseEditId) : null;
+      if (purchaseEditId && (!editingPurchase || !canEditMarketingDocument(editingPurchase,"AP"))) return toast("Document is no longer eligible for editing");
       let docNo;
-      try { docNo = await nextSalesDocNo(companyId, docType); }
+      try { docNo = editingPurchase ? editingPurchase.docNo : await nextSalesDocNo(companyId, docType); }
       catch (e) { return toast(e.message); }
       const __pRowUDF=window.collectUDFValues('purch_'+docType,'purchase-udf-slot','row');
       if(Object.keys(__pRowUDF).length) lines.forEach(l=>l.udfValues={...__pRowUDF});
       const data = {
-        udfValues: window.collectUDFValues('purch_'+docType,'purchase-udf-slot'),
-        udfRowValues: window.collectUDFValues('purch_'+docType,'purchase-udf-slot','row'),
+        udfValues: Object.keys(window.collectUDFValues('purch_'+docType,'purchase-udf-slot')).length ? window.collectUDFValues('purch_'+docType,'purchase-udf-slot') : (editingPurchase?.udfValues||{}),
+        udfRowValues: Object.keys(window.collectUDFValues('purch_'+docType,'purchase-udf-slot','row')).length ? window.collectUDFValues('purch_'+docType,'purchase-udf-slot','row') : (editingPurchase?.udfRowValues||{}),
         companyId, docType, docNo, docDate, dueDate, bpCode, bpName,
         warehouseCode, branchCode, remarks, requester, department, lines, grandTotal, netTotal, taxTotal, freight, docCurrency, docRate, grandTotalLC,
-        status: "open", createdBy: currentUser.email, createdAt: new Date().toISOString()
+        status: editingPurchase ? editingPurchase.status : "open", paidAmount: editingPurchase ? (editingPurchase.paidAmount||0) : 0, appliedDownPayment: editingPurchase ? (editingPurchase.appliedDownPayment||0) : 0,
+        createdBy: editingPurchase ? editingPurchase.createdBy : currentUser.email, createdAt: editingPurchase ? editingPurchase.createdAt : new Date().toISOString(),
+        updatedBy: editingPurchase ? currentUser.email : null, updatedAt: editingPurchase ? new Date().toISOString() : null
       };
+      if (editingPurchase && editingPurchase.journalNo) await reverseDocumentJournal(companyId,editingPurchase.journalNo,docType,docNo);
       // GL for A/P Invoice
       if (docType === "APINV" || docType === "APCM") {
         const ap = getMap(companyId, "AP_CONTROL");
@@ -4480,14 +4544,22 @@ select.ss-hidden{display:none !important}
           remarks: "GRPO " + docNo, lines: lines.filter(l => (l.lineType||"I")==="I" && l.itemCode).map((l,i)=>({ lineNum:i+1, itemCode:l.itemCode, name:l.name, qty: (parseFloat(l.qty)||0) * (parseFloat(l.numPerMsr)||1) })),
           status: "posted", createdBy: currentUser.email, createdAt: new Date().toISOString(), sourceDoc: docNo
         };
-        const sRef = await db.collection("stock_docs").add(sData);
-        stockDocs.unshift({ id: sRef.id, ...sData });
-        data.stockDocNo = sDocNo;
+        const priorStock = editingPurchase ? stockDocs.find(x=>x.sourceDoc===editingPurchase.docNo || x.docNo===editingPurchase.stockDocNo) : null;
+        if(priorStock){await db.collection("stock_docs").doc(priorStock.id).update({...sData,docNo:priorStock.docNo,updatedAt:new Date().toISOString()});Object.assign(priorStock,sData,{docNo:priorStock.docNo});data.stockDocNo=priorStock.docNo;}
+        else {const sRef = await db.collection("stock_docs").add(sData);stockDocs.unshift({ id: sRef.id, ...sData });data.stockDocNo = sDocNo;}
       }
-      const ref = await db.collection("purchase_docs").add(data);
-      purchaseDocs.unshift({ id: ref.id, ...data });
+      let ref;
+      if(editingPurchase){
+        await db.collection("purchase_docs").doc(editingPurchase.id).update(data);
+        Object.assign(editingPurchase,data);ref={id:editingPurchase.id};purchaseEditId=null;
+      }else{
+        ref=await db.collection("purchase_docs").add(data);purchaseDocs.unshift({id:ref.id,...data});
+      }
+      if (docType === "APINV" && !editingPurchase && typeof applyPaidDownPaymentsToInvoice === "function") {
+        await applyPaidDownPaymentsToInvoice("AP", purchaseDocs.find(x => x.id === ref.id));
+      }
       // Close base (but NOT if copying to Down Payment)
-      if (purchaseCopyFromId) {
+      if (purchaseCopyFromId && !editingPurchase) {
         const base = purchaseDocs.find(x => x.id === purchaseCopyFromId);
         const isDownPay = docType === "PDPR" || docType === "PDPI";
         if (base && base.status !== "cancelled" && (!isDownPay || (base.docType === "PDPR" && docType === "PDPI"))) {
@@ -4497,7 +4569,7 @@ select.ss-hidden{display:none !important}
         }
         purchaseCopyFromId = null;
       }
-      toast("Posted " + docNo + (data.journalNo ? " / JE " + data.journalNo : ""), true);
+      toast((editingPurchase ? "Updated " : "Posted ") + docNo + (data.journalNo ? " / JE " + data.journalNo : ""), true);
       const pageMap = { PR:"pr", PQ:"pq", PO:"po", GRPO:"grpo", APINV:"apinv", APCM:"apcm" };
       nav(pageMap[docType] || "pr");
     }
@@ -4939,6 +5011,7 @@ select.ss-hidden{display:none !important}
                 <td><b style="color:${(d.status==="closed")?"#059669":(d.status==="cancelled")?"#b91c1c":"#0b3d91"}">${esc(d.status||"open")}</b></td>
                 <td>${esc(d.createdBy||"")}</td>
                 <td style="white-space:nowrap">
+                  ${canEditMarketingDocument(d,"AR") ? `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();editSalesDoc('${d.id}')">Edit</button>` : ""}
                   <button class="btn btn-sm" onclick="event.stopPropagation();viewSalesDoc('${d.id}')">View</button>
                   <button class="btn btn-sm" onclick="event.stopPropagation();printDocument(salesDocs.find(x=>x.id==='${d.id}'),'sales')">Print</button>
                   <button class="btn btn-sm" ${d.status==="closed"?"disabled style='opacity:.45;cursor:not-allowed'":""} onclick="event.stopPropagation();openCopyTo('${d.id}')">Copy To</button>
@@ -4993,6 +5066,7 @@ select.ss-hidden{display:none !important}
       if (!scoped(items, cid).length) return toast("Add items first");
       salesLines = [{ lineType: "I", itemCode: "", name: "", qty: 1, uom: "pcs", price: 0, discPct: 0, whsCode: "", taxCode: "", project: "" }];
       salesEditId = null;
+      ["s-btn-view","s-btn-new","s-btn-close"].forEach((bid,i)=>{const b=document.getElementById(bid);if(b)b.textContent=i===0?"Add & View":i===1?"Add & New":"Add & Close";});
       const form = document.getElementById("sales-form");
       if (!form) return toast("Form not ready");
       form.style.display = "block";
@@ -5015,6 +5089,22 @@ select.ss-hidden{display:none !important}
       if (dd && !dd.value) dd.valueAsDate = new Date();
       const st = document.getElementById("s-status");
       if (st) st.value = "Open";
+    }
+
+    function editSalesDoc(id) {
+      const d=salesDocs.find(x=>x.id===id);
+      if(!canEditMarketingDocument(d,"AR")) return toast("This document cannot be edited: it must be Open, unpaid, unreconciled and have no follow-up document.");
+      salesEditId=id;salesCopyFromId=null;window.keshashaCurrentSalesDocType=d.docType;
+      salesLines=(d.lines||[]).map(l=>({...l}));
+      const form=document.getElementById("sales-form");if(!form)return toast("Document form is not ready");form.style.display="block";
+      const set=(id,v)=>{const x=document.getElementById(id);if(x)x.value=v??"";};
+      set("s-bp",d.bpCode);if(typeof onSalesCustomerChange==="function")onSalesCustomerChange();
+      set("s-branch",d.branchCode);set("s-wh",d.warehouseCode);set("s-remarks",d.remarks);set("s-date",d.docDate);set("s-due",d.dueDate);set("s-currency",d.docCurrency||"TZS");set("s-rate",d.docRate||1);set("s-freight",d.freight||0);set("s-docdate",d.docDate);
+      set("s-docno",d.docNo);set("s-status","Open — Editing");
+      if(typeof window.renderUDFFields==="function"){let slot=document.getElementById("sales-udf-slot");if(!slot){slot=document.createElement("div");slot.id="sales-udf-slot";const target=form.querySelector(".mkt-ft")||form;target.parentNode.insertBefore(slot,target);}window.renderUDFFields("sales_"+d.docType,"sales-udf-slot");setTimeout(()=>window.setUDFValues&&window.setUDFValues("sales_"+d.docType,"sales-udf-slot",d.udfValues||{}),40);}
+      ["s-btn-view","s-btn-new","s-btn-close"].forEach((bid,i)=>{const b=document.getElementById(bid);if(b)b.textContent=i===0?"Update & View":i===1?"Update & Continue":"Update & Close";});
+      renderSalesLines();recalcSalesTotal();
+      if(typeof openAppWindow==="function"){const w=openAppWindow((SALES_META[d.docType]?.title||d.docType)+" — Edit "+d.docNo,"",{w:980,h:560});const body=document.querySelector("#"+w+" .win-body");if(body){body.innerHTML="";body.appendChild(form);}}
     }
 
     function addSalesLine() {
@@ -5190,6 +5280,15 @@ select.ss-hidden{display:none !important}
       { key: "lineVendor", label: "Line Vendor Code", def: false },
       { key: "visOrder", label: "Visual Order", def: false },
     ];
+
+    // Resizable gap between marketing document header and line table.
+    (function installMarketingGapResizer(){
+      if(window.__keshashaGapResizerInstalled)return;window.__keshashaGapResizerInstalled=true;
+      let active=null,startY=0,startH=0;
+      document.addEventListener('pointerdown',function(e){const bar=e.target.closest('.mkt-spacer');if(!bar)return;active=bar;startY=e.clientY;startH=bar.getBoundingClientRect().height;try{bar.setPointerCapture(e.pointerId)}catch(_){ }e.preventDefault();});
+      document.addEventListener('pointermove',function(e){if(!active)return;const h=Math.max(6,Math.min(160,startH+e.clientY-startY));active.style.setProperty('height',h+'px','important');active.style.setProperty('min-height','6px','important');});
+      document.addEventListener('pointerup',function(){active=null;});document.addEventListener('pointercancel',function(){active=null;});
+    })();
 
     function enableColumnResize(table) {
       if (!table) return;
@@ -5526,6 +5625,7 @@ select.ss-hidden{display:none !important}
           vatSum: round2(l.vatSum),
           gTotal: round2(l.lineTotal) + round2(l.vatSum),
           project: l.project || null,
+          udfValues: l.udfValues || {}
         };
       });
       if (!lines.length) return toast("At least one line with item and qty is required");
@@ -5536,27 +5636,33 @@ select.ss-hidden{display:none !important}
       const fxi = docCurrencyInfo("s");
       const docCurrency = fxi.cur, docRate = fxi.rate;
       const grandTotalLC = round2(grandTotal * docRate);
+      const editingSales = salesEditId ? salesDocs.find(x=>x.id===salesEditId) : null;
+      if(salesEditId && (!editingSales || !canEditMarketingDocument(editingSales,"AR"))) return toast("Document is no longer eligible for editing");
       let docNo;
-      try { docNo = await nextSalesDocNo(companyId, docType); }
+      try { docNo = editingSales ? editingSales.docNo : await nextSalesDocNo(companyId, docType); }
       catch (e) { return toast(e.message); }
       const baseDoc = salesCopyFromId ? salesDocs.find(x => x.id === salesCopyFromId) : null;
       const __sRowUDF=window.collectUDFValues('sales_'+docType,'sales-udf-slot','row');
       if(Object.keys(__sRowUDF).length) lines.forEach(l=>l.udfValues={...__sRowUDF});
       const data = {
-        udfValues: window.collectUDFValues('sales_'+docType,'sales-udf-slot'),
-        udfRowValues: window.collectUDFValues('sales_'+docType,'sales-udf-slot','row'),
+        udfValues: Object.keys(window.collectUDFValues('sales_'+docType,'sales-udf-slot')).length ? window.collectUDFValues('sales_'+docType,'sales-udf-slot') : (editingSales?.udfValues||{}),
+        udfRowValues: Object.keys(window.collectUDFValues('sales_'+docType,'sales-udf-slot','row')).length ? window.collectUDFValues('sales_'+docType,'sales-udf-slot','row') : (editingSales?.udfRowValues||{}),
         companyId, docType, docNo, docDate, dueDate, bpCode,
         bpName: bp ? bp.name : "",
         warehouseCode, branchCode, remarks, slpCode, owner, lines, grandTotal, netTotal, taxTotal, freight, docCurrency, docRate, grandTotalLC,
-        status: "open",
-        paidAmount: 0,
-        baseDocId: baseDoc ? baseDoc.id : null,
-        baseDocType: baseDoc ? baseDoc.docType : null,
-        baseDocNo: baseDoc ? baseDoc.docNo : null,
-        createdBy: currentUser.email,
-        createdAt: new Date().toISOString(),
+        status: editingSales ? editingSales.status : "open",
+        paidAmount: editingSales ? (editingSales.paidAmount||0) : 0,
+        appliedDownPayment: editingSales ? (editingSales.appliedDownPayment||0) : 0,
+        baseDocId: editingSales ? (editingSales.baseDocId||null) : (baseDoc ? baseDoc.id : null),
+        baseDocType: editingSales ? (editingSales.baseDocType||null) : (baseDoc ? baseDoc.docType : null),
+        baseDocNo: editingSales ? (editingSales.baseDocNo||null) : (baseDoc ? baseDoc.docNo : null),
+        createdBy: editingSales ? editingSales.createdBy : currentUser.email,
+        createdAt: editingSales ? editingSales.createdAt : new Date().toISOString(),
+        updatedBy: editingSales ? currentUser.email : null,
+        updatedAt: editingSales ? new Date().toISOString() : null,
       };
       try {
+        if(editingSales && editingSales.journalNo) await reverseDocumentJournal(companyId,editingSales.journalNo,docType,docNo);
         // Stock effect for Delivery / Return
         if (meta.stock && warehouseCode && lines.some(l => l.lineType !== "S" && l.itemCode)) {
           const stockType = meta.stock; // OUT or IN
@@ -5570,9 +5676,9 @@ select.ss-hidden{display:none !important}
             createdAt: new Date().toISOString(),
             sourceDoc: docNo,
           };
-          const sRef = await db.collection("stock_docs").add(sData);
-          stockDocs.unshift({ id: sRef.id, ...sData });
-          data.stockDocNo = sDocNo;
+          const priorStock = editingSales ? stockDocs.find(x=>x.sourceDoc===editingSales.docNo || x.docNo===editingSales.stockDocNo) : null;
+          if(priorStock){await db.collection("stock_docs").doc(priorStock.id).update({...sData,docNo:priorStock.docNo,updatedAt:new Date().toISOString()});Object.assign(priorStock,sData,{docNo:priorStock.docNo});data.stockDocNo=priorStock.docNo;}
+          else {const sRef = await db.collection("stock_docs").add(sData);stockDocs.unshift({ id: sRef.id, ...sData });data.stockDocNo = sDocNo;}
         }
         // Mandatory GL for Delivery / Invoice / Credit Memo
         if (docType === "DN" || docType === "INV" || docType === "DPI" || docType === "CM") {
@@ -5633,11 +5739,15 @@ select.ss-hidden{display:none !important}
             toast("Document saved but GL failed: " + ge.message);
           }
         }
-        const ref = await db.collection("sales_docs").add(data);
-        salesDocs.unshift({ id: ref.id, ...data });
+        let ref;
+        if(editingSales){await db.collection("sales_docs").doc(editingSales.id).update(data);Object.assign(editingSales,data);ref={id:editingSales.id};}
+        else {ref=await db.collection("sales_docs").add(data);salesDocs.unshift({id:ref.id,...data});}
+        if (docType === "INV" && !editingSales && typeof applyPaidDownPaymentsToInvoice === "function") {
+          await applyPaidDownPaymentsToInvoice("AR", salesDocs.find(x => x.id === ref.id));
+        }
 
         // Relationship map: close base document (but NOT if copying to Down Payment)
-        if (salesCopyFromId) {
+        if (salesCopyFromId && !editingSales) {
           const base = salesDocs.find(x => x.id === salesCopyFromId);
           const isDownPay = docType === "DPR" || docType === "DPI";
           if (base && base.status !== "cancelled" && (!isDownPay || (base.docType === "DPR" && docType === "DPI"))) {
@@ -5655,7 +5765,8 @@ select.ss-hidden{display:none !important}
           }
           salesCopyFromId = null;
         }
-        if (!(docType === "INV" || docType === "CM")) toast("Posted " + docNo, true);
+        if(editingSales) toast("Updated " + docNo + (data.journalNo ? " / JE " + data.journalNo : ""),true);
+        else if (!(docType === "INV" || docType === "CM")) toast("Posted " + docNo, true);
         else if (data.journalNo) toast("Posted " + docNo + " / JE " + data.journalNo, true);
         else toast("Posted " + docNo, true);
         salesEditId = null;
@@ -6888,6 +6999,7 @@ select.ss-hidden{display:none !important}
         <div class="toolbar">
           <h2>${cfg.title}</h2>
           <button class="btn btn-sm btn-primary" onclick="startNewPay('${dir}')">+ Payment</button>
+          <button class="btn btn-sm" onclick="openCreditOffset('${dir}')">⇄ Credit Offset</button>
           ${dir === "in" ? `<button class="btn btn-sm" onclick="exportPaymentsExcel()">📤 Export</button>` : ""}
         </div>
         <div id="${p}-form" style="display:none;border:1px solid #b0b0b0;background:#fff;margin-bottom:12px">
@@ -7812,7 +7924,28 @@ select.ss-hidden{display:none !important}
           .tot{text-align:right;margin-top:12px;font-size:14px}
           .ft{margin-top:24px;font-size:11px;color:#64748b;border-top:1px solid #ddd;padding-top:8px}
           @media print{body{margin:12px}}
-        </style></head><body>
+      
+    /* Query tools: dense desktop SQL workbench, SAP-inspired */
+    .q-workbench{display:grid;grid-template-columns:250px minmax(0,1fr);gap:8px;min-height:560px}
+    .q-side{background:#f7f9fc;border:1px solid #b9c5d5;min-width:0}
+    .q-side-head{padding:8px 10px;background:#e8eef7;border-bottom:1px solid #b9c5d5;font-weight:700;color:#173b70}
+    .q-side-body{padding:8px;max-height:520px;overflow:auto}
+    .q-tree-item{display:block;width:100%;text-align:left;padding:6px 8px;border:0;background:transparent;cursor:pointer;font-size:12px;color:#24364b}
+    .q-tree-item:hover,.q-tree-item.active{background:#dce8f8;color:#0b3d91}
+    .q-editor-shell{border:1px solid #8b9bb0;background:#fff;min-width:0}
+    .q-editor-toolbar{display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding:6px 8px;background:#eef2f7;border-bottom:1px solid #c5cdd8}
+    .q-editor-toolbar .q-spacer{flex:1}
+    #qg-editor{height:300px;width:100%;font-size:13px}
+    .q-editor-fallback{width:100%;height:300px;border:0;resize:vertical;padding:10px;font:13px/1.5 Consolas,monospace;tab-size:4;white-space:pre;overflow:auto}
+    .q-results{border-top:1px solid #c5cdd8;background:#fff;min-height:120px}
+    .q-results-head{display:flex;justify-content:space-between;gap:8px;padding:7px 9px;background:#eef2f7;border-bottom:1px solid #c5cdd8;font-weight:700}
+    .q-results-grid{max-height:260px;overflow:auto}
+    .q-status{padding:5px 9px;background:#f7f9fc;border-top:1px solid #d4dbe5;color:#596579;font-size:11px}
+    .q-param-row{display:flex;gap:8px;flex-wrap:wrap;padding:8px;background:#fff;border-bottom:1px solid #d4dbe5}
+    .q-param-row .fg{min-width:160px;flex:1}
+    .doc-edit-banner{padding:7px 10px;background:#fff7df;border:1px solid #e6c66a;color:#694b00;font-weight:600;margin:6px 8px}
+    @media(max-width:900px){.q-workbench{grid-template-columns:1fr}.q-side-body{max-height:180px}.mkt-hd{grid-template-columns:1fr;gap:8px}}
+  </style></head><body>
         <div class="hdr">
           <div>${logo ? `<img class="logo" src="${logo}">` : `<div style="font-size:18px;font-weight:700">${esc(co.name||"Company")}</div>`}</div>
           <div class="co">
@@ -9288,7 +9421,7 @@ select.ss-hidden{display:none !important}
         ["admin.companies","Companies"],["admin.branches","Branches"],["admin.users","Users"],
         ["admin.employees","Employees"],["admin.salesemp","Sales Employees"],
         ["admin.docseries","Document Numbering"],["admin.itemseries","Item Series"],
-        ["admin.authz","Authorizations"],["admin.roles","User Roles"],["admin.dimensions","Dimensions"],["admin.dimtypes","Dimension Types"],
+        ["admin.authz","Authorizations"],["admin.roles","User Roles"],["ui.colors","Change UI Colors / Skin"],["admin.dimensions","Dimensions"],["admin.dimtypes","Dimension Types"],
         ["admin.uitemplate","UI Templates"],["admin.doctemplate","Document Templates"],
         ["admin.apprstages","Approval Stages"],["admin.apprtemp","Approval Templates"],["admin.apprstatus","Approval Status"],
         ["admin.license","License Admin"],["admin.licpool","License Pool (Founder)"],["admin.sysinfo","System Tables"],
@@ -9352,7 +9485,7 @@ select.ss-hidden{display:none !important}
         ["rep.pl","Profit & Loss"],["rep.bs","Balance Sheet"],
       ]},
       { mod: "Document Actions", items: [
-        ["act.delete","Delete master data"],["act.cancel","Cancel documents"],["act.close","Close documents"],
+        ["act.view","View Documents & Windows"],["act.edit","Edit Open Documents & Master Data"],["act.delete","Delete master data"],["act.cancel","Cancel documents"],["act.close","Close documents"],["act.reopen","Reopen eligible source documents"],["act.refund","Process refunds / excess advances"],["act.copyauth","Copy Authorizations to Users"],
         ["fin.je.cancel","Cancel / reverse Journal Entries"],
       ]},
     ];
@@ -9418,7 +9551,7 @@ select.ss-hidden{display:none !important}
     function canSeeDoc(docType) { return hasAuth(docAuthKey(docType), 1); }
     function requireAuth(key, level, msg) {
       if (hasAuth(key, level || 2)) return true;
-      toast(msg || (level === 1 ? "No Authorization" : "No Authorization — Full Authorization required"));
+      authorizationDenied();
       return false;
     }
     /** Remove from memory everything the signed-in user is not authorized to see */
@@ -9462,6 +9595,7 @@ select.ss-hidden{display:none !important}
         <div class="toolbar">
           <h2>Authorizations</h2>
           <button class="btn btn-sm" onclick="showUserProfilePanel()">User Profile</button>
+          ${(currentUser.isSuperAdmin || hasAuth("act.copyauth",2)) ? `<button class="btn btn-sm btn-primary" onclick="openCopyAuthorization()">Copy Authorization</button>` : ``}
           <button class="btn btn-sm" onclick="setAllAuthForUser(2)">Full Authorization (all)</button>
           <button class="btn btn-sm" onclick="setAllAuthForUser(1)">Read Only (all)</button>
           <button class="btn btn-sm" onclick="setAllAuthForUser(0)">No Authorization (all)</button>
@@ -9512,7 +9646,50 @@ select.ss-hidden{display:none !important}
           </div>
         </div>`;
     }
+    function openCopyAuthorization(){
+      if(!currentUser.isSuperAdmin && !hasAuth("act.copyauth",2)) return authorizationDenied();
+      const eligible=users.filter(u=>!u.isSuperAdmin && u.companyId===activeCompanyId);
+      if(eligible.length<2) return toast("At least two users are required",false);
+      const source=eligible.find(u=>u.id===authSelectedUserId) || eligible[0];
+      const html=`<div id="copy-auth-modal" style="position:fixed;inset:0;background:#0008;z-index:100200;display:flex;align-items:center;justify-content:center;padding:16px">
+        <div style="width:min(760px,96vw);max-height:90vh;overflow:auto;background:#fff;border-radius:8px;box-shadow:0 18px 55px #0005">
+          <div style="padding:12px 16px;background:var(--primary);color:#fff;display:flex;justify-content:space-between;align-items:center"><b>Copy User Authorization</b><button onclick="document.getElementById('copy-auth-modal').remove()" style="color:#fff;background:transparent;border:0;font-size:20px">×</button></div>
+          <div style="padding:16px">
+            <div class="fg"><label>Copy authorization from (Source User)</label><select id="copy-auth-source" style="width:100%">${eligible.map(u=>`<option value="${esc(u.id)}" ${u.id===source.id?'selected':''}>${esc(u.fullName)} — ${esc(u.email)}</option>`).join('')}</select></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 6px"><b>Copy to selected users</b><span><button class="btn btn-sm" onclick="document.querySelectorAll('.copy-auth-target').forEach(x=>x.checked=true)">Select all</button> <button class="btn btn-sm" onclick="document.querySelectorAll('.copy-auth-target').forEach(x=>x.checked=false)">Clear</button></span></div>
+            <div style="max-height:300px;overflow:auto;border:1px solid var(--border);border-radius:5px;padding:8px">${eligible.filter(u=>u.id!==source.id).map(u=>`<label style="display:flex;gap:8px;padding:7px;border-bottom:1px solid #eee;align-items:center"><input class="copy-auth-target" type="checkbox" value="${esc(u.id)}" style="width:auto"> <span>${esc(u.fullName)} <small style="color:#64748b">${esc(u.email)}</small></span></label>`).join('')}</div>
+            <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input id="copy-auth-overwrite" type="checkbox" checked style="width:auto"> Replace recipients' existing authorization settings completely</label>
+            <p style="font-size:11px;color:#64748b">Copies authorization levels only. It does not copy passwords, profile details, branch assignments, or user account status. Super Admin accounts are excluded.</p>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn btn-sm" onclick="document.getElementById('copy-auth-modal').remove()">Cancel</button><button class="btn btn-sm btn-primary" onclick="confirmCopyAuthorization()">Copy Authorization</button></div>
+          </div>
+        </div></div>`;
+      document.body.insertAdjacentHTML('beforeend',html);
+    }
+    async function confirmCopyAuthorization(){
+      if(!currentUser.isSuperAdmin && !hasAuth("act.copyauth",2)) return authorizationDenied();
+      const modal=document.getElementById('copy-auth-modal'); if(!modal)return;
+      const sourceId=modal.querySelector('#copy-auth-source').value;
+      const targets=Array.from(modal.querySelectorAll('.copy-auth-target:checked')).map(x=>x.value).filter(id=>id!==sourceId);
+      const source=users.find(u=>u.id===sourceId);
+      if(!source || !targets.length) return toast('Select at least one recipient user',false);
+      const sourceMap={...(source.authMap||{})};
+      const overwrite=modal.querySelector('#copy-auth-overwrite').checked;
+      try{
+        await Promise.all(targets.map(async id=>{
+          const target=users.find(u=>u.id===id); if(!target || target.isSuperAdmin) return;
+          const next=overwrite?{...sourceMap}:{...(target.authMap||{}),...sourceMap};
+          const flags={canDelete:(next['act.delete']||0)>=2,canCancel:(next['act.cancel']||0)>=2,canClose:(next['act.close']||0)>=2};
+          await db.collection('users').doc(id).update({authMap:next,...flags});
+          target.authMap=next; Object.assign(target,flags);
+        }));
+        modal.remove(); authSelectedUserId=sourceId;
+        toast('Authorization copied to '+targets.length+' user(s)',true);
+        renderAuthorizations(document.getElementById('main'));
+      }catch(e){console.error(e);toast('Copy failed. Check your authorization and connection.',false);}
+    }
+
     async function setSubjectAuth(userId, key, val) {
+      if(!currentUser.isSuperAdmin && !hasAuth("admin.authz",2)) return authorizationDenied();
       const u = users.find(x => x.id === userId);
       if (!u) return;
       const authMap = { ...(u.authMap || {}) };
@@ -9530,6 +9707,7 @@ select.ss-hidden{display:none !important}
       renderAuthorizations(document.getElementById("main"));
     }
     async function setModuleAuth(userId, modName, val) {
+      if(!currentUser.isSuperAdmin && !hasAuth("admin.authz",2)) return authorizationDenied();
       if (val === "") return;
       const mod = AUTH_SUBJECTS.find(m => m.mod === modName);
       if (!mod) return;
@@ -9548,6 +9726,7 @@ select.ss-hidden{display:none !important}
       renderAuthorizations(document.getElementById("main"));
     }
     async function setAllAuthForUser(level) {
+      if(!currentUser.isSuperAdmin && !hasAuth("admin.authz",2)) return authorizationDenied();
       if (!authSelectedUserId) return;
       const u = users.find(x => x.id === authSelectedUserId);
       if (!u) return;
@@ -11359,21 +11538,19 @@ function bindDraggableAIButton(){
   btn.dataset.dragReady = "1";
   btn.style.touchAction = "none";
   btn.style.cursor = "grab";
-  btn.style.position = "relative";
+  btn.style.position = "fixed";
+  btn.style.left = "16px"; btn.style.bottom = "16px"; btn.style.right = "auto"; btn.style.top = "auto";
+  btn.style.zIndex = "10001"; btn.style.width = "42px"; btn.style.height = "42px";
+  btn.style.borderRadius = "50%"; btn.style.background = "var(--primary)"; btn.style.color = "#fff";
+  btn.style.boxShadow = "0 4px 14px rgba(0,0,0,.28)"; btn.style.padding = "0";
   try {
     const saved = JSON.parse(localStorage.getItem("keshasha_ai_launcher_pos") || "null");
     if(saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)){
-      btn.style.position = "fixed";
       btn.style.left = Math.max(0, Math.min(innerWidth-44, saved.left)) + "px";
       btn.style.top = Math.max(0, Math.min(innerHeight-44, saved.top)) + "px";
-      btn.style.right = "auto"; btn.style.bottom = "auto";
-      btn.style.zIndex = "10001";
-      btn.style.width = "40px"; btn.style.height = "40px";
-      btn.style.borderRadius = "50%";
-      btn.style.background = "var(--primary)";
-      btn.style.color = "#fff";
-      btn.style.boxShadow = "0 4px 14px rgba(0,0,0,.28)";
+      btn.style.bottom = "auto";
     }
+    if(localStorage.getItem('keshasha_ai_icon_hidden')==='1') btn.style.display='none';
   } catch(e){}
   let dragging=false, moved=false, startX=0, startY=0, originX=0, originY=0;
   btn.addEventListener("pointerdown", function(e){
@@ -11667,150 +11844,123 @@ window.SYS_TABLES = {
   OVPM: {desc:"Outgoing Payment", fields:["DocEntry","DocNum","DocDate","CardCode","DocTotal"]},
   VPM1: {desc:"Outgoing Payment Invoices", fields:["DocNum","InvoiceId","SumApplied"]}
 };
-window.renderQueries = function(el){
-  const isAdmin = !!(currentUser && (currentUser.isSuperAdmin || (typeof hasAuth==="function" && hasAuth("cust.queries",2))));
-  const qrows = (window.userQueries||[]).map((q,i)=>`<tr>
-    <td>${esc(q.name)}</td><td>${esc(q.category||"User")}</td>
-    <td>
-      <button class="btn btn-sm btn-primary" onclick="runUserQuery(${i})">Execute</button>
-      ${isAdmin?`<button class="btn btn-sm" onclick="editUserQuery(${i})">Edit</button>
-      <button class="btn btn-sm btn-danger" onclick="deleteUserQuery(${i})">Delete</button>`:""}
-    </td>
-  </tr>`).join("") || `<tr><td colspan="3">No user queries yet</td></tr>`;
-  el.innerHTML = `
-    <div class="toolbar"><h2>Queries</h2>
-      <button class="btn btn-sm" onclick="showQueryTab('manager')">Queries Manager</button>
-      ${isAdmin?`<button class="btn btn-sm" onclick="showQueryTab('generator')">Query Generator</button>
-      <button class="btn btn-sm btn-primary" onclick="showQueryTab('user')">+ User Query</button>`:""}
+window.queryCategories = window.queryCategories || [
+  {name:"General", authGroup:1},{name:"Sales",authGroup:1},{name:"Purchasing",authGroup:1},
+  {name:"Inventory",authGroup:1},{name:"Finance",authGroup:1},{name:"Administration",authGroup:1}
+];
+window.__queryEditor = null;
+window.__queryEditId = null;
+window.__querySelectedId = null;
+window.__queryRows = window.__queryRows || [];
+window.__queryTables = function(){
+  const pick=(arr,fn)=>Array.isArray(arr)?arr.filter(fn||(()=>true)).map(x=>({...x})):[];
+  const cid=(typeof companyFilterId==="function"?companyFilterId():((window.currentUser||{}).companyId||""));
+  const docs=(arr,types)=>pick(arr,d=>!cid||d.companyId===cid).filter(d=>types.includes(d.docType));
+  const hdr=(arr)=>arr.map(d=>({
+    DocEntry:d.id,DocNum:d.docNo,DocDate:d.docDate,DocDueDate:d.dueDate,CardCode:d.bpCode,
+    CardName:d.bpName,SlpCode:d.slpCode??d.SlpCode??d.buyer??d.Buyer??-1,
+    Buyer:d.buyer??d.Buyer??d.slpCode??d.SlpCode??null,OwnerCode:d.ownerCode??d.OwnerCode??null,
+    DocStatus:(d.status||"open").toLowerCase()==="closed"?"C":"O",
+    CANCELED:(d.status||"")==="cancelled"?"Y":"N",DocTotal:Number(d.grandTotal||0),DocTotalFC:Number(d.grandTotal||0),
+    PaidToDate:Number(d.paidAmount||0),Comments:d.remarks,WhsCode:d.warehouseCode,Branch:d.branchCode,
+    DocCur:d.docCurrency,DocRate:d.docRate,JournalNo:d.journalNo,CreateDate:d.createdAt,UpdateDate:d.updatedAt,
+    ...d
+  }));
+  const lines=(arr)=>arr.flatMap(d=>(d.lines||[]).map((l,i)=>({DocEntry:d.id,DocNum:d.docNo,LineNum:l.lineNum??i,ItemCode:l.itemCode,Dscription:l.name,Quantity:Number(l.qty||0),Price:Number(l.price||0),DiscPrcnt:Number(l.discPct||0),LineTotal:Number(l.lineTotal||0),WhsCode:l.whsCode,AcctCode:l.acctCode,VatPrcnt:Number(l.vatPrcnt||0),TaxCode:l.taxCode,...l})));
+  const map={
+    OCRD:pick(partners,p=>!cid||p.companyId===cid).map(p=>({CardCode:p.bpCode,CardName:p.name,CardType:p.bpType,GroupCode:p.groupCode,Phone1:p.phone,E_Mail:p.email,LicTradNum:p.tin,CreditLine:p.creditLimit,GroupNum:p.paymentTermsDays,Currency:p.currencyCode,validFor:p.status==="active"?"Y":"N",...p})),
+    OITM:pick(items,p=>!cid||p.companyId===cid).map(x=>({ItemCode:x.itemCode,ItemName:x.name,FrgnName:x.foreignName,ItmsGrpCod:x.itemGroup,CodeBars:x.barcode,InvntryUom:x.uom,LastPurPrc:x.lastPurchasePrice,validFor:x.status==="active"?"Y":"N",...x})),
+    OACT:pick(accounts,p=>!cid||p.companyId===cid).map(a=>({AcctCode:a.acctCode,AcctName:a.acctName,Postable:a.postable,Levels:a.level,FatherNum:a.fatherNum,GroupMask:a.category,...a})),
+    OWHS:pick(warehouses,p=>!cid||p.companyId===cid).map(w=>({WhsCode:w.code,WhsName:w.name,Location:w.location,...w})),
+    OHEM:pick(employees,p=>!cid||p.companyId===cid).map(e=>({empID:e.employeeCode,firstName:e.firstName,lastName:e.lastName,Name:e.fullName,department:e.department,jobTitle:e.jobTitle,...e})),
+    OSLP:pick(salesEmployees,p=>!cid||p.companyId===cid).map(e=>({SlpCode:e.code,SlpName:e.name,...e})),
+    OPRQ:hdr(docs(purchaseDocs,["PR"])),PRQ1:lines(docs(purchaseDocs,["PR"])),
+    OPQT:hdr(docs(purchaseDocs,["PQ"])),PQT1:lines(docs(purchaseDocs,["PQ"])),
+    OPOR:hdr(docs(purchaseDocs,["PO"])),POR1:lines(docs(purchaseDocs,["PO"])),
+    OPDN:hdr(docs(purchaseDocs,["GRPO"])),PDN1:lines(docs(purchaseDocs,["GRPO"])),
+    OPCH:hdr(docs(purchaseDocs,["APINV"])),PCH1:lines(docs(purchaseDocs,["APINV"])),
+    ORPC:hdr(docs(purchaseDocs,["APCM"])),RPC1:lines(docs(purchaseDocs,["APCM"])),
+    OPQT:hdr(docs(purchaseDocs,["PQ"])),
+    OQUT:hdr(docs(salesDocs,["SQ"])),QUT1:lines(docs(salesDocs,["SQ"])),
+    ORDR:hdr(docs(salesDocs,["SO"])),RDR1:lines(docs(salesDocs,["SO"])),
+    ODLN:hdr(docs(salesDocs,["DN"])),DLN1:lines(docs(salesDocs,["DN"])),
+    OINV:hdr(docs(salesDocs,["INV"])),INV1:lines(docs(salesDocs,["INV"])),
+    ORIN:hdr(docs(salesDocs,["CM"])),RIN1:lines(docs(salesDocs,["CM"])),
+    OJDT:pick(journals,j=>!cid||j.companyId===cid).map(j=>({TransId:j.transId,RefDate:j.refDate,Memo:j.memo,TransType:j.sourceType,BaseRef:j.sourceDoc,Status:j.status,...j})),
+    JDT1:pick(journals,j=>!cid||j.companyId===cid).flatMap(j=>(j.lines||[]).map((l,i)=>({TransId:j.transId,Line_ID:i,Account:l.acctCode,Debit:Number(l.debit||0),Credit:Number(l.credit||0),LineMemo:l.lineMemo,...l}))),
+    ORCT:pick(window.incomingPayments||window.incomingReceipts||[],p=>!cid||p.companyId===cid).map(p=>({DocEntry:p.id,DocNum:p.docNo,DocDate:p.docDate,CardCode:p.bpCode,DocTotal:p.amount||p.docTotal,CashSum:p.cashSum,...p})),
+    OVPM:pick(window.outgoingPayments||[],p=>!cid||p.companyId===cid).map(p=>({DocEntry:p.id,DocNum:p.docNo,DocDate:p.docDate,CardCode:p.bpCode,DocTotal:p.amount||p.docTotal,...p}))
+  };
+  return map;
+};
+window.loadUserQueries = async function(){
+  if(typeof db==="undefined" || !db || !currentUser) return;
+  try{
+    const cid=(typeof activeCompanyId!=="undefined"&&activeCompanyId)||currentUser.companyId||companyFilterId();
+    let q=db.collection("user_queries");
+    if(cid) q=q.where("companyId","==",cid);
+    const snap=await q.get();
+    window.__queryRows=snap.docs.map(d=>({id:d.id,...d.data()}));
+    window.userQueries=window.__queryRows;
+  }catch(e){console.warn("Query library load:",e);}
+};
+window.renderQueries = async function(el){
+  if(!el)return;
+  const isAdmin=!!(currentUser&&(currentUser.isSuperAdmin||(typeof hasAuth==="function"&&hasAuth("cust.queries",2))));
+  await loadUserQueries();
+  const cats=window.queryCategories||[];
+  const queries=window.__queryRows||[];
+  const tree=cats.map(c=>`<div class="q-side-head">▾ ${esc(c.name)}</div>${queries.filter(q=>(q.category||"General")===c.name).map(q=>`<button class="q-tree-item ${q.id===window.__querySelectedId?"active":""}" onclick="selectManagedQuery('${q.id}')">▤ ${esc(q.name)}</button>`).join("")}`).join("");
+  const catOpts=cats.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("");
+  el.innerHTML=`
+    <div class="toolbar"><h2>Queries</h2><button class="btn btn-sm" onclick="showQueryTab('manager')">Query Manager</button>${isAdmin?`<button class="btn btn-sm btn-primary" onclick="newManagedQuery()">New Query</button><button class="btn btn-sm" onclick="showQueryTab('generator')">Query Generator</button><button class="btn btn-sm" onclick="manageQueryCategories()">Manage Categories</button>`:""}</div>
+    <div id="q-tab-manager" class="q-workbench">
+      <aside class="q-side"><div class="q-side-head">Query Categories</div><div class="q-side-body">${tree||"<small>No saved queries. Create a query to begin.</small>"}</div></aside>
+      <section class="q-editor-shell"><div class="q-editor-toolbar"><input id="qm-search" placeholder="Find query..." style="width:190px;margin:0;padding:5px" oninput="filterQueryManager(this.value)"><span class="q-spacer"></span><button class="btn btn-sm" onclick="runSelectedManagedQuery()">Execute</button>${isAdmin?`<button class="btn btn-sm" onclick="editSelectedManagedQuery()">Edit</button><button class="btn btn-sm btn-danger" onclick="removeSelectedManagedQuery()">Remove</button>`:""}</div><div id="qm-detail" style="padding:14px;min-height:180px;color:#536174">Select a saved query from the category tree.</div><div id="q-manager-results" class="q-results"><div class="q-results-head">Query Results <span id="qm-result-count">0 rows</span></div><div id="qm-result-grid" class="q-results-grid"></div><div class="q-status" id="qm-status">Ready</div></div></section>
     </div>
-    <div id="q-tab-manager" style="display:block">
-      <div class="grid-wrap"><table class="grid"><thead><tr><th>Name</th><th>Category</th><th></th></tr></thead>
-      <tbody>${qrows}</tbody></table></div>
-    </div>
-    <div id="q-tab-generator" style="display:none;background:#fff;border:1px solid #c5cdd8;padding:12px;margin-top:8px">
-      <h3 style="margin:0 0 8px;color:#0b3d91">Query Generator</h3>
-      <div class="form-bar">
-        <div class="fg"><label>Table</label><select id="qg-table" onchange="qgFields()">${Object.keys(window.SYS_TABLES).map(t=>`<option value="${t}">${t} — ${window.SYS_TABLES[t].desc}</option>`).join("")}</select></div>
-        <div class="fg"><label>Fields</label><select id="qg-fields" multiple size="5" style="height:90px"></select></div>
-        <div class="fg"><label>Where (optional)</label><input id="qg-where" placeholder="DocStatus = 'O'"></div>
-      </div>
-      <button class="btn btn-sm btn-primary" onclick="generateSQL()">Generate SQL</button>
-      <textarea id="qg-result" rows="5" style="width:100%;font-family:monospace;margin-top:8px" readonly></textarea>
-      <button class="btn btn-sm" onclick="saveGeneratedAsUser()">Save as User Query</button>
-      <p style="font-size:11px;color:#64748b;margin-top:6px">Tables include headers (OPRQ, ORDR, OJDT...) and lines (PRQ1, RDR1, JDT1...). Join on DocEntry/TransId.</p>
-    </div>
-    <div id="q-tab-user" style="display:none;background:#fff;border:1px solid #c5cdd8;padding:12px;margin-top:8px">
-      <h3 style="margin:0 0 8px;color:#0b3d91">User Query</h3>
-      <div class="form-bar">
-        <div class="fg"><label>Name *</label><input id="uq-name" placeholder="Open Sales Orders"></div>
-        <div class="fg"><label>Category</label><select id="uq-cat"><option>User</option><option>Sales</option><option>Purchase</option><option>Inventory</option><option>Finance</option></select></div>
-        <div class="fg" style="grid-column:1/-1" id="uq-sql-wrap"><label>SQL</label><textarea id="uq-sql" rows="6" style="width:100%;font-family:monospace" placeholder="SELECT DocNum, CardCode, DocTotal FROM ORDR WHERE DocStatus='O'"></textarea></div>
-      </div>
-      <button class="btn btn-sm btn-primary" onclick="saveUserQuery()">Save Query</button>
-      <button class="btn btn-sm" onclick="executeCurrentSQL()">Execute</button>
-    </div>
-    <div id="q-result" style="margin-top:10px"></div>
-  `;
+    <div id="q-tab-generator" style="display:none"><div class="q-workbench"><aside class="q-side"><div class="q-side-head">Database Tables</div><div class="q-side-body"><input id="qg-table-search" placeholder="Filter tables..." style="width:100%;padding:5px;margin:0" oninput="filterQueryTables(this.value)"><div id="qg-table-list">${Object.keys(window.SYS_TABLES||{}).map(t=>`<button class="q-tree-item" onclick="insertQueryTable('${t}')"><b>${t}</b> — ${esc(window.SYS_TABLES[t].desc||"")}</button>`).join("")}</div></div></aside><section class="q-editor-shell"><div class="q-editor-toolbar"><select id="qg-table" style="width:210px;margin:0;padding:5px" onchange="qgFields()">${Object.keys(window.SYS_TABLES||{}).map(t=>`<option value="${t}">${t} — ${esc(window.SYS_TABLES[t].desc||"")}</option>`).join("")}</select><select id="qg-fields" multiple title="Choose fields; Ctrl-click for multiple" style="width:190px;height:30px;margin:0;padding:3px" ondblclick="insertQueryFields()"></select><button class="btn btn-sm" onclick="insertQueryFields()">Insert Fields</button><button class="btn btn-sm" onclick="insertSelectTemplate()">SELECT Template</button><button class="btn btn-sm" onclick="formatQuerySQL()">Format SQL</button><span class="q-spacer"></span><button class="btn btn-sm btn-primary" onclick="executeQueryEditor()">▶ Execute</button><button class="btn btn-sm" onclick="saveQueryFromEditor()">Save</button></div><div id="qg-editor"></div><textarea id="qg-result" class="q-editor-fallback" style="display:none" spellcheck="false"></textarea><div class="q-param-row"><div class="fg"><label>Query Name</label><input id="uq-name" placeholder="e.g. Open Purchase Orders"></div><div class="fg"><label>Category</label><select id="uq-cat">${catOpts}</select></div><div class="fg"><label>Result limit</label><select id="qg-limit"><option>500</option><option>1000</option><option>5000</option><option>10000</option></select></div></div><div class="q-results"><div class="q-results-head">Results <span id="qg-result-count">Not executed</span></div><div id="qg-result-grid" class="q-results-grid"></div><div id="qg-status" class="q-status">SELECT-only · Runs against records loaded from the active Firebase company; unsupported tables are not fabricated.</div></div></section></div></div>`;
+  window.__queryEditor=null;
+  if(typeof ace!=="undefined"){
+    const ed=ace.edit("qg-editor");ed.setTheme("ace/theme/chrome");ed.session.setMode("ace/mode/sql");ed.setOptions({fontSize:"13px",showPrintMargin:false,wrap:false,tabSize:4,useSoftTabs:true,enableBasicAutocompletion:true,enableLiveAutocompletion:true,enableSnippets:true});
+    ed.setValue("SELECT TOP 100 *\nFROM OCRD\nORDER BY CardCode;",-1);ed.commands.addCommand({name:"executeSQL",bindKey:{win:"Ctrl-Enter",mac:"Command-Enter"},exec:()=>executeQueryEditor()});window.__queryEditor=ed;
+  }else{const fb=document.getElementById("qg-result");fb.style.display="block";fb.value="SELECT *\nFROM OCRD;";}
   qgFields();
 };
-window.showQueryTab = function(tab){
-  const isAdmin = !!(currentUser && (currentUser.isSuperAdmin || (typeof hasAuth==="function" && hasAuth("cust.queries",2))));
-  if(!isAdmin && (tab==="generator" || tab==="user")) return toast("No authorization to edit queries");
-  ["manager","generator","user"].forEach(t=>{
-    const el=document.getElementById("q-tab-"+t);
-    if(el) el.style.display = (t===tab) ? "block" : "none";
-  });
-  if(tab==="generator") qgFields();
-  // Hide SQL code from non-admin
-  const sqlWrap = document.getElementById("uq-sql-wrap");
-  if(sqlWrap && !isAdmin) sqlWrap.style.display = "none";
+window.showQueryTab=function(tab){["manager","generator"].forEach(t=>{const x=document.getElementById("q-tab-"+t);if(x)x.style.display=t===tab?(t==="manager"?"grid":"block"):"none";});if(tab==="generator"&&!window.__queryEditor&&typeof ace!=="undefined"){const ed=ace.edit("qg-editor");ed.session.setMode("ace/mode/sql");window.__queryEditor=ed;}};
+window.getQueryEditorSQL=function(){return window.__queryEditor?window.__queryEditor.getValue():(document.getElementById("qg-result")||{}).value||"";};
+window.setQueryEditorSQL=function(v){if(window.__queryEditor)window.__queryEditor.setValue(v||"",-1);else if(document.getElementById("qg-result"))document.getElementById("qg-result").value=v||"";};
+window.qgFields=function(){const t=(document.getElementById("qg-table")||{}).value;const info=(window.SYS_TABLES||{})[t];const sel=document.getElementById("qg-fields");if(!sel||!info)return;sel.innerHTML=(info.fields||[]).map(f=>`<option value="${esc(f)}">${esc(f)}</option>`).join("");};
+window.insertQueryFields=function(){const sel=document.getElementById("qg-fields");if(!sel)return;const vals=Array.from(sel.selectedOptions).map(o=>o.value);if(!vals.length)return toast("Select one or more fields");const t=(document.getElementById("qg-table")||{}).value||"";const text=vals.map(f=>t+"."+f).join(", ");if(window.__queryEditor){window.__queryEditor.insert(text);window.__queryEditor.focus();}else{const ta=document.getElementById("qg-result");ta.value+=(ta.value?"\n":"")+text;}};
+window.filterQueryTables=function(q){document.querySelectorAll("#qg-table-list .q-tree-item").forEach(b=>b.style.display=b.textContent.toLowerCase().includes((q||"").toLowerCase())?"block":"none");};
+window.insertQueryTable=function(t){const sql="SELECT TOP 100 *\nFROM "+t+";";window.setQueryEditorSQL(sql);if(window.__queryEditor)window.__queryEditor.focus();};
+window.insertSelectTemplate=function(){const t=(document.getElementById("qg-table")||{}).value||"OCRD";const sel=document.getElementById("qg-fields");const fs=sel?Array.from(sel.selectedOptions).map(o=>o.value):[];const sql="SELECT TOP 100 "+(fs.length?fs.map(f=>t+"."+f).join(", "):"*")+"\nFROM "+t+"\nORDER BY 1;";window.setQueryEditorSQL(sql);if(window.__queryEditor)window.__queryEditor.focus();};
+window.formatQuerySQL=function(){const sql=window.getQueryEditorSQL();const formatted=sql.replace(/\s+(FROM|WHERE|GROUP BY|ORDER BY|HAVING|LEFT JOIN|RIGHT JOIN|INNER JOIN|JOIN|ON)\s+/gi,"\n$1 ").replace(/,\s*/g,",\n    ");window.setQueryEditorSQL(formatted);};
+window.queryDataRows=function(){
+  const src=window.__queryTables();
+  if(typeof alasql==="undefined")throw new Error("SQL engine failed to load. Check internet/CDN access and reload.");
+  Object.keys(src).forEach(t=>{try{alasql("DROP TABLE IF EXISTS "+t);}catch(e){};alasql("CREATE TABLE "+t);alasql.tables[t].data=src[t];});
+  return src;
 };
-window.qgFields = function(){
-  const t=(document.getElementById("qg-table")||{}).value;
-  const sel=document.getElementById("qg-fields");
-  if(!sel||!window.SYS_TABLES[t]) return;
-  sel.innerHTML = window.SYS_TABLES[t].fields.map(f=>`<option value="${f}" selected>${f}</option>`).join("");
+window.executeSQLAgainstLiveData=function(sql,limit){
+  if(!/^\s*(SELECT|WITH)\b/i.test(sql))throw new Error("Query Generator is read-only. Only SELECT / WITH queries are allowed.");
+  if(/\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|EXEC|EXECUTE|MERGE)\b/i.test(sql))throw new Error("Data-changing SQL is blocked for safety. Use ERP document screens to update records.");
+  const src=window.queryDataRows();const started=performance.now();
+  let clean=sql.replace(/\[([A-Za-z0-9_]+)\]/g,"$1");
+  let rows=alasql(clean);if(!Array.isArray(rows))rows=[];
+  const elapsed=Math.round(performance.now()-started);const max=Number(limit||500);
+  return {rows:rows.slice(0,max),total:rows.length,elapsed,tables:Object.keys(src).filter(t=>new RegExp("\\b"+t+"\\b","i").test(sql))};
 };
-window.generateSQL = function(){
-  const table=(document.getElementById("qg-table")||{}).value;
-  const fieldsSel=document.getElementById("qg-fields");
-  const fields = fieldsSel ? Array.from(fieldsSel.selectedOptions).map(o=>o.value) : ["*"];
-  const where=(document.getElementById("qg-where")||{}).value.trim();
-  let sql = "SELECT " + (fields.length?fields.join(", "):"*") + " FROM " + table;
-  if(where) sql += " WHERE " + where;
-  const ta=document.getElementById("qg-result");
-  if(ta) ta.value = sql;
-  toast("SQL generated", true);
-  return sql;
-};
-window.saveGeneratedAsUser = function(){
-  const sql=(document.getElementById("qg-result")||{}).value;
-  if(!sql) return toast("Generate SQL first");
-  const name=prompt("Query name:")||"Generated Query";
-  window.userQueries=window.userQueries||[];
-  window.userQueries.push({name, category:"User", sql});
-  toast("Saved as User Query", true);
-  renderQueries(document.getElementById("main"));
-};
-window.saveUserQuery = function(){
-  const name=(document.getElementById("uq-name")||{}).value.trim();
-  const sql=(document.getElementById("uq-sql")||{}).value.trim();
-  if(!name||!sql) return toast("Name and SQL required");
-  window.userQueries=window.userQueries||[];
-  window.userQueries.push({name, category:(document.getElementById("uq-cat")||{}).value, sql});
-  toast("User Query saved", true);
-  renderQueries(document.getElementById("main"));
-};
-window.editUserQuery = function(i){
-  const q=(window.userQueries||[])[i]; if(!q) return;
-  showQueryTab("user");
-  setTimeout(()=>{
-    const n=document.getElementById("uq-name"); if(n) n.value=q.name;
-    const s=document.getElementById("uq-sql"); if(s) s.value=q.sql;
-  },50);
-};
-window.runUserQuery = function(i){
-  const q=(window.userQueries||[])[i]; if(!q) return;
-  executeSQL(q.sql, q.name);
-};
-window.deleteUserQuery = function(i){
-  if(!confirm("Delete this query?")) return;
-  window.userQueries.splice(i,1);
-  toast("Query deleted", true);
-  renderQueries(document.getElementById("main"));
-};
-window.executeCurrentSQL = function(){
-  const sql=(document.getElementById("uq-sql")||{}).value.trim();
-  if(!sql) return toast("Enter SQL");
-  executeSQL(sql, "Query Result");
-};
-window.executeSQL = function(sql, title){
-  // Simple client-side interpreter for demo against in-memory data
-  const res=document.getElementById("q-result");
-  if(!res) return;
-  let rows = [], headers = [];
-  try {
-    const m = /FROM\s+(\w+)/i.exec(sql);
-    const table = m ? m[1].toUpperCase() : "";
-    const map = {OITM:items, OCRD:partners, OHEM:employees, OWHS:warehouses, OACT:accounts};
-    const data = map[table] || [];
-    if(!data.length){
-      res.innerHTML = `<div style="padding:10px;background:#fff7ed;border:1px solid #fdba74">No live data for ${table||"table"}. Query saved. SQL: <code>${esc(sql)}</code></div>`;
-      return;
-    }
-    headers = Object.keys(data[0]||{}).slice(0,8);
-    rows = data.slice(0,50).map(r=>headers.map(h=>esc(r[h]||"")));
-  } catch(e){
-    res.innerHTML = `<div style="color:#b91c1c">Query error: ${esc(e.message)}</div>`;
-    return;
-  }
-  res.innerHTML = `<h3 style="margin:8px 0;color:#0b3d91">${esc(title||"Result")}</h3>
-    <div class="grid-wrap"><table class="grid"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead>
-    <tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
-    <p style="font-size:11px;color:#64748b">${rows.length} row(s)</p>`;
-  toast("Query executed", true);
-};
-
+window.renderQueryResult=function(target,rows,total,elapsed){const host=document.getElementById(target);if(!host)return;const cols=rows.length?Object.keys(rows[0]):[];host.innerHTML=rows.length?`<table class="grid"><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${esc(r[c]===null||r[c]===undefined?"":typeof r[c]==="object"?JSON.stringify(r[c]):String(r[c]))}</td>`).join("")}</tr>`).join("")}</tbody></table>`:`<div style="padding:12px;color:#64748b">Query returned no rows.</div>`;};
+window.resolveQueryParameters=function(sql){const matches=[...sql.matchAll(/\[%(\d+)\]/g)];if(!matches.length)return sql;let resolved=sql;const nums=[...new Set(matches.map(m=>m[1]))].sort((a,b)=>Number(a)-Number(b));for(const n of nums){const val=prompt("Enter value for query parameter [%"+n+"]:","");if(val===null)throw new Error("Query cancelled: parameter [%"+n+"] was not supplied");const safe=String(val).replace(/'/g,"''");const token="[%"+n+"]";const re=new RegExp("\\[%"+n+"\\]","g");resolved=resolved.replace(re,(match,offset)=>{const before=resolved[offset-1],after=resolved[offset+match.length];return before==="'"&&after==="'"?safe:"'"+safe+"'";});}return resolved;};
+window.executeQueryEditor=function(){let sql=window.getQueryEditorSQL().trim();if(!sql)return toast("Enter a SELECT query");try{sql=window.resolveQueryParameters(sql);const r=window.executeSQLAgainstLiveData(sql,(document.getElementById("qg-limit")||{}).value);renderQueryResult("qg-result-grid",r.rows,r.total,r.elapsed);document.getElementById("qg-result-count").textContent=r.total+" row(s)";document.getElementById("qg-status").textContent=`Completed in ${r.elapsed} ms · Live company cache · ${r.tables.join(", ")||"No mapped table detected"}`;toast("Query executed against loaded ERP records",true);}catch(e){document.getElementById("qg-result-grid").innerHTML=`<div class="err" style="padding:10px">${esc(e.message)}</div>`;document.getElementById("qg-status").textContent="Execution failed";toast("SQL error: "+e.message);}};
+window.newManagedQuery=function(){window.__queryEditId=null;showQueryTab("generator");document.getElementById("uq-name").value="";window.setQueryEditorSQL("SELECT TOP 100 *\nFROM OCRD;");};
+window.saveQueryFromEditor=async function(){if(!currentUser)return toast("Login required");if(!(currentUser.isSuperAdmin||hasAuth("cust.queries",2)))return toast("No authorization");const name=(document.getElementById("uq-name")||{}).value.trim(),sql=window.getQueryEditorSQL().trim(),category=(document.getElementById("uq-cat")||{}).value||"General";if(!name||!sql)return toast("Query name and SQL are required");if(!/^\s*(SELECT|WITH)\b/i.test(sql))return toast("Only SELECT queries can be saved");const cid=(typeof activeCompanyId!=="undefined"&&activeCompanyId)||currentUser.companyId||companyFilterId();const data={companyId:cid,name,sql,category,updatedAt:new Date().toISOString(),updatedBy:currentUser.email};try{if(window.__queryEditId){await db.collection("user_queries").doc(window.__queryEditId).update(data);}else{data.createdAt=new Date().toISOString();data.createdBy=currentUser.email;const ref=await db.collection("user_queries").add(data);window.__queryEditId=ref.id;}await loadUserQueries();toast("Query saved",true);renderQueries(document.getElementById("main"));}catch(e){toast("Could not save query: "+e.message);}};
+window.selectManagedQuery=function(id){window.__querySelectedId=id;const q=(window.__queryRows||[]).find(x=>x.id===id);const d=document.getElementById("qm-detail");if(d&&q)d.innerHTML=`<h3 style="color:#173b70;margin-bottom:8px">${esc(q.name)}</h3><div style="font-size:12px;color:#667085;margin-bottom:10px">Category: ${esc(q.category||"General")} · Updated: ${esc(q.updatedAt||q.createdAt||"")}</div><pre style="white-space:pre-wrap;background:#f5f7fa;border:1px solid #d6deea;padding:10px;font:12px/1.5 Consolas,monospace">${esc(q.sql)}</pre>`;};
+window.runSelectedManagedQuery=function(){const q=(window.__queryRows||[]).find(x=>x.id===window.__querySelectedId);if(!q)return toast("Select a query first");try{const sql=window.resolveQueryParameters(q.sql);const r=window.executeSQLAgainstLiveData(sql,5000);renderQueryResult("qm-result-grid",r.rows,r.total,r.elapsed);document.getElementById("qm-result-count").textContent=r.total+" rows";document.getElementById("qm-status").textContent=`Completed in ${r.elapsed} ms`; }catch(e){document.getElementById("qm-result-grid").innerHTML=`<div class="err" style="padding:10px">${esc(e.message)}</div>`;document.getElementById("qm-status").textContent="Execution failed";}};
+window.editSelectedManagedQuery=function(){const q=(window.__queryRows||[]).find(x=>x.id===window.__querySelectedId);if(!q)return toast("Select a query first");window.__queryEditId=q.id;showQueryTab("generator");document.getElementById("uq-name").value=q.name;document.getElementById("uq-cat").value=q.category||"General";window.setQueryEditorSQL(q.sql);};
+window.removeSelectedManagedQuery=async function(){const q=(window.__queryRows||[]).find(x=>x.id===window.__querySelectedId);if(!q)return toast("Select a query first");if(!confirm("Remove saved query '"+q.name+"'?"))return;try{await db.collection("user_queries").doc(q.id).delete();window.__querySelectedId=null;await loadUserQueries();renderQueries(document.getElementById("main"));toast("Query removed",true);}catch(e){toast(e.message);}};
+window.filterQueryManager=function(v){const term=(v||"").toLowerCase();document.querySelectorAll(".q-tree-item").forEach(b=>b.style.display=b.textContent.toLowerCase().includes(term)?"block":"none");};
+window.manageQueryCategories=function(){const current=(window.queryCategories||[]).map(c=>c.name).join("\n");const raw=prompt("Manage query categories — enter one category per line:",current);if(raw===null)return;const names=[...new Set(raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean))];if(!names.length)return toast("At least one category is required");window.queryCategories=names.map(n=>({name:n,authGroup:1}));toast("Categories updated for this session",true);renderQueries(document.getElementById("main"));};
 // ---------- 9. Customization Tools ----------
 window.udtList = window.udtList || [];
 window.renderUDT = function(el){
@@ -12599,11 +12749,22 @@ window.openKESHASHAChat = function(){
   p=document.createElement("div");
   p.id="keshasha-chat";
   p.style.cssText="position:fixed;bottom:70px;left:16px;right:auto;width:340px;height:420px;background:#fff;border:1px solid #94a3b8;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.25);z-index:9999;display:flex;flex-direction:column;font-size:13px";
-  p.innerHTML=`<div style="background:var(--primary);color:#fff;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;border-radius:8px 8px 0 0"><b>KESHASHA AI</b><span><button onclick="clearAIChat()" style="background:none;border:0;color:#fff;cursor:pointer;font-size:11px;margin-right:8px">Clear</button><button onclick="this.closest('#keshasha-chat').style.display='none'" style="background:none;border:0;color:#fff;cursor:pointer">✕</button></span></div>
+  p.innerHTML=`<div style="background:var(--primary);color:#fff;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;border-radius:8px 8px 0 0"><b>KESHASHA AI</b><span><button onclick="clearAIChat()" style="background:none;border:0;color:#fff;cursor:pointer;font-size:11px;margin-right:8px">Clear</button><button onclick="hideKeshashaAIIcon()" title="Hide AI icon" style="background:none;border:0;color:#fff;cursor:pointer;font-size:11px;margin-right:8px">Hide icon</button><button onclick="this.closest('#keshasha-chat').style.display='none'" style="background:none;border:0;color:#fff;cursor:pointer">✕</button></span></div>
     <div id="chat-msgs" style="flex:1;overflow:auto;padding:8px;background:#f8fafc"></div>
     <div style="display:flex;padding:6px;border-top:1px solid #e2e8f0"><input id="chat-in" placeholder="Ask how to..." style="flex:1;margin:0;padding:6px" onkeydown="if(event.key==='Enter')sendAI()"><button class="btn btn-sm btn-primary" style="margin-left:4px" onclick="sendAI()">Send</button></div>`;
   document.body.appendChild(p);
   addMsg("bot","KESHASHA AI Agent ready. Super Admin: say \"analysis sales\", \"schedule TB to 2557... at 08:00\", or \"post sales order\". I generate analytical reports with your logo.");
+};
+window.hideKeshashaAIIcon=function(){
+  const b=document.getElementById('keshasha-ai-launcher'); if(b)b.style.display='none';
+  try{localStorage.setItem('keshasha_ai_icon_hidden','1');}catch(e){}
+  const p=document.getElementById('keshasha-chat'); if(p)p.style.display='none';
+  if(typeof toast==='function')toast('AI icon hidden. Restore it from View → View AI Icon.',true);
+};
+window.showKeshashaAIIcon=function(){
+  const b=document.getElementById('keshasha-ai-launcher'); if(b){b.style.display='flex';b.style.position='fixed';b.style.left=b.style.left||'16px';b.style.top=b.style.top||'auto';b.style.bottom=b.style.top==='auto'?'16px':'auto';b.style.zIndex='10001';}
+  try{localStorage.removeItem('keshasha_ai_icon_hidden');}catch(e){}
+  if(typeof toast==='function')toast('AI icon is visible. Drag it anywhere on screen.',true);
 };
 window.clearAIChat = function(){
   const b = document.getElementById("chat-msgs");
@@ -12641,13 +12802,7 @@ function addMsg(role,t){
   d.style.cssText="margin:4px 0;padding:6px 8px;border-radius:6px;max-width:90%;"+(role==="user"?"background:var(--primary);color:#fff;margin-left:auto":"background:#fff;border:1px solid #e2e8f0");
   d.textContent=t; b.appendChild(d); b.scrollTop=b.scrollHeight;
 }
-setTimeout(()=>{
-  const b=document.createElement("button");
-  b.innerHTML="💬 AI";
-  b.style.cssText="position:fixed;bottom:16px;left:16px;right:auto;z-index:9998;background:var(--primary);color:#fff;border:0;border-radius:20px;padding:8px 14px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(11,61,145,.4)";
-  b.onclick=openKESHASHAChat;
-  document.body.appendChild(b);
-},600);
+// The single floating AI launcher is created in the SAP toolbar and can be dragged or hidden.
 
 // ---------- Nav hooks ----------
 /* const _nav = window.nav; window.nav = function(page){ */
@@ -12712,7 +12867,8 @@ const SKINS = {
   forest: { name:"Forest Green", primary:"#14532d", primaryD:"#0f3d22", accent:"#166534" },
   purple: { name:"Purple", primary:"#6d28d9", primaryD:"#4c1d95", accent:"#7c3aed" }
 };
-window.applySkin = function(key){
+window.applySkin = function(key, force){
+  if(!force && typeof currentUser!=="undefined" && currentUser && !currentUser.isSuperAdmin && typeof hasAuth==="function" && !hasAuth("ui.colors",2)) return authorizationDenied();
   const s = SKINS[key] || SKINS.navy;
   document.documentElement.style.setProperty("--primary", s.primary);
   document.documentElement.style.setProperty("--primary-d", s.primaryD);
@@ -12722,7 +12878,7 @@ window.applySkin = function(key){
 window.applyUserUI = function(user){
   if(!user) return;
   const skin = user.uiSkin || localStorage.getItem("keshasha_skin") || "navy";
-  applySkin(skin);
+  applySkin(skin, true);
   if(user.uiFont) document.body.style.fontFamily = user.uiFont + ", system-ui, sans-serif";
   if(user.uiFontSize) document.body.style.fontSize = user.uiFontSize + "px";
 };
@@ -12732,7 +12888,7 @@ setTimeout(()=>{
   if(typeof currentUser!=="undefined" && currentUser) applyUserUI(currentUser);
   else {
     const sk = localStorage.getItem("keshasha_skin");
-    if(sk) applySkin(sk);
+    if(sk) applySkin(sk, true);
   }
 }, 800);
 
@@ -12896,7 +13052,7 @@ setTimeout(()=>{
     sel.style.cssText = "margin-left:8px;padding:2px 6px;font-size:12px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)";
     sel.innerHTML = `<option value="navy">Navy</option><option value="gold">Gold</option><option value="maroon">Maroon</option><option value="forest">Forest</option><option value="purple">Purple</option>`;
     sel.value = localStorage.getItem("keshasha_skin")||"navy";
-    sel.onchange = ()=>applySkin(sel.value);
+    sel.onchange = ()=>{if(typeof currentUser!=="undefined" && currentUser && !currentUser.isSuperAdmin && typeof hasAuth==="function" && !hasAuth("ui.colors",2)){sel.value=localStorage.getItem("keshasha_skin")||"navy";return authorizationDenied();}applySkin(sel.value);};
     tb.appendChild(sel);
   }
 }, 600);
@@ -13133,7 +13289,7 @@ window.showUserProfilePanel = function(){
         </select>
       </div>
       <div class="fg"><label>Skin Style</label>
-        <select id="prof-skin">
+        <select id="prof-skin" ${(!currentUser.isSuperAdmin && !hasAuth("ui.colors",2))?"disabled title=\"No Authorization\"":""}>
           <option value="navy" ${u.uiSkin==="navy"?"selected":""}>Navy Blue</option>
           <option value="gold" ${u.uiSkin==="gold"?"selected":""}>Golden Thread</option>
           <option value="maroon" ${u.uiSkin==="maroon"?"selected":""}>Maroon</option>
@@ -13160,7 +13316,7 @@ window.saveUserProfile = async function(){
   if(!u) return toast("No user selected");
   u.uiFont = (document.getElementById("prof-font")||{}).value||"";
   u.uiFontSize = (document.getElementById("prof-size")||{}).value||"";
-  u.uiSkin = (document.getElementById("prof-skin")||{}).value||"navy";
+  if(currentUser && currentUser.isSuperAdmin || hasAuth("ui.colors",2)) u.uiSkin = (document.getElementById("prof-skin")||{}).value||"navy";
   u.locked = !!(document.getElementById("prof-locked")||{}).checked;
   u.assignedBranches = Array.from(document.querySelectorAll(".prof-br:checked")).map(cb=>cb.value);
   if(typeof db!=="undefined") await db.collection("users").doc(u.id).set(u);
@@ -14065,6 +14221,339 @@ console.log('KESHASHA Customization Studio loaded');
  // Apply valid-values and advanced checks before collecting field values.
  const collect=window.collectUDFValues;window.collectUDFValues=function(table,containerId,scope){const out=collect.apply(this,arguments);if(!out)return out;const defs=(window.getUDFsFor?window.getUDFsFor(table,scope||'header'):window.udfList||[]).filter(f=>f.active!==false);for(let i=0;i<defs.length;i++){const f=defs[i],x=document.getElementById('udfval_'+containerId+'_'+(scope||'header')+'_'+i);if(!x)continue;const v=x.type==='checkbox'?(x.checked?'Yes':'No'):x.value;if(f.validation==='Advanced'&&v){const a=f.advanced||{},n=Number(v),n2=Number(a.value2);let ok=true;switch(a.rule){case'Starts With':ok=String(v).startsWith(String(a.value));break;case'Ends With':ok=String(v).endsWith(String(a.value));break;case'Contains':ok=String(v).includes(String(a.value));break;case'Does Not Contain':ok=!String(v).includes(String(a.value));break;case'Length Equal To':ok=String(v).length===Number(a.value);break;case'Length Greater Than or Equal To':ok=String(v).length>=Number(a.value);break;case'Length Less Than or Equal To':ok=String(v).length<=Number(a.value);break;case'Equal To':ok=String(v)===String(a.value);break;case'Greater Than':ok=n>Number(a.value);break;case'Less Than':ok=n<Number(a.value);break;case'Between':ok=n>=Number(a.value)&&n<=n2;break;}if(!ok){x.setCustomValidity('Value does not meet the configured validation rule');x.reportValidity?.();return null;}x.setCustomValidity('');}}
  return out;};
+})();
+</script>
+
+<script>
+/* =====================================================================
+   KESHASHA ERP — Incremental AP/AR accounting update
+   Adds paid-down-payment application, internal credit offset and AP reopen.
+   Existing collections and document engines are retained.
+   ===================================================================== */
+(function(){
+  const money = v => Math.round((Number(v)||0)*100)/100;
+  const balanceOf = d => money(Math.max(0, (Number(d && d.grandTotal)||0) - (Number(d && d.paidAmount)||0)));
+  const collectionFor = side => side === 'AP' ? 'purchase_docs' : 'sales_docs';
+  const docsFor = side => side === 'AP' ? purchaseDocs : salesDocs;
+  const invoiceType = side => side === 'AP' ? 'APINV' : 'INV';
+  const creditType = side => side === 'AP' ? 'APCM' : 'CM';
+  const dpType = side => side === 'AP' ? 'PDPI' : 'DPI';
+  const sideLabel = side => side === 'AP' ? 'Vendor' : 'Customer';
+  const escText = v => typeof esc === 'function' ? esc(String(v==null?'':v)) : String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  // Match already-paid Down Payment Invoices against a newly posted final invoice.
+  // The original DP payment and final invoice already posted to the same control
+  // account; this is a subledger application, so it deliberately creates no new JE.
+  window.applyPaidDownPaymentsToInvoice = async function(side, invoice){
+    if(!invoice || !['AP','AR'].includes(side)) return 0;
+    const arr = docsFor(side), coll = collectionFor(side), dp = dpType(side);
+    const total = Number(invoice.grandTotal)||0;
+    let remaining = money(Math.max(0, total-(Number(invoice.paidAmount)||0)));
+    if(remaining <= 0.004) return 0;
+    const candidates = arr.filter(d => d.companyId===invoice.companyId && d.bpCode===invoice.bpCode && d.docType===dp && d.status!=='cancelled' &&
+      (!invoice.docCurrency || !d.docCurrency || d.docCurrency===invoice.docCurrency))
+      .sort((a,b)=>(a.docDate||'').localeCompare(b.docDate||''));
+    let appliedTotal = 0;
+    for(const d of candidates){
+      const paid = Math.min(Number(d.paidAmount)||0, Number(d.grandTotal)||0);
+      const already = Number(d.appliedDownPaymentAmount)||0;
+      const available = money(Math.max(0, paid-already));
+      if(available<=0.004 || remaining<=0.004) continue;
+      const amount = money(Math.min(available,remaining));
+      const newDpApplied = money(already+amount);
+      const newInvPaid = money((Number(invoice.paidAmount)||0)+amount);
+      const fully = newInvPaid+0.005 >= total;
+      const dpPayload = {appliedDownPaymentAmount:newDpApplied, downPaymentApplicationStatus:newDpApplied+0.005 >= (Number(d.grandTotal)||0) ? 'Fully Applied' : 'Partially Applied'};
+      const invPayload = {paidAmount:newInvPaid, appliedDownPayment:money((Number(invoice.appliedDownPayment)||0)+amount), status:fully?'closed':'open', paymentStatus:fully?'paid':'partial', closedReason:fully?'Fully settled by paid Down Payment':'Partially settled by paid Down Payment'};
+      await db.collection(coll).doc(d.id).update(dpPayload);
+      await db.collection(coll).doc(invoice.id).update(invPayload);
+      Object.assign(d,dpPayload); Object.assign(invoice,invPayload);
+      const app = {companyId:invoice.companyId, side, businessPartner:invoice.bpCode, downPaymentId:d.id, downPaymentNo:d.docNo, invoiceId:invoice.id, invoiceNo:invoice.docNo, amount, currency:invoice.docCurrency||d.docCurrency||'', createdAt:new Date().toISOString(), createdBy:currentUser?.email||''};
+      await db.collection('down_payment_applications').add(app);
+      appliedTotal=money(appliedTotal+amount); remaining=money(remaining-amount);
+    }
+    return appliedTotal;
+  };
+
+  // Credit offset is an internal reconciliation of two open items on the same
+  // BP control account. It does not touch cash/bank and does not create a JE.
+  window.openCreditOffset = function(defaultDir){
+    const side = defaultDir==='in' ? 'AP' : 'AR';
+    const cid = companyFilterId();
+    const bpType = side==='AP' ? ['S','B','V'] : ['C'];
+    const bps = partners.filter(p=>p.companyId===cid && bpType.includes(p.bpType));
+    const modal = document.createElement('div'); modal.id='keshasha-credit-offset-modal';
+    modal.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.48);z-index:10080;display:flex;align-items:center;justify-content:center;padding:16px';
+    modal.innerHTML=`<div style="width:min(760px,96vw);max-height:90vh;overflow:auto;background:#fff;border:1px solid #b8c3d1;border-radius:8px;box-shadow:0 18px 55px #0004;color:#172033">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #dbe2ea"><div><b style="font-size:16px">Internal Credit Reconciliation</b><div style="font-size:11px;color:#64748b;margin-top:3px">Apply an open Credit Memo against an open invoice. No cash/bank movement.</div></div><button class="btn btn-sm" onclick="document.getElementById('keshasha-credit-offset-modal')?.remove()">✕</button></div>
+      <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div><label>Reconciliation Side</label><select id="co-side" onchange="refreshCreditOffset()"><option value="AP" ${side==='AP'?'selected':''}>A/P — Vendor</option><option value="AR" ${side==='AR'?'selected':''}>A/R — Customer</option></select></div>
+        <div><label>Business Partner</label><select id="co-bp" onchange="refreshCreditOffset()"><option value="">— Select —</option>${bps.map(p=>`<option value="${escText(p.bpCode)}">${escText(p.bpCode)} — ${escText(p.name||'')}</option>`).join('')}</select></div>
+        <div style="grid-column:1/-1"><label>Open Credit Memo</label><select id="co-credit" onchange="refreshCreditOffsetBalances()"><option value="">— Select Credit Memo —</option></select></div>
+        <div style="grid-column:1/-1"><label>Open Invoice to Offset</label><select id="co-invoice" onchange="refreshCreditOffsetBalances()"><option value="">— Select Invoice —</option></select></div>
+        <div><label>Credit Memo Available</label><input id="co-credit-bal" readonly value="0.00"></div>
+        <div><label>Invoice Outstanding</label><input id="co-invoice-bal" readonly value="0.00"></div>
+        <div style="grid-column:1/-1"><label>Amount to Reconcile</label><input id="co-amount" type="number" min="0.01" step="0.01" placeholder="Enter amount"></div>
+        <div style="grid-column:1/-1"><label>Remarks / Reason</label><input id="co-remarks" placeholder="Optional reconciliation reason"></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid #dbe2ea"><button class="btn" onclick="document.getElementById('keshasha-credit-offset-modal')?.remove()">Cancel</button><button class="btn btn-primary" onclick="postCreditOffset()">Reconcile</button></div>
+    </div>`;
+    document.body.appendChild(modal);
+    window.refreshCreditOffset();
+  };
+
+  window.refreshCreditOffset = function(){
+    const side=document.getElementById('co-side')?.value||'AP', cid=companyFilterId(), bp=document.getElementById('co-bp');
+    if(!bp) return;
+    const old=bp.value, allowed=side==='AP'?['S','B','V']:['C'];
+    const list=partners.filter(p=>p.companyId===cid&&allowed.includes(p.bpType));
+    bp.innerHTML='<option value="">— Select —</option>'+list.map(p=>`<option value="${escText(p.bpCode)}">${escText(p.bpCode)} — ${escText(p.name||'')}</option>`).join('');
+    if(list.some(p=>p.bpCode===old)) bp.value=old;
+    const c=document.getElementById('co-credit'), i=document.getElementById('co-invoice');
+    if(c)c.innerHTML='<option value="">— Select Credit Memo —</option>';
+    if(i)i.innerHTML='<option value="">— Select Invoice —</option>';
+    const code=bp.value; if(!code){refreshCreditOffsetBalances();return;}
+    const arr=docsFor(side), cid2=companyFilterId();
+    const credits=arr.filter(d=>d.companyId===cid2&&d.bpCode===code&&d.docType===creditType(side)&&d.status!=='cancelled'&&balanceOf(d)>0.004);
+    const invoices=arr.filter(d=>d.companyId===cid2&&d.bpCode===code&&d.docType===invoiceType(side)&&d.status!=='cancelled'&&balanceOf(d)>0.004);
+    if(c)c.innerHTML+='<option value="">— Select Credit Memo —</option>'+credits.map(d=>`<option value="${escText(d.id)}">${escText(d.docNo)} · ${escText(d.docCurrency||'')} · Open ${balanceOf(d).toFixed(2)}</option>`).join('');
+    if(i)i.innerHTML+='<option value="">— Select Invoice —</option>'+invoices.map(d=>`<option value="${escText(d.id)}">${escText(d.docNo)} · ${escText(d.docCurrency||'')} · Due ${balanceOf(d).toFixed(2)}</option>`).join('');
+    refreshCreditOffsetBalances();
+  };
+
+  window.refreshCreditOffsetBalances = function(){
+    const side=document.getElementById('co-side')?.value||'AP', cid=companyFilterId();
+    const arr=docsFor(side), credit=arr.find(d=>d.id===document.getElementById('co-credit')?.value), invoice=arr.find(d=>d.id===document.getElementById('co-invoice')?.value);
+    const cb=document.getElementById('co-credit-bal'), ib=document.getElementById('co-invoice-bal'), amount=document.getElementById('co-amount');
+    const fmt=n=>Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+    if(cb)cb.value=credit?fmt(balanceOf(credit)):'0.00'; if(ib)ib.value=invoice?fmt(balanceOf(invoice)):'0.00';
+    if(amount&&credit&&invoice){const sameCurrency=!credit.docCurrency||!invoice.docCurrency||credit.docCurrency===invoice.docCurrency;amount.max=sameCurrency?Math.min(balanceOf(credit),balanceOf(invoice)):0;amount.placeholder=sameCurrency?'Maximum '+fmt(Number(amount.max)):'Currency mismatch — convert first';if(!amount.value&&sameCurrency)amount.value=amount.max;} else if(amount){amount.max='';amount.placeholder='Enter amount';}
+  };
+
+  window.postCreditOffset = async function(){
+    const side=document.getElementById('co-side')?.value||'AP', cid=companyFilterId(), bpCode=document.getElementById('co-bp')?.value;
+    const arr=docsFor(side), coll=collectionFor(side), credit=arr.find(d=>d.id===document.getElementById('co-credit')?.value), invoice=arr.find(d=>d.id===document.getElementById('co-invoice')?.value);
+    const amount=money(document.getElementById('co-amount')?.value), remarks=document.getElementById('co-remarks')?.value||'';
+    if(!bpCode||!credit||!invoice) return toast('Select Business Partner, Credit Memo and Invoice');
+    if(credit.bpCode!==bpCode||invoice.bpCode!==bpCode) return toast('Both documents must belong to the same Business Partner');
+    if(credit.companyId!==cid||invoice.companyId!==cid) return toast('Documents must belong to the active company');
+    if(credit.docType!==creditType(side)||invoice.docType!==invoiceType(side)) return toast('Invalid document combination');
+    if(credit.status==='cancelled'||invoice.status==='cancelled') return toast('Cancelled documents cannot be reconciled');
+    if(credit.docCurrency&&invoice.docCurrency&&credit.docCurrency!==invoice.docCurrency) return toast('Currency mismatch: use documents in the same currency');
+    if(!(amount>0)||amount>balanceOf(credit)+0.004||amount>balanceOf(invoice)+0.004) return toast('Amount exceeds the available Credit Memo or invoice balance');
+    if(!confirm('Reconcile '+amount.toFixed(2)+' between '+credit.docNo+' and '+invoice.docNo+'? This will not create a cash/bank transaction.')) return;
+    try{
+      const now=new Date().toISOString(), recRef=db.collection('internal_reconciliations').doc();
+      const creditRef=db.collection(coll).doc(credit.id), invoiceRef=db.collection(coll).doc(invoice.id);
+      let cp,ip;
+      await db.runTransaction(async tx=>{
+        const cs=await tx.get(creditRef), is=await tx.get(invoiceRef);
+        if(!cs.exists||!is.exists) throw new Error('Document no longer exists');
+        const c=cs.data(), inv=is.data();
+        const cb=money(Math.max(0,(Number(c.grandTotal)||0)-(Number(c.paidAmount)||0)));
+        const ib=money(Math.max(0,(Number(inv.grandTotal)||0)-(Number(inv.paidAmount)||0)));
+        if(c.status==='cancelled'||inv.status==='cancelled'||amount>cb+0.004||amount>ib+0.004) throw new Error('Balances changed. Refresh and try again.');
+        const cPaid=money((Number(c.paidAmount)||0)+amount), iPaid=money((Number(inv.paidAmount)||0)+amount);
+        cp={paidAmount:cPaid,offsetAppliedAmount:money((Number(c.offsetAppliedAmount)||0)+amount),status:cPaid+0.005>=(Number(c.grandTotal)||0)?'closed':'open',paymentStatus:cPaid+0.005>=(Number(c.grandTotal)||0)?'paid':'partial',reconciliationStatus:cPaid+0.005>=(Number(c.grandTotal)||0)?'reconciled':'partial'};
+        ip={paidAmount:iPaid,creditAppliedAmount:money((Number(inv.creditAppliedAmount)||0)+amount),status:iPaid+0.005>=(Number(inv.grandTotal)||0)?'closed':'open',paymentStatus:iPaid+0.005>=(Number(inv.grandTotal)||0)?'paid':'partial',reconciliationStatus:iPaid+0.005>=(Number(inv.grandTotal)||0)?'reconciled':'partial'};
+        tx.update(creditRef,cp); tx.update(invoiceRef,ip);
+        tx.set(recRef,{companyId:cid,side,bpCode,creditMemoId:credit.id,creditMemoNo:credit.docNo,invoiceId:invoice.id,invoiceNo:invoice.docNo,amount,currency:credit.docCurrency||invoice.docCurrency||'',remarks,method:'CREDIT_OFFSET',status:'posted',glImpact:false,journalNo:null,createdBy:currentUser?.email||'',createdAt:now});
+      });
+      Object.assign(credit,cp);Object.assign(invoice,ip);
+      document.getElementById('keshasha-credit-offset-modal')?.remove();
+      toast('Credit Offset posted successfully. No cash/bank movement.',true);
+      const main=document.getElementById('main'); if(main){if(typeof renderPayments==='function'&&side==='AP')renderPayments(main);else if(typeof renderOutgoing==='function'&&side==='AR')renderOutgoing(main);}
+    }catch(e){toast(e.message||String(e));}
+  };
+
+  // Reopen is a controlled status action only. It never reverses payments or GL.
+  window.reopenPurchDoc = async function(id){
+    const d=purchaseDocs.find(x=>x.id===id); if(!d||d.docType!=='APINV'||d.status!=='closed')return;
+    if(!hasAuth('act.close',2))return toast('No authorization to change document status');
+    const reason=prompt('Reason for changing this A/P Invoice to Open:'); if(reason===null)return;
+    await db.collection('purchase_docs').doc(id).update({status:'open',reopenedAt:new Date().toISOString(),reopenedBy:currentUser.email,reopenReason:reason,previousStatus:'closed'});
+    Object.assign(d,{status:'open',reopenedAt:new Date().toISOString(),reopenedBy:currentUser.email,reopenReason:reason,previousStatus:'closed'});
+    await db.collection('document_audit_logs').add({companyId:d.companyId,documentType:'APINV',documentId:id,documentNo:d.docNo,action:'CHANGE_TO_OPEN',reason,previousStatus:'closed',newStatus:'open',user:currentUser.email,createdAt:new Date().toISOString()});
+    toast('A/P Invoice status changed to Open. Existing payment allocations and GL were not changed.',true);
+    renderPurchaseDoc(document.getElementById('main'),'APINV');
+  };
+  window.reopenSalesDoc = async function(id){
+    const d=salesDocs.find(x=>x.id===id); if(!d||!['INV','DPI'].includes(d.docType)||d.status!=='closed')return;
+    if(!hasAuth('act.close',2))return toast('No authorization to change document status');
+    const reason=prompt('Reason for changing this A/R document to Open:'); if(reason===null)return;
+    const now=new Date().toISOString();
+    await db.collection('sales_docs').doc(id).update({status:'open',reopenedAt:now,reopenedBy:currentUser.email,reopenReason:reason,previousStatus:'closed'});
+    Object.assign(d,{status:'open',reopenedAt:now,reopenedBy:currentUser.email,reopenReason:reason,previousStatus:'closed'});
+    await db.collection('document_audit_logs').add({companyId:d.companyId,documentType:d.docType,documentId:id,documentNo:d.docNo,action:'CHANGE_TO_OPEN',reason,previousStatus:'closed',newStatus:'open',user:currentUser.email,createdAt:now});
+    toast('A/R document status changed to Open. Existing payment allocations and GL were not changed.',true);
+    renderSalesDoc(document.getElementById('main'),d.docType);
+  };
+})();
+</script>
+
+
+<script>
+/* KESHASHA ERP — controlled cancellation, linked-document reopening and advance refund balance */
+(function(){
+  const __money = v => Math.round((Number(v)||0)*100)/100;
+  const __coll = side => side==='AP'?'purchase_docs':'sales_docs';
+  const __docs = side => side==='AP'?purchaseDocs:salesDocs;
+  const __stockReverse = async function(doc, side){
+    const stock = (stockDocs||[]).find(x=>x.companyId===(doc.companyId||companyFilterId()) && (x.sourceDoc===doc.docNo || x.docNo===doc.stockDocNo) && x.status!=='cancelled' && !x.reversedBy);
+    if(!stock) return null;
+    const reverseType = stock.docType==='IN'?'OUT':'IN';
+    const revNo = await nextStockDocNo(doc.companyId||companyFilterId(), reverseType);
+    const payload={companyId:stock.companyId,docNo:revNo,docType:reverseType,docDate:new Date().toISOString().slice(0,10),warehouseCode:stock.warehouseCode,remarks:'Reversal of '+stock.docNo+' — cancelled '+doc.docNo,lines:(stock.lines||[]).map((l,i)=>({...l,lineNum:i+1,qty:Number(l.qty)||0})),status:'posted',createdBy:currentUser?.email||'',createdAt:new Date().toISOString(),sourceDoc:'REV-'+stock.docNo,reversesStockDocId:stock.id};
+    const ref=await db.collection('stock_docs').add(payload); stockDocs.unshift({id:ref.id,...payload});
+    await db.collection('stock_docs').doc(stock.id).update({status:'cancelled',cancelledAt:new Date().toISOString(),reversedBy:ref.id});
+    stock.status='cancelled';stock.reversedBy=ref.id; return revNo;
+  };
+  const __reopenBase = async function(side, doc){
+    if(!doc.baseDocId) return null;
+    const arr=__docs(side), coll=__coll(side), base=arr.find(x=>x.id===doc.baseDocId);
+    if(!base || base.status!=='closed' || base.targetDocId!==doc.id) return null;
+    const activeChildren=arr.filter(x=>x.id!==doc.id && x.baseDocId===base.id && x.status!=='cancelled');
+    if(activeChildren.length) return null;
+    const patch={status:'open',reopenedAt:new Date().toISOString(),reopenedBy:currentUser?.email||'',reopenReason:'Target document '+doc.docNo+' was cancelled',targetDocId:null,targetDocType:null,targetDocNo:null,closedAt:null,closedBy:null,closedReason:null};
+    await db.collection(coll).doc(base.id).update(patch); Object.assign(base,patch); return base;
+  };
+  const __reverseLinkedJournals = async function(companyId,doc,id){
+    const no=doc.docNo||doc.id;
+    const linked=(journals||[]).filter(j=>j.companyId===companyId && j.status!=='cancelled' && j.sourceType!=='Reversal' && (String(j.sourceDoc)===String(no)||String(j.sourceDoc)===String(id)) && !j.reversalTransId);
+    const reversals=[];
+    for(const j of linked){
+      const lines=(j.lines||[]).map(l=>({acctCode:l.acctCode,debit:Number(l.credit)||0,credit:Number(l.debit)||0,lineMemo:'Cancellation reversal of JE '+j.transId}));
+      if(!lines.length) continue;
+      const rev=await postJournalEntry(companyId,{refDate:new Date().toISOString().slice(0,10),memo:'REVERSAL of JE '+j.transId+' — cancelled '+no,lines,sourceType:'Reversal',sourceDoc:'REV-'+j.transId});
+      const rr=journals.find(x=>String(x.transId)===String(rev.transId));
+      if(rr){rr.reversesJournalId=j.id;await db.collection('journals').doc(rr.id).update({reversesJournalId:j.id});}
+      await db.collection('journals').doc(j.id).update({status:'cancelled',cancelledAt:new Date().toISOString(),cancelledBy:currentUser?.email||'',reversalTransId:rev.transId});
+      j.status='cancelled';j.reversalTransId=rev.transId;reversals.push(rev.transId);
+    }
+    return reversals;
+  };
+  async function cancelSide(side,id){
+    if(!hasAuth('act.cancel',2)) return toast('No authorization to cancel documents');
+    const arr=__docs(side), coll=__coll(side), d=arr.find(x=>x.id===id);
+    if(!d) return toast('Document not found');
+    if(d.status==='cancelled') return toast('Document already cancelled');
+    if(d.status==='closed') return toast('Closed document must first be reopened through its linked-document process');
+    if((Number(d.paidAmount)||0)>0 || (Number(d.appliedDownPayment)||0)>0 || d.reconciled || d.reconciliationStatus==='reconciled') return toast('This document has payment/down-payment/reconciliation activity. Use the Credit Memo and refund/reconciliation process instead of direct cancellation.');
+    const hasLiveTarget=arr.some(x=>x.baseDocId===d.id && x.status!=='cancelled');
+    if(hasLiveTarget) return toast('A subsequent document is still active. Cancel the subsequent document first.');
+    if(!confirm('Cancel '+(d.docNo||'document')+'? The system will reverse linked journal and stock movements and reopen its eligible source document.')) return;
+    try{
+      const companyId=d.companyId||companyFilterId();
+      const reversals=await __reverseLinkedJournals(companyId,d,id);
+      const stockRev=await __stockReverse(d,side);
+      const patch={status:'cancelled',cancelledAt:new Date().toISOString(),cancelledBy:currentUser?.email||'',reversalJournalNos:reversals,reversalStockDocNo:stockRev||null};
+      await db.collection(coll).doc(id).update(patch); Object.assign(d,patch);
+      const base=await __reopenBase(side,d);
+      toast('Cancelled '+(d.docNo||'document')+(reversals.length?' · Reversal JE '+reversals.join(', '):'')+(stockRev?' · Stock reversal '+stockRev:'')+(base?' · Source '+base.docNo+' reopened':''),true);
+      const route=(d.docType||'').toLowerCase(); if(typeof nav==='function'&&route) nav(route); else if(side==='AP') renderPurchaseDoc(document.getElementById('main'),d.docType); else renderSalesDoc(document.getElementById('main'),d.docType);
+    }catch(e){toast('Cancellation failed: '+(e.message||e));}
+  }
+  window.cancelPurchDoc=id=>cancelSide('AP',id);
+  window.cancelSalesDoc=id=>cancelSide('AR',id);
+
+  // Preserve the full paid advance. Apply only what the final invoice consumes;
+  // retain the unapplied amount as a refund due, never as a negative cash payment.
+  window.applyPaidDownPaymentsToInvoice=async function(side,invoice){
+    if(!invoice||!['AP','AR'].includes(side)) return 0;
+    const arr=__docs(side),coll=__coll(side),dpType=side==='AP'?'PDPI':'DPI';
+    const gross=__money(invoice.grandTotal), priorPaid=__money(invoice.paidAmount);
+    let invoiceRemaining=__money(Math.max(0,gross-priorPaid)), appliedTotal=0, refundDue=0;
+    const candidates=arr.filter(d=>d.companyId===invoice.companyId&&d.bpCode===invoice.bpCode&&d.docType===dpType&&d.status!=='cancelled'&&(!invoice.docCurrency||!d.docCurrency||d.docCurrency===invoice.docCurrency)).sort((a,b)=>(a.docDate||'').localeCompare(b.docDate||''));
+    for(const dp of candidates){
+      const paid=__money(Math.min(Number(dp.paidAmount)||0,Number(dp.grandTotal)||0));
+      const already=__money(dp.appliedDownPaymentAmount||0);
+      const available=__money(Math.max(0,paid-already)); if(available<=0.004) continue;
+      const use=__money(Math.min(available,invoiceRemaining));
+      if(use>0){
+        const newApplied=__money(already+use);
+        await db.collection(coll).doc(dp.id).update({appliedDownPaymentAmount:newApplied,downPaymentApplicationStatus:newApplied+0.005>=Number(dp.grandTotal||0)?'Fully Applied':'Partially Applied'});
+        Object.assign(dp,{appliedDownPaymentAmount:newApplied,downPaymentApplicationStatus:newApplied+0.005>=Number(dp.grandTotal||0)?'Fully Applied':'Partially Applied'});
+        const app={companyId:invoice.companyId,side,businessPartner:invoice.bpCode,downPaymentId:dp.id,downPaymentNo:dp.docNo,invoiceId:invoice.id,invoiceNo:invoice.docNo,amount:use,currency:invoice.docCurrency||dp.docCurrency||'',createdAt:new Date().toISOString(),createdBy:currentUser?.email||''};
+        await db.collection('down_payment_applications').add(app);
+        appliedTotal=__money(appliedTotal+use);invoiceRemaining=__money(invoiceRemaining-use);
+      }
+      refundDue=__money(refundDue+Math.max(0,available-use));
+    }
+    const newPaid=__money(priorPaid+appliedTotal);
+    const fullySettled=newPaid+0.005>=gross;
+    const excess=__money(Math.max(0,refundDue));
+    const netDocTotal=__money(gross-newPaid-excess);
+    const patch={paidAmount:newPaid,appliedDownPayment:__money((Number(invoice.appliedDownPayment)||0)+appliedTotal),refundDue:excess,netPayableAfterDownPayment:netDocTotal,docTotal:netDocTotal,max1099:gross,MAX1099:gross,paymentStatus:excess>0?'refund due':fullySettled?'paid':newPaid>0?'partial':'unpaid',status:excess>0?'open':fullySettled?'closed':'open',closedReason:excess>0?'Excess paid down payment awaiting refund':fullySettled?'Fully settled by paid Down Payment':null,downPaymentAppliedAt:new Date().toISOString()};
+    await db.collection(coll).doc(invoice.id).update(patch);Object.assign(invoice,patch);
+    return appliedTotal;
+  };
+
+  // Improve window controls: restore/maximize, viewport-safe sizing and dirty-form warning hook.
+  const oldOpen=window.openAppWindow;
+  if(typeof oldOpen==='function'){
+    window.openAppWindow=function(title,htmlBody,opts){
+      const id=oldOpen(title,htmlBody,opts); if(!id)return id;
+      const win=document.getElementById(id); if(!win)return id;
+      win.setAttribute('data-keshasha-window','1');
+      win.addEventListener('dblclick',e=>{if(e.target.closest('.win-btns'))return;maximizeWin(id);});
+      const close=win.querySelector('.win-btns button:last-child');
+      if(close){close.title='Close window';close.setAttribute('aria-label','Close window');}
+      const min=win.querySelector('.win-btns button:first-child');if(min){min.title='Minimize';min.setAttribute('aria-label','Minimize');}
+      const max=win.querySelector('.win-btns button:nth-child(2)');if(max){max.title='Maximize / Restore';max.setAttribute('aria-label','Maximize or restore');}
+      return id;
+    };
+  }
+})();
+</script>
+
+
+<script>
+// KESHASHA AI SQL JOIN COACH — schema-aware, grounded in the ERP's mapped datasets.
+(function(){
+  const joins=[
+    {a:'OPRQ',b:'OSLP',on:'OPRQ.SlpCode = OSLP.SlpCode',desc:'Purchase Request Buyer / Sales Employee'},
+    {a:'OPOR',b:'OSLP',on:'OPOR.SlpCode = OSLP.SlpCode',desc:'Purchase Order Buyer / Sales Employee'},
+    {a:'OPQT',b:'OSLP',on:'OPQT.SlpCode = OSLP.SlpCode',desc:'Purchase Quotation Buyer / Sales Employee'},
+    {a:'OPRQ',b:'OCRD',on:'OPRQ.CardCode = OCRD.CardCode',desc:'Purchase Request Vendor'},
+    {a:'OPOR',b:'OCRD',on:'OPOR.CardCode = OCRD.CardCode',desc:'Purchase Order Vendor'},
+    {a:'OPCH',b:'OCRD',on:'OPCH.CardCode = OCRD.CardCode',desc:'A/P Invoice Vendor'},
+    {a:'ORDR',b:'OCRD',on:'ORDR.CardCode = OCRD.CardCode',desc:'Sales Order Customer'},
+    {a:'OINV',b:'OCRD',on:'OINV.CardCode = OCRD.CardCode',desc:'A/R Invoice Customer'},
+    {a:'OPOR',b:'POR1',on:'OPOR.DocEntry = POR1.DocEntry',desc:'Purchase Order header to rows'},
+    {a:'OPRQ',b:'PRQ1',on:'OPRQ.DocEntry = PRQ1.DocEntry',desc:'Purchase Request header to rows'},
+    {a:'OPCH',b:'PCH1',on:'OPCH.DocEntry = PCH1.DocEntry',desc:'A/P Invoice header to rows'},
+    {a:'ORDR',b:'RDR1',on:'ORDR.DocEntry = RDR1.DocEntry',desc:'Sales Order header to rows'},
+    {a:'OINV',b:'INV1',on:'OINV.DocEntry = INV1.DocEntry',desc:'A/R Invoice header to rows'},
+    {a:'POR1',b:'OITM',on:'POR1.ItemCode = OITM.ItemCode',desc:'Purchase rows to Item Master'},
+    {a:'PRQ1',b:'OITM',on:'PRQ1.ItemCode = OITM.ItemCode',desc:'Purchase Request rows to Item Master'},
+    {a:'RDR1',b:'OITM',on:'RDR1.ItemCode = OITM.ItemCode',desc:'Sales rows to Item Master'},
+    {a:'JDT1',b:'OJDT',on:'JDT1.TransId = OJDT.TransId',desc:'Journal rows to Journal header'},
+    {a:'JDT1',b:'OACT',on:'JDT1.Account = OACT.AcctCode',desc:'Journal rows to Chart of Accounts'}
+  ];
+  function detectTable(q){const known=new Set(['OPRQ','PRQ1','OPQT','PQT1','OPOR','POR1','OPDN','PDN1','OPCH','PCH1','ORPC','RPC1','OQUT','QUT1','ORDR','RDR1','ODLN','DLN1','OINV','INV1','ORIN','RIN1','OCRD','OITM','OSLP','OACT','OJDT','JDT1','OWHS','OHEM','ORCT','OVPM']);try{if(typeof window.__queryTables==='function')Object.keys(window.__queryTables()).forEach(k=>known.add(k));(window.KESHASHA_SYSTEM_TABLES||[]).forEach(t=>known.add(String(t.code||'').toUpperCase()));}catch(e){}const u=String(q).toUpperCase();return [...known].filter(t=>t&&new RegExp('\\b'+t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b').test(u));}
+  function coach(q){
+    const s=String(q||'').toLowerCase();
+    if(!/(join|inner join|left join|right join|relationship|relation|buyer|slpcode|sql query|generate query|query ya|query for|kuunganisha table|tables.*join)/.test(s))return null;
+    const tabs=detectTable(q);
+    if(tabs.length>=2){
+      const pair=joins.find(j=>tabs.includes(j.a)&&tabs.includes(j.b));
+      if(pair){
+        const left=pair.a,right=pair.b;
+        let on=pair.on.replaceAll(pair.a+'.','H.').replaceAll(pair.b+'.','S.');
+        if(tabs.includes('OPRQ')&&tabs.includes('OSLP')&&/buyer/.test(s)) on='H.Buyer = S.SlpCode';
+        const sql=`SELECT\n    H.*,\n    S.*\nFROM ${left} H\nINNER JOIN ${right} S\n    ON ${on};`;
+        return `KESHASHA AI — SQL JOIN Assistant\n\nRelationship: ${pair.desc}\nJoin condition: ${on}\n\nSuggested SQL (adjust selected fields as needed):\n${sql}\n\nI can execute INNER JOIN / LEFT JOIN queries in Query Manager against the mapped records loaded for the active company. Note: this is the ERP's Firestore-backed live cache, not a direct SQL Server connection.`;
+      }
+      // Generic fallback: inspect the live mapped table fields and infer a shared business key.
+      try{const data=typeof window.__queryTables==='function'?window.__queryTables():{};const a=data[tabs[0]]||[],b=data[tabs[1]]||[];const ak=Object.keys(a[0]||{}),bk=Object.keys(b[0]||{});const common=ak.filter(k=>bk.includes(k));const priority=['DocEntry','TransId','CardCode','ItemCode','SlpCode','AcctCode','Code','empID','DocNum'];const key=priority.find(k=>common.includes(k))||common[0];if(key){const sql=`SELECT\n    A.*,\n    B.*\nFROM ${tabs[0]} A\nINNER JOIN ${tabs[1]} B\n    ON A.${key} = B.${key};`;return `KESHASHA AI — Inferred JOIN\n\nTables: ${tabs[0]} + ${tabs[1]}\nCommon field found in loaded data: ${key}\nThis is an inferred relationship; confirm that the key is semantically correct before using it.\n\n${sql}\n\nQuery Manager executes against mapped live company records, not a direct SQL Server connection.`;}}catch(e){}
+      return `Nimeona tables: ${tabs.join(', ')}. Common keys to verify: document header ↔ rows = DocEntry; Business Partner = CardCode; Item Master = ItemCode; Sales Employee = SlpCode; Journal header ↔ rows = TransId. Niambie fields mbili unazotaka kuunganisha, au uliza “show schema ${tabs.join(' and ')}”.`;
+    }
+    if(/oprq/.test(s)&&/(buyer|slp|sales employee)/.test(s))return `OPRQ ↔ OSLP: KESHASHA maps Buyer / SlpCode on Purchase Request to OSLP.SlpCode.\n\nSELECT\n    PR.DocNum, PR.DocDate, PR.CardCode, PR.CardName,\n    PR.Buyer, SE.SlpName\nFROM OPRQ PR\nLEFT JOIN OSLP SE\n    ON PR.SlpCode = SE.SlpCode;\n\nIf your source field is literally Buyer rather than SlpCode, use: ON PR.Buyer = SE.SlpCode. Verify which field is populated in your records.`;
+    return `KESHASHA AI — SQL JOIN Knowledge\n\nKnown relationships:\n${joins.map(j=>'• '+j.a+' ↔ '+j.b+' ON '+j.on+' — '+j.desc).join('\n')}\n\nFor document tables use DocEntry, not DocNum, to join header to rows. For OPRQ Buyer, use OSLP.SlpCode; KESHASHA supports Buyer/SlpCode aliases in its loaded document headers. Ask for the tables and fields to generate the exact SQL.`;
+  }
+  window.keshashaAIQueryCoach=coach;
+  const install=()=>{if(typeof window.sendAI!=='function')return false;if(window.__keshashaJoinCoachInstalled)return true;const prev=window.sendAI;window.sendAI=function(){const inp=document.getElementById('chat-in');if(!inp)return prev.apply(this,arguments);const q=inp.value.trim();const a=coach(q);if(!a)return prev.apply(this,arguments);if(typeof addMsg==='function'){addMsg('user',q);addMsg('bot',a);}else{const box=document.getElementById('chat-msgs');if(box){for(const [r,t] of [['user',q],['bot',a]]){const d=document.createElement('div');d.style.cssText='white-space:pre-wrap;margin:5px;padding:8px;border-radius:6px;background:'+(r==='user'?'var(--primary);color:white':'#fff;border:1px solid #ddd');d.textContent=t;box.appendChild(d);}box.scrollTop=box.scrollHeight;}}inp.value='';};window.__keshashaJoinCoachInstalled=true;return true;};
+  let n=0;const timer=setInterval(()=>{if(install()||++n>80)clearInterval(timer);},250);
 })();
 </script>
 </body>
