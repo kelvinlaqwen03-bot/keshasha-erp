@@ -11918,13 +11918,26 @@ window.renderQueries = async function(el){
       <aside class="q-side"><div class="q-side-head">Query Categories</div><div class="q-side-body">${tree||"<small>No saved queries. Create a query to begin.</small>"}</div></aside>
       <section class="q-editor-shell"><div class="q-editor-toolbar"><input id="qm-search" placeholder="Find query..." style="width:190px;margin:0;padding:5px" oninput="filterQueryManager(this.value)"><span class="q-spacer"></span><button class="btn btn-sm" onclick="runSelectedManagedQuery()">Execute</button>${isAdmin?`<button class="btn btn-sm" onclick="editSelectedManagedQuery()">Edit</button><button class="btn btn-sm btn-danger" onclick="removeSelectedManagedQuery()">Remove</button>`:""}</div><div id="qm-detail" style="padding:14px;min-height:180px;color:#536174">Select a saved query from the category tree.</div><div id="q-manager-results" class="q-results"><div class="q-results-head">Query Results <span id="qm-result-count">0 rows</span></div><div id="qm-result-grid" class="q-results-grid"></div><div class="q-status" id="qm-status">Ready</div></div></section>
     </div>
-    <div id="q-tab-generator" style="display:none"><div class="q-workbench"><aside class="q-side"><div class="q-side-head">Database Tables</div><div class="q-side-body"><input id="qg-table-search" placeholder="Filter tables..." style="width:100%;padding:5px;margin:0" oninput="filterQueryTables(this.value)"><div id="qg-table-list">${Object.keys(window.SYS_TABLES||{}).map(t=>`<button class="q-tree-item" onclick="insertQueryTable('${t}')"><b>${t}</b> — ${esc(window.SYS_TABLES[t].desc||"")}</button>`).join("")}</div></div></aside><section class="q-editor-shell"><div class="q-editor-toolbar"><select id="qg-table" style="width:210px;margin:0;padding:5px" onchange="qgFields()">${Object.keys(window.SYS_TABLES||{}).map(t=>`<option value="${t}">${t} — ${esc(window.SYS_TABLES[t].desc||"")}</option>`).join("")}</select><select id="qg-fields" multiple title="Choose fields; Ctrl-click for multiple" style="width:190px;height:30px;margin:0;padding:3px" ondblclick="insertQueryFields()"></select><button class="btn btn-sm" onclick="insertQueryFields()">Insert Fields</button><button class="btn btn-sm" onclick="insertSelectTemplate()">SELECT Template</button><button class="btn btn-sm" onclick="formatQuerySQL()">Format SQL</button><span class="q-spacer"></span><button class="btn btn-sm btn-primary" onclick="executeQueryEditor()">▶ Execute</button><button class="btn btn-sm" onclick="saveQueryFromEditor()">Save</button></div><div id="qg-editor"></div><textarea id="qg-result" class="q-editor-fallback" style="display:none" spellcheck="false"></textarea><div class="q-param-row"><div class="fg"><label>Query Name</label><input id="uq-name" placeholder="e.g. Open Purchase Orders"></div><div class="fg"><label>Category</label><select id="uq-cat">${catOpts}</select></div><div class="fg"><label>Result limit</label><select id="qg-limit"><option>500</option><option>1000</option><option>5000</option><option>10000</option></select></div></div><div class="q-results"><div class="q-results-head">Results <span id="qg-result-count">Not executed</span></div><div id="qg-result-grid" class="q-results-grid"></div><div id="qg-status" class="q-status">SELECT-only · Runs against records loaded from the active Firebase company; unsupported tables are not fabricated.</div></div></section></div></div>`;
+    <div id="q-tab-generator" style="display:none"><div class="q-workbench"><aside class="q-side"><div class="q-side-head">Database Tables</div><div class="q-side-body"><input id="qg-table-search" placeholder="Filter tables..." style="width:100%;padding:5px;margin:0" oninput="filterQueryTables(this.value)"><div id="qg-table-list">${Object.keys(window.SYS_TABLES||{}).map(t=>`<button class="q-tree-item" onclick="insertQueryTable('${t}')"><b>${t}</b> — ${esc(window.SYS_TABLES[t].desc||"")}</button>`).join("")}</div></div></aside><section class="q-editor-shell"><div class="q-editor-toolbar"><select id="qg-table" style="width:210px;margin:0;padding:5px" onchange="qgFields()">${Object.keys(window.SYS_TABLES||{}).map(t=>`<option value="${t}">${t} — ${esc(window.SYS_TABLES[t].desc||"")}</option>`).join("")}</select><select id="qg-fields" multiple title="Choose fields; Ctrl-click for multiple" style="width:190px;height:30px;margin:0;padding:3px" ondblclick="insertQueryFields()"></select><button class="btn btn-sm" onclick="insertQueryFields()">Insert Fields</button><button class="btn btn-sm" onclick="insertSelectTemplate()">SELECT Template</button><button class="btn btn-sm" onclick="formatQuerySQL()">Format SQL</button><span class="q-spacer"></span><button class="btn btn-sm btn-primary" onclick="executeQueryEditor()">▶ Execute</button><button class="btn btn-sm" onclick="saveQueryFromEditor()">Save</button></div><div id="qg-editor"></div><textarea id="qg-result" class="q-editor-fallback" style="display:none" spellcheck="false"></textarea>
+<label style="display:block;margin-top:8px;font-weight:600">SQL Preview (editable)</label>
+<textarea id="qg-preview" style="width:100%;height:80px;font:12px/1.5 Consolas,monospace;padding:8px;border:1px solid #c5cdd8;resize:vertical" placeholder="SQL preview — edit here or in the editor above"></textarea>
+<button class="btn btn-sm" style="margin-top:4px" onclick="syncPreviewToEditor()">Apply Preview to Editor</button><div class="q-param-row"><div class="fg"><label>Query Name</label><input id="uq-name" placeholder="e.g. Open Purchase Orders"></div><div class="fg"><label>Category</label><select id="uq-cat">${catOpts}</select></div><div class="fg"><label>Result limit</label><select id="qg-limit"><option>500</option><option>1000</option><option>5000</option><option>10000</option></select></div></div><div class="q-results"><div class="q-results-head">Results <span id="qg-result-count">Not executed</span></div><div id="qg-result-grid" class="q-results-grid"></div><div id="qg-status" class="q-status">SELECT-only · Runs against records loaded from the active Firebase company; unsupported tables are not fabricated.</div></div></section></div></div>`;
   window.__queryEditor=null;
   if(typeof ace!=="undefined"){
-    const ed=ace.edit("qg-editor");ed.setTheme("ace/theme/chrome");ed.session.setMode("ace/mode/sql");ed.setOptions({fontSize:"13px",showPrintMargin:false,wrap:false,tabSize:4,useSoftTabs:true,enableBasicAutocompletion:true,enableLiveAutocompletion:true,enableSnippets:true});
+    const ed=ace.edit("qg-editor");ed.setTheme("ace/theme/chrome");ed.session.on("change",()=>{const p=document.getElementById("qg-preview");if(p)p.value=ed.getValue();});ed.session.setMode("ace/mode/sql");ed.setOptions({fontSize:"13px",showPrintMargin:false,wrap:false,tabSize:4,useSoftTabs:true,enableBasicAutocompletion:true,enableLiveAutocompletion:true,enableSnippets:true});
     ed.setValue("SELECT TOP 100 *\nFROM OCRD\nORDER BY CardCode;",-1);ed.commands.addCommand({name:"executeSQL",bindKey:{win:"Ctrl-Enter",mac:"Command-Enter"},exec:()=>executeQueryEditor()});window.__queryEditor=ed;
   }else{const fb=document.getElementById("qg-result");fb.style.display="block";fb.value="SELECT *\nFROM OCRD;";}
   qgFields();
+};
+window.syncPreviewToEditor=function(){
+  const preview=document.getElementById("qg-preview");
+  if(preview&&window.__queryEditor) window.__queryEditor.setValue(preview.value,-1);
+  else if(preview){const fb=document.getElementById("qg-result");if(fb)fb.value=preview.value;}
+  toast("Preview applied to editor",true);
+};
+window.syncEditorToPreview=function(){
+  const preview=document.getElementById("qg-preview");
+  if(preview&&window.__queryEditor) preview.value=window.__queryEditor.getValue();
 };
 window.showQueryTab=function(tab){["manager","generator"].forEach(t=>{const x=document.getElementById("q-tab-"+t);if(x)x.style.display=t===tab?(t==="manager"?"grid":"block"):"none";});if(tab==="generator"&&!window.__queryEditor&&typeof ace!=="undefined"){const ed=ace.edit("qg-editor");ed.session.setMode("ace/mode/sql");window.__queryEditor=ed;}};
 window.getQueryEditorSQL=function(){return window.__queryEditor?window.__queryEditor.getValue():(document.getElementById("qg-result")||{}).value||"";};
@@ -14556,5 +14569,395 @@ console.log('KESHASHA Customization Studio loaded');
   let n=0;const timer=setInterval(()=>{if(install()||++n>80)clearInterval(timer);},250);
 })();
 </script>
+
+<!-- KESHASHA SQL ENVIRONMENT UX REDESIGN (SAP-style) -->
+<style id="keshasha-sql-redesign-style">
+  .kq-nav{display:flex;gap:5px;flex-wrap:wrap;padding:7px 9px;background:#dfe7f1;border:1px solid #b9c5d5;margin:0 0 8px}
+  .kq-nav button{border:1px solid #aebccd;background:#f8fafc;padding:7px 12px;font-weight:600;color:#23364d;cursor:pointer}
+  .kq-nav button.active{background:#0b3d91;color:#fff;border-color:#0b3d91}
+  .kq-panel{background:#fff;border:1px solid #b9c5d5;padding:10px;margin-bottom:8px}
+  .kq-builder{display:grid;grid-template-columns:minmax(230px,300px) minmax(0,1fr);gap:10px;min-height:470px}
+  .kq-box{border:1px solid #c5cdd8;background:#f8fafc;min-width:0}
+  .kq-box-hd{background:#e8eef7;color:#173b70;font-weight:700;padding:8px 10px;border-bottom:1px solid #c5cdd8}
+  .kq-box-bd{padding:9px}
+  .kq-field-list{max-height:310px;overflow:auto;background:#fff;border:1px solid #d5dce6;padding:6px}
+  .kq-field{display:flex;align-items:center;gap:7px;padding:4px 2px;font-size:12px}
+  .kq-field input{width:auto;margin:0}
+  .kq-formrow{display:grid;grid-template-columns:1.1fr 1fr 1.2fr auto;gap:6px;align-items:center;margin:5px 0}
+  .kq-formrow select,.kq-formrow input,.kq-box select,.kq-box input{margin:0;padding:6px;border:1px solid #b9c5d5;min-width:0;width:100%}
+  .kq-toolbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0}
+  .kq-muted{font-size:11px;color:#667085;line-height:1.45}
+  .kq-ai-grid{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:10px}
+  .kq-ai-answer{white-space:pre-wrap;background:#f8fafc;border:1px solid #d5dce6;padding:10px;min-height:150px;max-height:340px;overflow:auto;font-size:12px;line-height:1.5}
+  .kq-export{margin-left:auto}
+  .q-results-head{align-items:center;flex-wrap:wrap}
+  @media(max-width:850px){.kq-builder,.kq-ai-grid{grid-template-columns:1fr}.kq-formrow{grid-template-columns:1fr 1fr}.kq-export{margin-left:0}}
+</style>
+<script>
+(function(){
+  "use strict";
+  if(window.__keshashaSqlUxV2) return;
+  window.__keshashaSqlUxV2 = true;
+
+  const oldRenderQueries = window.renderQueries;
+  const oldRenderResult = window.renderQueryResult;
+  const oldExecuteSql = window.executeSQLAgainstLiveData;
+  window.__kqResults = window.__kqResults || {};
+  window.__kqActiveTab = "manager";
+
+  const joinDefs = [
+    {id:"OPRQ_OSLP",label:"Purchase Request → Sales Employee",a:"OPRQ",b:"OSLP",on:"PR.Buyer = SE.SlpCode",sql:"LEFT JOIN OSLP SE ON PR.Buyer = SE.SlpCode",aliasA:"PR",aliasB:"SE"},
+    {id:"OPOR_POR1",label:"Purchase Order → Lines",a:"OPOR",b:"POR1",on:"H.DocEntry = L.DocEntry",sql:"INNER JOIN POR1 L ON H.DocEntry = L.DocEntry",aliasA:"H",aliasB:"L"},
+    {id:"OPCH_PCH1",label:"A/P Invoice → Lines",a:"OPCH",b:"PCH1",on:"H.DocEntry = L.DocEntry",sql:"INNER JOIN PCH1 L ON H.DocEntry = L.DocEntry",aliasA:"H",aliasB:"L"},
+    {id:"ORDR_RDR1",label:"Sales Order → Lines",a:"ORDR",b:"RDR1",on:"H.DocEntry = L.DocEntry",sql:"INNER JOIN RDR1 L ON H.DocEntry = L.DocEntry",aliasA:"H",aliasB:"L"},
+    {id:"OINV_INV1",label:"A/R Invoice → Lines",a:"OINV",b:"INV1",on:"H.DocEntry = L.DocEntry",sql:"INNER JOIN INV1 L ON H.DocEntry = L.DocEntry",aliasA:"H",aliasB:"L"},
+    {id:"OJDT_JDT1",label:"Journal Entry → Lines",a:"OJDT",b:"JDT1",on:"H.TransId = L.TransId",sql:"INNER JOIN JDT1 L ON H.TransId = L.TransId",aliasA:"H",aliasB:"L"},
+    {id:"OCRD_OINV",label:"Business Partner → A/R Invoice",a:"OCRD",b:"OINV",on:"BP.CardCode = INV.CardCode",sql:"LEFT JOIN OINV INV ON BP.CardCode = INV.CardCode",aliasA:"BP",aliasB:"INV"}
+  ];
+
+  function escK(v){return typeof esc==="function"?esc(String(v??"")):String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+  function getTableNames(){return Object.keys(window.SYS_TABLES||{});}
+  function tableFields(t){return ((window.SYS_TABLES||{})[t]||{}).fields||[];}
+  function activeCompanyLabel(){return (window.activeCompanyId||((window.currentUser||{}).companyId)||"");}
+
+  // Keep execution compatible with the existing Firestore-backed, in-browser SQL cache.
+  window.executeSQLAgainstLiveData = function(sql,limit){
+    if(!/^\s*(SELECT|WITH)\b/i.test(sql)) throw new Error("Read-only query environment: only SELECT / WITH statements are allowed.");
+    if(/\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|EXEC|EXECUTE|MERGE|GRANT|REVOKE)\b/i.test(sql))
+      throw new Error("Data-changing SQL is blocked. Use the ERP document screens to change records.");
+    if(typeof alasql==="undefined") throw new Error("SQL engine is unavailable. Check the AlaSQL library and reload.");
+    const src=window.queryDataRows();
+    const started=performance.now();
+    Object.keys(src).forEach(t=>{
+      try{alasql("DROP TABLE IF EXISTS "+t);}catch(e){}
+      alasql("CREATE TABLE "+t);
+      alasql.tables[t].data=src[t];
+    });
+    const clean=String(sql).replace(/\[([A-Za-z0-9_]+)\]/g,"$1");
+    const result=alasql(clean);
+    const allRows=Array.isArray(result)?result:[];
+    const max=Math.max(1,Math.min(100000,Number(limit)||500));
+    const elapsed=Math.round(performance.now()-started);
+    return {rows:allRows.slice(0,max),allRows,total:allRows.length,elapsed,tables:Object.keys(src).filter(t=>new RegExp("\\b"+t+"\\b","i").test(sql))};
+  };
+
+  window.renderQueryResult = function(target,rows,total,elapsed){
+    if(typeof oldRenderResult==="function") oldRenderResult(target,rows,total,elapsed);
+    const host=document.getElementById(target);
+    const result=window.__kqResults[target];
+    if(host && result && result.rows){
+      const table=host.querySelector("table");
+      if(table) table.setAttribute("data-keshasha-query-result","1");
+    }
+  };
+
+  window.exportKeshashaQueryExcel = function(target){
+    const result=window.__kqResults[target];
+    if(!result || !Array.isArray(result.allRows)) return toast("Run the query before exporting.");
+    if(!result.allRows.length) return toast("There are no records to export.");
+    if(typeof XLSX==="undefined") return toast("Excel library is unavailable. Check internet/CDN access.");
+    try{
+      const ws=XLSX.utils.json_to_sheet(result.allRows,{skipHeader:false});
+      const range=XLSX.utils.decode_range(ws["!ref"]||"A1");
+      ws["!autofilter"]={ref:XLSX.utils.encode_range(range)};
+      ws["!cols"]=Object.keys(result.allRows[0]||{}).map(k=>({wch:Math.min(36,Math.max(12,k.length+3))}));
+      const wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,ws,"Query Results");
+      const stamp=new Date().toISOString().slice(0,10);
+      const base=(document.getElementById("uq-name")||{}).value||"KESHASHA_Query";
+      const safe=base.replace(/[\\/:*?"<>|]+/g,"_").trim().slice(0,70)||"KESHASHA_Query";
+      XLSX.writeFile(wb,safe+"_"+stamp+".xlsx");
+      toast("Excel export prepared: "+result.allRows.length+" record(s)",true);
+    }catch(e){toast("Excel export failed: "+e.message);}
+  };
+
+  function attachExport(target){
+    const host=document.getElementById(target);
+    if(!host) return;
+    const head=host.closest(".q-results")?.querySelector(".q-results-head");
+    if(!head || head.querySelector('[data-kq-export="'+target+'"]')) return;
+    const b=document.createElement("button");
+    b.className="btn btn-sm kq-export";
+    b.type="button";
+    b.textContent="⇩ Export to Excel";
+    b.setAttribute("data-kq-export",target);
+    b.onclick=()=>window.exportKeshashaQueryExcel(target);
+    head.appendChild(b);
+  }
+
+  const oldExecuteEditor=window.executeQueryEditor;
+  window.executeQueryEditor=function(){
+    try{
+      let sql=window.getQueryEditorSQL().trim();
+      if(!sql) return toast("Enter a SELECT query.");
+      sql=window.resolveQueryParameters(sql);
+      const r=window.executeSQLAgainstLiveData(sql,(document.getElementById("qg-limit")||{}).value);
+      window.__kqResults["qg-result-grid"]=r;
+      window.renderQueryResult("qg-result-grid",r.rows,r.total,r.elapsed);
+      const count=document.getElementById("qg-result-count");
+      const status=document.getElementById("qg-status");
+      if(count) count.textContent=r.total+" row(s)";
+      if(status) status.textContent="Completed in "+r.elapsed+" ms · "+r.tables.join(", ")+" · "+r.total+" total record(s)";
+      attachExport("qg-result-grid");
+      toast("Query executed against the active company's loaded ERP records.",true);
+    }catch(e){
+      const grid=document.getElementById("qg-result-grid");
+      if(grid) grid.innerHTML='<div class="err" style="padding:10px">'+escK(e.message)+'</div>';
+      const status=document.getElementById("qg-status"); if(status) status.textContent="Execution failed";
+      toast("SQL error: "+e.message);
+    }
+  };
+
+  const oldRunSaved=window.runSelectedManagedQuery;
+  window.runSelectedManagedQuery=function(){
+    const q=(window.__queryRows||[]).find(x=>x.id===window.__querySelectedId);
+    if(!q) return toast("Select a query first.");
+    try{
+      const sql=window.resolveQueryParameters(q.sql);
+      const r=window.executeSQLAgainstLiveData(sql,100000);
+      window.__kqResults["qm-result-grid"]=r;
+      window.renderQueryResult("qm-result-grid",r.rows,r.total,r.elapsed);
+      const count=document.getElementById("qm-result-count"); if(count) count.textContent=r.total+" rows";
+      const status=document.getElementById("qm-status"); if(status) status.textContent="Completed in "+r.elapsed+" ms · "+r.total+" total record(s)";
+      attachExport("qm-result-grid");
+    }catch(e){
+      const grid=document.getElementById("qm-result-grid"); if(grid) grid.innerHTML='<div class="err" style="padding:10px">'+escK(e.message)+'</div>';
+      const status=document.getElementById("qm-status"); if(status) status.textContent="Execution failed";
+      toast("SQL error: "+e.message);
+    }
+  };
+
+  function buildBuilderMarkup(){
+    const tables=getTableNames();
+    return `<div id="kq-builder-panel" class="kq-panel" style="display:none">
+      <div class="toolbar"><h2 style="color:#0b3d91">Query Builder</h2><span class="kq-muted">SAP-style visual query design · no SQL typing required</span></div>
+      <div class="kq-builder">
+        <div class="kq-box">
+          <div class="kq-box-hd">1. Choose Table</div>
+          <div class="kq-box-bd">
+            <label>Database Table</label>
+            <input id="kq-table-search" placeholder="Search tables..." oninput="kqFilterTables(this.value)">
+            <select id="kq-table" size="8" style="height:190px;margin:7px 0;width:100%" onchange="kqLoadFields()">${tables.map(t=>`<option value="${escK(t)}">${escK(t)} — ${escK((window.SYS_TABLES[t]||{}).desc||"")}</option>`).join("")}</select>
+            <label>Related Table / JOIN</label>
+            <select id="kq-join" onchange="kqJoinChanged()"><option value="">No JOIN</option>${joinDefs.map(j=>`<option value="${j.id}">${escK(j.label)}</option>`).join("")}</select>
+            <p class="kq-muted" id="kq-join-note" style="margin-top:6px">Choose a mapped relationship to include a related table.</p>
+          </div>
+        </div>
+        <div class="kq-box">
+          <div class="kq-box-hd">2. Select Columns</div>
+          <div class="kq-box-bd">
+            <div class="kq-toolbar"><button class="btn btn-sm" type="button" onclick="kqSelectAll(true)">Select All</button><button class="btn btn-sm" type="button" onclick="kqSelectAll(false)">Clear</button><span class="kq-muted" id="kq-field-count">0 selected</span></div>
+            <div id="kq-fields" class="kq-field-list"><span class="kq-muted">Choose a table to view its columns.</span></div>
+            <div style="margin-top:10px">
+              <div class="kq-box-hd" style="margin:0 -9px 7px">3. Conditions / Filters</div>
+              <div id="kq-filters"></div>
+              <button class="btn btn-sm" type="button" onclick="kqAddFilter()">+ Add Filter</button>
+            </div>
+            <div class="kq-toolbar" style="margin-top:12px">
+              <div style="flex:1;min-width:150px"><label>Sort By</label><select id="kq-sort-field"><option value="">None</option></select></div>
+              <div style="width:130px"><label>Direction</label><select id="kq-sort-dir"><option>ASC</option><option>DESC</option></select></div>
+              <div style="width:130px"><label>Maximum Rows</label><select id="kq-limit"><option>500</option><option>1000</option><option>5000</option><option>10000</option></select></div>
+            </div>
+            <div class="kq-toolbar">
+              <button class="btn btn-sm btn-primary" type="button" onclick="kqBuildSql()">Preview SQL</button>
+              <button class="btn btn-sm btn-primary" type="button" onclick="kqRun()">▶ Execute Query</button>
+              <button class="btn btn-sm" type="button" onclick="kqOpenInStudio()">Open in SQL Studio</button>
+              <button class="btn btn-sm" type="button" onclick="kqSave()">Save Query</button>
+            </div>
+            <label>Generated SQL Preview</label>
+            <textarea id="kq-sql-preview" readonly style="width:100%;height:125px;font:12px/1.5 Consolas,monospace;padding:8px;border:1px solid #c5cdd8;resize:vertical"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="q-results" style="margin-top:10px"><div class="q-results-head">Query Results <span id="kq-result-count">Not executed</span><button class="btn btn-sm kq-export" type="button" onclick="exportKeshashaQueryExcel('kq-result-grid')">⇩ Export to Excel</button></div><div id="kq-result-grid" class="q-results-grid"></div><div class="q-status" id="kq-status">Ready · Query runs against records loaded for the active company.</div></div>
+    </div>`;
+  }
+
+  function addTabs(el){
+    const toolbar=el.querySelector(".toolbar");
+    if(!toolbar || el.querySelector(".kq-nav")) return;
+    const nav=document.createElement("div");
+    nav.className="kq-nav";
+    nav.innerHTML='<button type="button" data-tab="manager" class="active">Query Manager</button><button type="button" data-tab="builder">Query Builder</button><button type="button" data-tab="generator">SQL Studio</button><button type="button" data-tab="assistant">AI SQL Assistant</button>';
+    nav.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>window.showQueryTab(b.dataset.tab)));
+    toolbar.insertAdjacentElement("afterend",nav);
+    const builder=document.createElement("div");
+    builder.innerHTML=buildBuilderMarkup();
+    const gen=el.querySelector("#q-tab-generator");
+    if(gen) gen.insertAdjacentElement("beforebegin",builder.firstElementChild);
+    const mgr=el.querySelector("#q-tab-manager");
+    if(mgr) mgr.insertAdjacentElement("beforebegin",document.createElement("div")).outerHTML='<div id="kq-ai-panel" class="kq-panel" style="display:none"><div class="toolbar"><h2>AI SQL Assistant</h2><span class="kq-muted">Built-in KESHASHA SQL knowledge helper</span></div><div class="kq-ai-grid"><div><label>Describe the report you want</label><textarea id="kq-ai-prompt" rows="4" style="width:100%;padding:9px;border:1px solid #b9c5d5" placeholder="Example: Show purchase requests with buyer and sales employee name"></textarea><div class="kq-toolbar"><button class="btn btn-sm btn-primary" onclick="kqAskAI()">Generate SQL / Guidance</button><button class="btn btn-sm" onclick="kqUseAIResult()">Use SQL in Studio</button></div><div id="kq-ai-answer" class="kq-ai-answer">Ask a question about KESHASHA tables, fields, or JOIN relationships.</div></div><div class="kq-box"><div class="kq-box-hd">Assistant capabilities</div><div class="kq-box-bd"><b>Currently available</b><ul style="padding-left:18px;line-height:1.7;margin:7px 0"><li>Known table and JOIN guidance</li><li>OPRQ Buyer / OSLP.SlpCode mapping</li><li>Document header and row relationships</li><li>Insert suggested SQL into SQL Studio</li></ul><p class="kq-muted">This uploaded project contains a local rule-based SQL coach, not a connected generative AI service. A secure server-side AI endpoint is required for open-ended AI generation. No API key should be placed in this HTML file.</p></div></div></div></div>';
+    const genBtn=nav.querySelector('[data-tab="generator"]');
+    if(genBtn) genBtn.title="Open manual SQL editor";
+  }
+
+  window.showQueryTab=function(tab){
+    const valid=["manager","builder","generator","assistant"];
+    if(!valid.includes(tab)) tab="manager";
+    window.__kqActiveTab=tab;
+    const mgr=document.getElementById("q-tab-manager");
+    const gen=document.getElementById("q-tab-generator");
+    const builder=document.getElementById("kq-builder-panel");
+    const ai=document.getElementById("kq-ai-panel");
+    if(mgr) mgr.style.display=tab==="manager"?"grid":"none";
+    if(gen) gen.style.display=tab==="generator"?"block":"none";
+    if(builder) builder.style.display=tab==="builder"?"block":"none";
+    if(ai) ai.style.display=tab==="assistant"?"block":"none";
+    document.querySelectorAll(".kq-nav button").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
+    if(tab==="generator" && !window.__queryEditor && typeof ace!=="undefined"){
+      try{const ed=ace.edit("qg-editor");ed.session.setMode("ace/mode/sql");window.__queryEditor=ed;}catch(e){}
+    }
+    if(tab==="builder" && !document.getElementById("kq-table")?.value) window.kqLoadFields();
+  };
+
+  window.renderQueries=async function(el){
+    await oldRenderQueries(el);
+    addTabs(el);
+    // Replace the old single-purpose generator label with a clear SQL Studio name.
+    const h=el.querySelector("#q-tab-generator");
+    if(h){const btns=h.querySelectorAll("button");btns.forEach(b=>{if(b.textContent.trim()==="SELECT Template")b.title="Insert a SELECT statement template";});}
+    window.showQueryTab(window.__kqActiveTab||"manager");
+  };
+
+  window.kqFilterTables=function(v){
+    const term=String(v||"").toLowerCase();
+    const sel=document.getElementById("kq-table");
+    if(!sel)return;
+    Array.from(sel.options).forEach(o=>o.hidden=!o.textContent.toLowerCase().includes(term));
+  };
+  window.kqLoadFields=function(){
+    const t=(document.getElementById("kq-table")||{}).value||getTableNames()[0];
+    const joinId=(document.getElementById("kq-join")||{}).value;
+    const j=joinDefs.find(x=>x.id===joinId);
+    const fields=tableFields(t);
+    const host=document.getElementById("kq-fields");
+    if(!host)return;
+    const other=j?(j.a===t?j.b:j.b===t?j.a:null):null;
+    const second=other?tableFields(other):[];
+    host.innerHTML=fields.map(f=>`<label class="kq-field"><input type="checkbox" value="${escK(f)}" data-alias="A" checked> ${escK(t)}.${escK(f)}</label>`).join("")+
+      (other?'<hr style="margin:6px 0;border:0;border-top:1px solid #d5dce6">'+second.map(f=>`<label class="kq-field"><input type="checkbox" value="${escK(f)}" data-alias="B"> ${escK(other)}.${escK(f)}</label>`).join(""):"");
+    const sort=document.getElementById("kq-sort-field");
+    if(sort) sort.innerHTML='<option value="">None</option>'+fields.map(f=>`<option value="${escK(f)}">${escK(f)}</option>`).join("");
+    window.kqUpdateFieldCount();
+    window.kqRenderFilters();
+    window.kqJoinChanged();
+  };
+  window.kqJoinChanged=function(){
+    const id=(document.getElementById("kq-join")||{}).value;
+    const j=joinDefs.find(x=>x.id===id);
+    const note=document.getElementById("kq-join-note");
+    if(note) note.textContent=j?("Mapped JOIN: "+j.a+" ↔ "+j.b+" ON "+j.on):"Choose a mapped relationship to include a related table.";
+    if(document.getElementById("kq-table")) window.kqLoadFieldsNoJoinRefresh();
+  };
+  window.kqLoadFieldsNoJoinRefresh=function(){
+    const t=(document.getElementById("kq-table")||{}).value;
+    const j=joinDefs.find(x=>x.id===(document.getElementById("kq-join")||{}).value);
+    const host=document.getElementById("kq-fields"); if(!host)return;
+    const fields=tableFields(t), other=j?(j.a===t?j.b:j.b===t?j.a:null):null;
+    host.innerHTML=fields.map(f=>`<label class="kq-field"><input type="checkbox" value="${escK(f)}" data-alias="A" checked> ${escK(t)}.${escK(f)}</label>`).join("")+
+      (other?'<hr style="margin:6px 0;border:0;border-top:1px solid #d5dce6">'+tableFields(other).map(f=>`<label class="kq-field"><input type="checkbox" value="${escK(f)}" data-alias="B"> ${escK(other)}.${escK(f)}</label>`).join(""):"");
+    const sort=document.getElementById("kq-sort-field");
+    if(sort) sort.innerHTML='<option value="">None</option>'+fields.map(f=>`<option value="${escK(f)}">${escK(f)}</option>`).join("");
+    window.kqUpdateFieldCount();
+  };
+  window.kqSelectAll=function(on){document.querySelectorAll("#kq-fields input[type=checkbox]").forEach(x=>x.checked=!!on);window.kqUpdateFieldCount();};
+  window.kqUpdateFieldCount=function(){const n=document.querySelectorAll("#kq-fields input:checked").length;const x=document.getElementById("kq-field-count");if(x)x.textContent=n+" selected";};
+  window.kqAddFilter=function(){
+    const host=document.getElementById("kq-filters");if(!host)return;
+    const t=(document.getElementById("kq-table")||{}).value||"";
+    const fs=tableFields(t);
+    const row=document.createElement("div");row.className="kq-formrow";
+    row.innerHTML='<select class="kq-filter-field">'+fs.map(f=>`<option value="${escK(f)}">${escK(f)}</option>`).join("")+'</select><select class="kq-filter-op"><option value="=">=</option><option value="!=">Not equal</option><option value=">">Greater than</option><option value="<">Less than</option><option value=">=">At least</option><option value="<=">At most</option><option value="LIKE">Contains / LIKE</option></select><input class="kq-filter-value" placeholder="Enter value"><button class="btn btn-sm btn-danger" type="button">×</button>';
+    row.querySelector("button").onclick=()=>row.remove();
+    host.appendChild(row);
+  };
+  window.kqRenderFilters=function(){const h=document.getElementById("kq-filters");if(h&&!h.children.length)window.kqAddFilter();};
+  window.kqBuildSql=function(){
+    const t=(document.getElementById("kq-table")||{}).value||"OCRD";
+    const j=joinDefs.find(x=>x.id===(document.getElementById("kq-join")||{}).value);
+    const selected=Array.from(document.querySelectorAll("#kq-fields input:checked")).map(x=>({field:x.value,alias:x.dataset.alias}));
+    if(!selected.length)throw new Error("Select at least one result column.");
+    let from="",join="";
+    if(j){
+      const isBaseA=t===j.a;
+      const baseAlias=isBaseA?(j.aliasA||"A"):(j.aliasB||"B");
+      const joinedAlias=isBaseA?(j.aliasB||"B"):(j.aliasA||"A");
+      from=`${t} ${baseAlias}`;
+      if(j.id==="OPRQ_OSLP") join=` LEFT JOIN OSLP SE ON ${baseAlias}.Buyer = SE.SlpCode`;
+      else if(j.id==="OCRD_OINV") join=` LEFT JOIN OINV INV ON BP.CardCode = INV.CardCode`;
+      else join=` INNER JOIN ${isBaseA?j.b:j.a} ${joinedAlias} ON ${j.on.replace(/H\./g,baseAlias+".").replace(/L\./g,joinedAlias+".")}`;
+    }else from=t+" A";
+    let cols=selected.map(x=>{
+      if(j && j.id==="OPRQ_OSLP") return (x.alias==="B"?"SE":"PR")+"."+x.field;
+      if(j && j.id==="OCRD_OINV") return (x.alias==="B"?"INV":"BP")+"."+x.field;
+      return (j?(x.alias==="B"?(j.aliasB||"B"):(j.aliasA||"A")):"A")+"."+x.field;
+    });
+    const filters=Array.from(document.querySelectorAll("#kq-filters .kq-formrow")).map(row=>{
+      const f=row.querySelector(".kq-filter-field").value,op=row.querySelector(".kq-filter-op").value,v=row.querySelector(".kq-filter-value").value;
+      if(v==="")return null;
+      const val=Number(v);
+      const literal=Number.isFinite(val)&&String(v).trim()!==""?String(val):"'"+String(v).replace(/'/g,"''")+"'";
+      return "A."+f+" "+op+" "+(op==="LIKE"?"'%"+String(v).replace(/'/g,"''")+"%'":literal);
+    }).filter(Boolean);
+    const sort=(document.getElementById("kq-sort-field")||{}).value;
+    const dir=(document.getElementById("kq-sort-dir")||{}).value||"ASC";
+    const limit=(document.getElementById("kq-limit")||{}).value||"500";
+    const sql="SELECT TOP "+limit+" "+cols.join(", ")+"\nFROM "+from+join+(filters.length?"\nWHERE "+filters.join(" AND "):"")+(sort?"\nORDER BY A."+sort+" "+dir:"")+";";
+    const box=document.getElementById("kq-sql-preview");if(box)box.value=sql;
+    return sql;
+  };
+  window.kqRun=function(){
+    try{
+      const sql=window.kqBuildSql();
+      const limit=(document.getElementById("kq-limit")||{}).value||"500";
+      const r=window.executeSQLAgainstLiveData(sql,limit);
+      window.__kqResults["kq-result-grid"]=r;
+      window.renderQueryResult("kq-result-grid",r.rows,r.total,r.elapsed);
+      const count=document.getElementById("kq-result-count");if(count)count.textContent=r.total+" row(s)";
+      const status=document.getElementById("kq-status");if(status)status.textContent="Completed in "+r.elapsed+" ms · "+r.total+" total record(s)";
+      toast("Visual query completed.",true);
+    }catch(e){const st=document.getElementById("kq-status");if(st)st.textContent="Query failed: "+e.message;toast(e.message);}
+  };
+  window.kqOpenInStudio=function(){try{const sql=window.kqBuildSql();window.showQueryTab("generator");window.setQueryEditorSQL(sql);}catch(e){toast(e.message);}};
+  window.kqSave=function(){
+    try{
+      const sql=window.kqBuildSql();
+      window.showQueryTab("generator");
+      window.setQueryEditorSQL(sql);
+      const name=prompt("Enter a name for this query:");
+      if(name===null||!name.trim())return;
+      const n=document.getElementById("uq-name");if(n)n.value=name.trim();
+      if(typeof window.saveQueryFromEditor==="function")window.saveQueryFromEditor();
+    }catch(e){toast(e.message);}
+  };
+  window.kqAskAI=function(){
+    const q=(document.getElementById("kq-ai-prompt")||{}).value||"";
+    const box=document.getElementById("kq-ai-answer");if(!box)return;
+    if(!q.trim()){box.textContent="Please describe the report you need.";return;}
+    let answer="";
+    try{answer=typeof window.keshashaAIQueryCoach==="function"?window.keshashaAIQueryCoach(q):"";}catch(e){}
+    if(!answer) answer="The current local SQL assistant does not recognize this request yet. Try asking about a known table or relationship, such as OPRQ and OSLP, or use the Query Builder to create the query visually.";
+    box.textContent=answer;
+    const match=answer.match(/SELECT[\s\S]*?;/i);
+    window.__kqAiSql=match?match[0]:"";
+  };
+  window.kqUseAIResult=function(){
+    if(!window.__kqAiSql)return toast("No SQL statement was generated. Review the assistant guidance first.");
+    window.showQueryTab("generator");
+    window.setQueryEditorSQL(window.__kqAiSql);
+    toast("Suggested SQL inserted into SQL Studio. Review it before execution.",true);
+  };
+
+  // Add export action after the existing saved-query result panel is rendered.
+  const watchResults=()=>{
+    attachExport("qm-result-grid");
+    attachExport("qg-result-grid");
+  };
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",watchResults);
+  else watchResults();
+})();
+</script>
+<!-- END KESHASHA SQL ENVIRONMENT UX REDESIGN -->
+
 </body>
 </html>
